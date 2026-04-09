@@ -40,6 +40,9 @@ ConnectionTab::ConnectionTab(core::session::SessionStore  *store,
 
 ConnectionTab::~ConnectionTab()
 {
+    // Отключаем все исходящие сигналы ДО cleanup, чтобы lambda в MainWindow
+    // не обращалась к уже разрушаемому QTabWidget во время cascade-деструкции.
+    QObject::disconnect(this, nullptr, nullptr, nullptr);
     disconnectSession();
 }
 
