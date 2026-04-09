@@ -1,0 +1,6 @@
+.vscode
+CMakeLists.txt.user
+.kilocode
+compile_commands.json
+.cache
+task/
