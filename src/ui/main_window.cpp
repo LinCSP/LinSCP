@@ -24,6 +24,7 @@
 #include <QComboBox>
 #include <QLabel>
 #include <QToolButton>
+#include <QActionGroup>
 #include <QMessageBox>
 #include <QSettings>
 #include <QDir>
@@ -147,6 +148,39 @@ void MainWindow::setupMenuBar()
     QAction *showHidden = viewMenu->addAction(tr("Show &Hidden Files"));
     showHidden->setCheckable(true);
     connect(showHidden, &QAction::toggled, this, [](bool) { /* TODO */ });
+
+    viewMenu->addSeparator();
+
+    // Подменю выбора языка — список доступных переводов
+    QMenu *langMenu = viewMenu->addMenu(tr("&Language"));
+    auto *langGroup = new QActionGroup(langMenu);
+    langGroup->setExclusive(true);
+
+    struct LangEntry { QString code; QString label; };
+    const QList<LangEntry> languages = {
+        { "en", "English" },
+        { "ru", "Русский" },
+    };
+
+    const QSettings prefs("LinSCP", "LinSCP");
+    const QString currentLang = prefs.value("language").toString();
+
+    for (const auto &l : languages) {
+        auto *act = langMenu->addAction(l.label);
+        act->setCheckable(true);
+        act->setActionGroup(langGroup);
+        act->setChecked(l.code == currentLang ||
+                        (l.code == "en" && currentLang.isEmpty()));
+        const QString code = l.code;
+        connect(act, &QAction::triggered, this, [code]() {
+            QSettings s("LinSCP", "LinSCP");
+            s.setValue("language", code);
+            QMessageBox::information(
+                nullptr,
+                tr("Language"),
+                tr("Language change will take effect after restarting LinSCP."));
+        });
+    }
 
     // ── Help ──────────────────────────────────────────────────────────────────
     QMenu *helpMenu = menuBar()->addMenu(tr("&Help"));

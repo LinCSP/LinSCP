@@ -108,10 +108,16 @@ target_compile_options(linscp PRIVATE
 # ── i18n / переводы ───────────────────────────────────────────────────────────
 if(Qt6LinguistTools_FOUND)
     set(TS_FILES i18n/linscp_ru.ts)
-    qt6_add_translations(linscp
+    qt_add_translations(linscp
         TS_FILES ${TS_FILES}
-        QM_FILES_OUTPUT_VARIABLE QM_FILES
         LUPDATE_OPTIONS -no-obsolete
+    )
+    # Копируем .qm рядом с бинарником — fallback для загрузки из файловой системы
+    add_custom_command(TARGET linscp POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_CURRENT_BINARY_DIR}/linscp_ru.qm"
+            "${CMAKE_BINARY_DIR}/bin/linscp_ru.qm"
+        COMMENT "Copying linscp_ru.qm → bin/"
     )
     message(STATUS "Qt Linguist found — translations enabled (${TS_FILES})")
 else()

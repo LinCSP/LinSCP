@@ -4,7 +4,23 @@
 #include <QTranslator>
 #include <QLocale>
 #include <QLibraryInfo>
+#include <QSettings>
 #include "ui/main_window.h"
+
+/// Загрузить переводчик LinSCP для заданного кода языка (например "ru").
+/// Пустая строка — английский (нет файла перевода, используются source-строки).
+static bool loadAppTranslator(QTranslator &t, const QString &langCode)
+{
+    if (langCode.isEmpty()) return false;
+    const QString name = "linscp_" + langCode;
+    // 1. Встроенный ресурс :/i18n/linscp_ru.qm
+    if (t.load(name, ":/i18n"))                                    return true;
+    // 2. Рядом с бинарником (сборочная директория / portable)
+    if (t.load(name, QCoreApplication::applicationDirPath()))      return true;
+    // 3. Системный каталог переводов (/usr/share/linscp/translations и т.п.)
+    if (t.load(name, QLibraryInfo::path(QLibraryInfo::TranslationsPath))) return true;
+    return false;
+}
 
 int main(int argc, char *argv[])
 {
@@ -17,30 +33,32 @@ int main(int argc, char *argv[])
 
     // ── Переводы ──────────────────────────────────────────────────────────────
 
-    // 1. Qt стандартные строки (диалоги, кнопки и т.д.)
+    // 1. Qt стандартные строки (кнопки диалогов и т.д.)
     static QTranslator qtTranslator;
-    if (qtTranslator.load(QLocale::system(),
-                          "qt", "_",
-                          QLibraryInfo::path(QLibraryInfo::TranslationsPath))) {
+    if (qtTranslator.load(QLocale::system(), "qt", "_",
+                          QLibraryInfo::path(QLibraryInfo::TranslationsPath)))
         app.installTranslator(&qtTranslator);
-    }
 
-    // 2. LinSCP строки (:/i18n/linscp_<locale>.qm)
+    // 2. LinSCP: сначала явный выбор пользователя, потом системный locale
     static QTranslator appTranslator;
-    const QStringList langs = QLocale::system().uiLanguages();
-    for (const QString &lang : langs) {
-        const QString base = "linscp_" + QLocale(lang).name();
-        if (appTranslator.load(base, ":/i18n")) {
-            app.installTranslator(&appTranslator);
-            break;
-        }
-        // Попробовать только код языка без региона (ru_RU → ru)
-        const QString shortBase = "linscp_" + QLocale(lang).name().section('_', 0, 0);
-        if (appTranslator.load(shortBase, ":/i18n")) {
-            app.installTranslator(&appTranslator);
-            break;
+    const QSettings prefs("LinSCP", "LinSCP");
+    const bool userChoseLang = prefs.contains("language");
+    const QString saved = prefs.value("language").toString(); // "" / "en" = English
+
+    bool loaded = false;
+    if (userChoseLang) {
+        // Пользователь явно выбрал язык — уважаем выбор, не делаем автодетект.
+        // "en" или "" означает English: переводчик не нужен.
+        loaded = loadAppTranslator(appTranslator, saved);
+    } else {
+        // Язык не задан — автодетект по системному locale
+        for (const QString &lang : QLocale::system().uiLanguages()) {
+            const QString code = QLocale(lang).name().section('_', 0, 0); // "ru_RU" → "ru"
+            if (loadAppTranslator(appTranslator, code)) { loaded = true; break; }
         }
     }
+    if (loaded)
+        app.installTranslator(&appTranslator);
 
     // Создать конфиг-директорию при первом запуске
     QDir().mkpath(QDir::homePath() + "/.config/linscp");

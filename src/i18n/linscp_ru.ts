@@ -29,6 +29,9 @@
     <message><source>New connection tab</source><translation>Новая вкладка подключения</translation></message>
     <message><source>New connection</source><translation>Новое подключение</translation></message>
     <message><source>Not connected</source><translation>Не подключено</translation></message>
+    <message><source>&amp;Language</source><translation>&amp;Язык</translation></message>
+    <message><source>Language</source><translation>Язык</translation></message>
+    <message><source>Language change will take effect after restarting LinSCP.</source><translation>Изменение языка вступит в силу после перезапуска LinSCP.</translation></message>
     <message><source>Sessions</source><translation>Сессии</translation></message>
     <message><source>Session manager UI — coming soon.</source><translation>Менеджер сессий — скоро.</translation></message>
     <message><source>Sync</source><translation>Синхронизация</translation></message>
@@ -139,6 +142,25 @@
     <message><source>Resume</source><translation>Продолжить</translation></message>
     <message><source>Cancel</source><translation>Отменить</translation></message>
     <message><source>Clear completed</source><translation>Очистить завершённые</translation></message>
+</context>
+
+<!-- TransferQueueModel -->
+<context>
+    <name>linscp::models::TransferQueueModel</name>
+    <message><source>Dir</source><translation>Направление</translation></message>
+    <message><source>File</source><translation>Файл</translation></message>
+    <message><source>%</source><translation>%</translation></message>
+    <message><source>Size</source><translation>Размер</translation></message>
+    <message><source>Speed</source><translation>Скорость</translation></message>
+    <message><source>Status</source><translation>Статус</translation></message>
+    <message><source>↑ Upload</source><translation>↑ Отправка</translation></message>
+    <message><source>↓ Download</source><translation>↓ Загрузка</translation></message>
+    <message><source>Queued</source><translation>В очереди</translation></message>
+    <message><source>Transferring</source><translation>Передаётся</translation></message>
+    <message><source>Paused</source><translation>Пауза</translation></message>
+    <message><source>Done</source><translation>Готово</translation></message>
+    <message><source>Failed</source><translation>Ошибка</translation></message>
+    <message><source>Cancelled</source><translation>Отменено</translation></message>
 </context>
 
 <!-- SyncDialog -->
