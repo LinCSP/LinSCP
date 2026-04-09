@@ -3,7 +3,6 @@
 **LinSCP** is a cross-platform SFTP/SSH file manager for Linux, built with C++20 and Qt 6.
 It aims to bring the familiar WinSCP experience to Linux and other Unix-like systems.
 
-![LinSCP screenshot placeholder](docs/screenshot.png)
 
 ## Features
 
