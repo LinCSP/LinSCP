@@ -21,9 +21,11 @@ SessionStore::SessionStore(const QString &filePath, QObject *parent)
 static QJsonObject profileToJson(const SessionProfile &p)
 {
     QJsonObject o;
+    // Базовые
     o["id"]              = p.id.toString();
     o["name"]            = p.name;
     o["groupPath"]       = p.groupPath;
+    o["protocol"]        = static_cast<int>(p.protocol);
     o["host"]            = p.host;
     o["port"]            = p.port;
     o["username"]        = p.username;
@@ -32,16 +34,63 @@ static QJsonObject profileToJson(const SessionProfile &p)
     o["useAgent"]        = p.useAgent;
     o["initialRemote"]   = p.initialRemotePath;
     o["initialLocal"]    = p.initialLocalPath;
+    o["syncBrowsing"]    = p.syncBrowsing;
     o["notes"]           = p.notes;
+
+    // Среда
+    QJsonObject env;
+    env["eolType"]            = static_cast<int>(p.environment.eolType);
+    env["dstMode"]            = static_cast<int>(p.environment.dstMode);
+    env["utf8FileNames"]      = p.environment.utf8FileNames;
+    env["timezoneOffsetMin"]  = p.environment.timezoneOffsetMin;
+    env["deleteToRecycleBin"] = p.environment.deleteToRecycleBin;
+    env["recycleBinPath"]     = p.environment.recycleBinPath;
+    env["shell"]              = p.environment.shell;
+    env["listingCommand"]     = p.environment.listingCommand;
+    env["clearAliases"]       = p.environment.clearAliases;
+    env["ignoreLsWarnings"]   = p.environment.ignoreLsWarnings;
+    env["unsetNationalVars"]  = p.environment.unsetNationalVars;
+    o["environment"] = env;
+
+    // Прокси
+    QJsonObject prx;
+    prx["method"]      = static_cast<int>(p.proxy.method);
+    prx["host"]        = p.proxy.host;
+    prx["port"]        = p.proxy.port;
+    prx["username"]    = p.proxy.username;
+    prx["command"]     = p.proxy.command;
+    prx["dnsViaProxy"] = p.proxy.dnsViaProxy;
+    o["proxy"] = prx;
+
+    // Туннель
+    QJsonObject tun;
+    tun["enabled"]    = p.tunnel.enabled;
+    tun["host"]       = p.tunnel.host;
+    tun["port"]       = p.tunnel.port;
+    tun["username"]   = p.tunnel.username;
+    tun["authMethod"] = static_cast<int>(p.tunnel.authMethod);
+    tun["keyPath"]    = p.tunnel.keyPath;
+    o["tunnel"] = tun;
+
+    // SSH
+    QJsonObject ssh;
+    ssh["compression"]       = p.ssh.compression;
+    ssh["keepaliveInterval"] = p.ssh.keepaliveInterval;
+    ssh["tcpNoDelay"]        = p.ssh.tcpNoDelay;
+    ssh["connectTimeout"]    = p.ssh.connectTimeout;
+    o["ssh"] = ssh;
+
     return o;
 }
 
 static SessionProfile jsonToProfile(const QJsonObject &o)
 {
     SessionProfile p;
+    // Базовые
     p.id              = QUuid::fromString(o["id"].toString());
     p.name            = o["name"].toString();
     p.groupPath       = o["groupPath"].toString();
+    p.protocol        = static_cast<TransferProtocol>(o["protocol"].toInt(0));
     p.host            = o["host"].toString();
     p.port            = static_cast<quint16>(o["port"].toInt(22));
     p.username        = o["username"].toString();
@@ -50,7 +99,48 @@ static SessionProfile jsonToProfile(const QJsonObject &o)
     p.useAgent        = o["useAgent"].toBool();
     p.initialRemotePath = o["initialRemote"].toString("/");
     p.initialLocalPath  = o["initialLocal"].toString();
+    p.syncBrowsing    = o["syncBrowsing"].toBool();
     p.notes           = o["notes"].toString();
+
+    // Среда
+    const QJsonObject env = o["environment"].toObject();
+    p.environment.eolType            = static_cast<EolType>(env["eolType"].toInt(0));
+    p.environment.dstMode            = static_cast<DstMode>(env["dstMode"].toInt(0));
+    p.environment.utf8FileNames      = env["utf8FileNames"].toBool(true);
+    p.environment.timezoneOffsetMin  = env["timezoneOffsetMin"].toInt(0);
+    p.environment.deleteToRecycleBin = env["deleteToRecycleBin"].toBool();
+    p.environment.recycleBinPath     = env["recycleBinPath"].toString();
+    p.environment.shell              = env["shell"].toString();
+    p.environment.listingCommand     = env["listingCommand"].toString();
+    p.environment.clearAliases       = env["clearAliases"].toBool(true);
+    p.environment.ignoreLsWarnings   = env["ignoreLsWarnings"].toBool(true);
+    p.environment.unsetNationalVars  = env["unsetNationalVars"].toBool(true);
+
+    // Прокси
+    const QJsonObject prx = o["proxy"].toObject();
+    p.proxy.method      = static_cast<ProxyMethod>(prx["method"].toInt(0));
+    p.proxy.host        = prx["host"].toString();
+    p.proxy.port        = static_cast<quint16>(prx["port"].toInt(0));
+    p.proxy.username    = prx["username"].toString();
+    p.proxy.command     = prx["command"].toString();
+    p.proxy.dnsViaProxy = prx["dnsViaProxy"].toBool();
+
+    // Туннель
+    const QJsonObject tun = o["tunnel"].toObject();
+    p.tunnel.enabled    = tun["enabled"].toBool();
+    p.tunnel.host       = tun["host"].toString();
+    p.tunnel.port       = static_cast<quint16>(tun["port"].toInt(22));
+    p.tunnel.username   = tun["username"].toString();
+    p.tunnel.authMethod = static_cast<ssh::AuthMethod>(tun["authMethod"].toInt(0));
+    p.tunnel.keyPath    = tun["keyPath"].toString();
+
+    // SSH
+    const QJsonObject ssh = o["ssh"].toObject();
+    p.ssh.compression       = ssh["compression"].toBool();
+    p.ssh.keepaliveInterval = ssh["keepaliveInterval"].toInt(0);
+    p.ssh.tcpNoDelay        = ssh["tcpNoDelay"].toBool(true);
+    p.ssh.connectTimeout    = ssh["connectTimeout"].toInt(15);
+
     return p;
 }
 

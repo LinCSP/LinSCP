@@ -3,6 +3,8 @@
 #include <QUuid>
 #include <memory>
 
+#include "core/session/session_profile.h"
+
 class QSplitter;
 
 namespace linscp::core::session { class SessionStore; class SessionManager; }
@@ -28,6 +30,9 @@ public:
 
     // ── Подключение ──────────────────────────────────────────────────────────
     void connectToSession(const QUuid &profileId);
+    /// Подключиться по профилю напрямую (не обязательно сохранённому в store).
+    /// Если профиль ещё не в store — добавляется временно до отключения.
+    void connectToProfile(const core::session::SessionProfile &profile);
     void disconnectSession();
 
     bool      isConnected()  const { return m_sftp != nullptr; }
@@ -62,6 +67,7 @@ private:
 
     // Runtime (живут пока подключены)
     QUuid                              m_profileId;
+    QUuid                              m_tempProfileId;  ///< временный профиль (удаляется при disconnect)
     QString                            m_title = tr("Not connected");
     std::unique_ptr<core::session::SessionManager> m_sessionManager;
     core::sftp::SftpClient            *m_sftp            = nullptr;

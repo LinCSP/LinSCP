@@ -1,17 +1,18 @@
 #include "session_dialog.h"
+#include "advanced_session_dialog.h"
+
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
 #include <QGroupBox>
-#include <QTabWidget>
 #include <QLineEdit>
 #include <QSpinBox>
 #include <QComboBox>
-#include <QCheckBox>
 #include <QPushButton>
 #include <QLabel>
 #include <QDialogButtonBox>
 #include <QFileDialog>
+#include <QDir>
 
 namespace linscp::ui::dialogs {
 
@@ -24,77 +25,76 @@ SessionDialog::SessionDialog(QWidget *parent)
 SessionDialog::SessionDialog(const core::session::SessionProfile &profile, QWidget *parent)
     : QDialog(parent)
 {
+    m_advancedData = profile;
     setupUi();
     populate(profile);
 }
 
 void SessionDialog::setupUi()
 {
-    setWindowTitle(tr("Session Properties"));
-    setMinimumWidth(480);
+    setWindowTitle(tr("Login"));
+    setFixedWidth(420);
 
-    auto *tabs = new QTabWidget(this);
+    // ── Connection group ──────────────────────────────────────────────────────
+    auto *connGroup  = new QGroupBox(tr("Connection"), this);
+    auto *connLayout = new QFormLayout(connGroup);
+    connLayout->setSpacing(8);
 
-    // ── Tab: General ─────────────────────────────────────────────────────────
-    auto *generalTab    = new QWidget;
-    auto *generalLayout = new QFormLayout(generalTab);
-    generalLayout->setContentsMargins(12, 12, 12, 12);
-    generalLayout->setSpacing(8);
+    m_protocol = new QComboBox(connGroup);
+    m_protocol->addItem("SFTP", static_cast<int>(core::session::TransferProtocol::Sftp));
+    m_protocol->addItem("SCP",  static_cast<int>(core::session::TransferProtocol::Scp));
 
-    m_name     = new QLineEdit(generalTab);
-    m_host     = new QLineEdit(generalTab);
-    m_port     = new QSpinBox(generalTab);
+    m_host = new QLineEdit(connGroup);
+    m_host->setPlaceholderText(tr("hostname or IP"));
+
+    m_port = new QSpinBox(connGroup);
     m_port->setRange(1, 65535);
     m_port->setValue(22);
-    m_username = new QLineEdit(generalTab);
-    m_initialRemote = new QLineEdit(generalTab);
-    m_initialRemote->setText("/");
 
-    generalLayout->addRow(tr("Name:"),           m_name);
-    generalLayout->addRow(tr("Host:"),           m_host);
-    generalLayout->addRow(tr("Port:"),           m_port);
-    generalLayout->addRow(tr("Username:"),       m_username);
-    generalLayout->addRow(tr("Initial path:"),   m_initialRemote);
+    auto *hostRow = new QHBoxLayout;
+    hostRow->setContentsMargins(0,0,0,0);
+    hostRow->addWidget(m_host, 1);
+    hostRow->addWidget(new QLabel(tr("Port:"), connGroup));
+    hostRow->addWidget(m_port);
 
-    tabs->addTab(generalTab, tr("General"));
+    connLayout->addRow(tr("Protocol:"), m_protocol);
+    connLayout->addRow(tr("Host:"),     hostRow);
 
-    // ── Tab: Authentication ───────────────────────────────────────────────────
-    auto *authTab    = new QWidget;
-    auto *authLayout = new QFormLayout(authTab);
-    authLayout->setContentsMargins(12, 12, 12, 12);
+    // ── Auth group ────────────────────────────────────────────────────────────
+    auto *authGroup  = new QGroupBox(tr("Authentication"), this);
+    auto *authLayout = new QFormLayout(authGroup);
     authLayout->setSpacing(8);
 
-    m_authMethod = new QComboBox(authTab);
+    m_username = new QLineEdit(authGroup);
+
+    m_authMethod = new QComboBox(authGroup);
     m_authMethod->addItem(tr("Password"),   static_cast<int>(core::ssh::AuthMethod::Password));
     m_authMethod->addItem(tr("Public Key"), static_cast<int>(core::ssh::AuthMethod::PublicKey));
     m_authMethod->addItem(tr("SSH Agent"),  static_cast<int>(core::ssh::AuthMethod::Agent));
 
-    m_password = new QLineEdit(authTab);
+    m_password = new QLineEdit(authGroup);
     m_password->setEchoMode(QLineEdit::Password);
-    m_password->setPlaceholderText(tr("Leave empty — ask on connect"));
+    m_password->setPlaceholderText(tr("leave empty — prompt on connect"));
 
-    m_keyPath  = new QLineEdit(authTab);
-    m_browseKey = new QPushButton(tr("Browse…"), authTab);
+    m_keyPath   = new QLineEdit(authGroup);
+    m_browseKey = new QPushButton(tr("Browse…"), authGroup);
     connect(m_browseKey, &QPushButton::clicked, this, &SessionDialog::onBrowseKey);
 
     auto *keyRow = new QHBoxLayout;
-    keyRow->addWidget(m_keyPath);
+    keyRow->setContentsMargins(0,0,0,0);
+    keyRow->addWidget(m_keyPath, 1);
     keyRow->addWidget(m_browseKey);
 
-    m_useAgent = new QCheckBox(tr("Use system ssh-agent"), authTab);
-
-    authLayout->addRow(tr("Method:"),     m_authMethod);
-    authLayout->addRow(tr("Password:"),   m_password);
-    authLayout->addRow(tr("Key file:"),   keyRow);
-    authLayout->addRow(QString{},         m_useAgent);
+    authLayout->addRow(tr("Username:"), m_username);
+    authLayout->addRow(tr("Method:"),   m_authMethod);
+    authLayout->addRow(tr("Password:"), m_password);
+    authLayout->addRow(tr("Key file:"), keyRow);
 
     connect(m_authMethod, &QComboBox::currentIndexChanged,
             this, &SessionDialog::onAuthMethodChanged);
     onAuthMethodChanged(0);
 
-    tabs->addTab(authTab, tr("Authentication"));
-
-    // ── Buttons ───────────────────────────────────────────────────────────────
+    // ── Test row ──────────────────────────────────────────────────────────────
     m_testBtn    = new QPushButton(tr("Test Connection"), this);
     m_testStatus = new QLabel(this);
     connect(m_testBtn, &QPushButton::clicked, this, &SessionDialog::onTestConnection);
@@ -103,41 +103,57 @@ void SessionDialog::setupUi()
     testRow->addWidget(m_testBtn);
     testRow->addWidget(m_testStatus, 1);
 
-    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-    connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
-    connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    // ── Buttons: Save | Cancel | More… ────────────────────────────────────────
+    auto *moreBtn   = new QPushButton(tr("More…"), this);
+    moreBtn->setToolTip(tr("Advanced session settings"));
+    connect(moreBtn, &QPushButton::clicked, this, &SessionDialog::onMoreClicked);
 
+    auto *btnBox = new QDialogButtonBox(this);
+    auto *saveBtn   = btnBox->addButton(tr("Save"),   QDialogButtonBox::AcceptRole);
+    auto *cancelBtn = btnBox->addButton(tr("Cancel"), QDialogButtonBox::RejectRole);
+    Q_UNUSED(saveBtn)
+    Q_UNUSED(cancelBtn)
+    connect(btnBox, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(btnBox, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    auto *btnRow = new QHBoxLayout;
+    btnRow->addWidget(moreBtn);
+    btnRow->addStretch();
+    btnRow->addWidget(btnBox);
+
+    // ── Main layout ───────────────────────────────────────────────────────────
     auto *mainLayout = new QVBoxLayout(this);
-    mainLayout->addWidget(tabs);
+    mainLayout->addWidget(connGroup);
+    mainLayout->addWidget(authGroup);
     mainLayout->addLayout(testRow);
-    mainLayout->addWidget(buttons);
+    mainLayout->addLayout(btnRow);
 }
 
 void SessionDialog::populate(const core::session::SessionProfile &p)
 {
-    m_name->setText(p.name);
+    m_protocol->setCurrentIndex(m_protocol->findData(static_cast<int>(p.protocol)));
     m_host->setText(p.host);
     m_port->setValue(p.port);
     m_username->setText(p.username);
-    m_initialRemote->setText(p.initialRemotePath);
     m_keyPath->setText(p.privateKeyPath);
 
-    int idx = m_authMethod->findData(static_cast<int>(p.authMethod));
+    const int idx = m_authMethod->findData(static_cast<int>(p.authMethod));
     if (idx >= 0) m_authMethod->setCurrentIndex(idx);
 }
 
 core::session::SessionProfile SessionDialog::profile() const
 {
-    core::session::SessionProfile p;
-    p.name              = m_name->text().trimmed();
-    p.host              = m_host->text().trimmed();
-    p.port              = static_cast<quint16>(m_port->value());
-    p.username          = m_username->text().trimmed();
-    p.initialRemotePath = m_initialRemote->text();
-    p.authMethod        = static_cast<core::ssh::AuthMethod>(
+    core::session::SessionProfile p = m_advancedData;
+
+    p.protocol  = static_cast<core::session::TransferProtocol>(
+        m_protocol->currentData().toInt());
+    p.host      = m_host->text().trimmed();
+    p.port      = static_cast<quint16>(m_port->value());
+    p.username  = m_username->text().trimmed();
+    p.authMethod = static_cast<core::ssh::AuthMethod>(
         m_authMethod->currentData().toInt());
-    p.privateKeyPath    = m_keyPath->text();
-    p.useAgent          = m_useAgent->isChecked();
+    p.privateKeyPath = m_keyPath->text();
+
     return p;
 }
 
@@ -146,10 +162,9 @@ void SessionDialog::onAuthMethodChanged(int)
     const auto method = static_cast<core::ssh::AuthMethod>(
         m_authMethod->currentData().toInt());
 
-    m_password->setEnabled(method == core::ssh::AuthMethod::Password);
-    m_keyPath->setEnabled(method == core::ssh::AuthMethod::PublicKey);
-    m_browseKey->setEnabled(method == core::ssh::AuthMethod::PublicKey);
-    m_useAgent->setEnabled(method == core::ssh::AuthMethod::Agent);
+    m_password->setVisible(method == core::ssh::AuthMethod::Password);
+    m_keyPath->setVisible(method == core::ssh::AuthMethod::PublicKey);
+    m_browseKey->setVisible(method == core::ssh::AuthMethod::PublicKey);
 }
 
 void SessionDialog::onBrowseKey()
@@ -159,6 +174,24 @@ void SessionDialog::onBrowseKey()
         QDir::homePath() + "/.ssh",
         tr("Key files (id_rsa id_ed25519 id_ecdsa *.pem *.ppk);;All files (*)"));
     if (!path.isEmpty()) m_keyPath->setText(path);
+}
+
+void SessionDialog::onMoreClicked()
+{
+    // Сохраняем базовые поля в m_advancedData перед открытием диалога,
+    // чтобы AdvancedSessionDialog видел актуальные пути
+    m_advancedData.protocol      = static_cast<core::session::TransferProtocol>(
+        m_protocol->currentData().toInt());
+    m_advancedData.host          = m_host->text().trimmed();
+    m_advancedData.port          = static_cast<quint16>(m_port->value());
+    m_advancedData.username      = m_username->text().trimmed();
+    m_advancedData.authMethod    = static_cast<core::ssh::AuthMethod>(
+        m_authMethod->currentData().toInt());
+    m_advancedData.privateKeyPath = m_keyPath->text();
+
+    AdvancedSessionDialog dlg(m_advancedData, this);
+    if (dlg.exec() == QDialog::Accepted)
+        m_advancedData = dlg.applyTo(m_advancedData);
 }
 
 void SessionDialog::onTestConnection()

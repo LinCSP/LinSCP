@@ -6,14 +6,13 @@ class QLineEdit;
 class QSpinBox;
 class QComboBox;
 class QPushButton;
-class QTabWidget;
-class QCheckBox;
 class QLabel;
 
 namespace linscp::ui::dialogs {
 
-/// Диалог создания / редактирования профиля SSH-сессии.
-/// Вкладки: General | Authentication | Advanced
+/// Основной диалог подключения — аналог диалога «Вход» в WinSCP.
+/// Содержит только базовые поля: протокол, хост, порт, пользователь, пароль.
+/// Кнопка «Ещё…» открывает AdvancedSessionDialog для остальных настроек.
 class SessionDialog : public QDialog {
     Q_OBJECT
 public:
@@ -24,6 +23,7 @@ public:
     core::session::SessionProfile profile() const;
 
 private slots:
+    void onMoreClicked();
     void onAuthMethodChanged(int index);
     void onBrowseKey();
     void onTestConnection();
@@ -32,23 +32,21 @@ private:
     void setupUi();
     void populate(const core::session::SessionProfile &profile);
 
-    // General
-    QLineEdit   *m_name;
+    // Connection
+    QComboBox   *m_protocol;
     QLineEdit   *m_host;
     QSpinBox    *m_port;
     QLineEdit   *m_username;
-    QLineEdit   *m_initialRemote;
-
-    // Auth
     QComboBox   *m_authMethod;
-    QLineEdit   *m_password;
-    QLineEdit   *m_keyPath;
+    QLineEdit   *m_password;    ///< видим только при authMethod == Password
+    QLineEdit   *m_keyPath;     ///< видим только при authMethod == PublicKey
     QPushButton *m_browseKey;
-    QCheckBox   *m_useAgent;
 
-    // State
     QPushButton *m_testBtn;
     QLabel      *m_testStatus;
+
+    // Хранит расширенные настройки, изменённые через AdvancedSessionDialog
+    core::session::SessionProfile m_advancedData;
 };
 
 } // namespace linscp::ui::dialogs

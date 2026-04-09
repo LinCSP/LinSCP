@@ -2,6 +2,7 @@
 #include "connection_tab.h"
 #include "dialogs/transfer_panel.h"
 #include "dialogs/session_dialog.h"
+#include "dialogs/login_dialog.h"
 #include "dialogs/key_dialog.h"
 #include "dialogs/sync_dialog.h"
 #include "panels/local_panel.h"
@@ -314,7 +315,14 @@ void MainWindow::updateToolbarState()
 
 void MainWindow::onNewTab()
 {
-    addConnectionTab();
+    dialogs::LoginDialog dlg(m_sessionStore.get(), this);
+    if (dlg.exec() != QDialog::Accepted) return;
+
+    const auto profile = dlg.selectedProfile();
+    if (!profile.isValid()) return;
+
+    auto *tab = addConnectionTab(profile.name);
+    tab->connectToProfile(profile);
     updateToolbarState();
 }
 
@@ -361,18 +369,20 @@ void MainWindow::onDisconnect()
 
 void MainWindow::onNewSession()
 {
-    dialogs::SessionDialog dlg(this);
+    dialogs::LoginDialog dlg(m_sessionStore.get(), this);
     if (dlg.exec() != QDialog::Accepted) return;
-    const auto profile = dlg.profile();
+    const auto profile = dlg.selectedProfile();
     if (!profile.isValid()) return;
-    m_sessionStore->add(profile);
-    m_sessionStore->save();
+    auto *tab = addConnectionTab(profile.name);
+    tab->connectToProfile(profile);
+    updateToolbarState();
 }
 
 void MainWindow::onManageSessions()
 {
-    QMessageBox::information(this, tr("Sessions"),
-                              tr("Session manager UI — coming soon."));
+    dialogs::LoginDialog dlg(m_sessionStore.get(), this);
+    dlg.exec();
+    // Обновить комбо-бокс сессий (сигнал changed() уже сделает это автоматически)
 }
 
 void MainWindow::onManageKeys()

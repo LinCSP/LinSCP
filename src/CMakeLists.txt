@@ -49,6 +49,8 @@ set(LINSCP_SOURCES
 
     # ui/dialogs
     ui/dialogs/session_dialog.cpp
+    ui/dialogs/advanced_session_dialog.cpp
+    ui/dialogs/login_dialog.cpp
     ui/dialogs/key_dialog.cpp
     ui/dialogs/sync_dialog.cpp
     ui/dialogs/transfer_panel.cpp

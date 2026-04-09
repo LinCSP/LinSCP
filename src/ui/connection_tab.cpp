@@ -95,10 +95,27 @@ void ConnectionTab::connectToSession(const QUuid &profileId)
     emit statusChanged(tr("Connecting to %1…").arg(profile.host));
 }
 
+void ConnectionTab::connectToProfile(const core::session::SessionProfile &profile)
+{
+    // Если профиль не в store — добавляем временно
+    const auto existing = m_store->find(profile.id);
+    if (!existing.isValid()) {
+        m_store->add(profile);
+        m_tempProfileId = profile.id;
+    }
+    connectToSession(profile.id);
+}
+
 void ConnectionTab::disconnectSession()
 {
     if (m_sessionManager)
         m_sessionManager->closeAll();
+
+    // Удалить временный профиль из store
+    if (!m_tempProfileId.isNull()) {
+        m_store->remove(m_tempProfileId);
+        m_tempProfileId = {};
+    }
 
     delete m_transferManager;  m_transferManager = nullptr;
     delete m_syncEngine;       m_syncEngine       = nullptr;
