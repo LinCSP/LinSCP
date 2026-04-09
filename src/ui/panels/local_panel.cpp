@@ -2,7 +2,10 @@
 #include "models/local_fs_model.h"
 #include "ui/widgets/breadcrumb_bar.h"
 #include "ui/widgets/file_list_view.h"
+#include <QHeaderView>
 #include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QMenu>
 #include <QAction>
 #include <QDesktopServices>
@@ -21,9 +24,14 @@ LocalPanel::LocalPanel(QWidget *parent)
     listView()->setModel(m_model);
     listView()->setRootIndex(m_model->index(QDir::homePath()));
 
-    // Скрыть лишние колонки QFileSystemModel
-    for (int i = 1; i < m_model->columnCount(); ++i)
-        listView()->hideColumn(i);
+    // Колонки QFileSystemModel: 0=Name, 1=Size, 2=Type, 3=Date Modified
+    listView()->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+    listView()->header()->setSectionResizeMode(1, QHeaderView::Fixed);
+    listView()->header()->setSectionResizeMode(2, QHeaderView::Fixed);
+    listView()->header()->setSectionResizeMode(3, QHeaderView::Fixed);
+    listView()->header()->resizeSection(1, 75);
+    listView()->header()->resizeSection(2, 95);
+    listView()->header()->resizeSection(3, 130);
 
     breadcrumb()->setPath(QDir::homePath());
 
@@ -63,6 +71,41 @@ QStringList LocalPanel::selectedPaths() const
     for (const QModelIndex &idx : listView()->selectionModel()->selectedRows())
         result << m_model->filePath(idx);
     return result;
+}
+
+void LocalPanel::actionMkdir()
+{
+    bool ok = false;
+    const QString name = QInputDialog::getText(this, tr("New Folder"),
+                                               tr("Folder name:"),
+                                               QLineEdit::Normal, {}, &ok);
+    if (ok && !name.isEmpty())
+        QDir(currentPath()).mkdir(name);
+}
+
+void LocalPanel::actionDelete()
+{
+    const QStringList paths = selectedPaths();
+    if (paths.isEmpty()) return;
+    if (QMessageBox::question(this, tr("Delete"),
+                              tr("Delete %n item(s)?", nullptr, paths.size()))
+            == QMessageBox::Yes) {
+        for (const QString &p : paths)
+            QFile::remove(p);
+    }
+}
+
+void LocalPanel::actionRename()
+{
+    const QModelIndex idx = listView()->currentIndex();
+    if (!idx.isValid()) return;
+    const QString oldPath = m_model->filePath(idx);
+    bool ok = false;
+    const QString newName = QInputDialog::getText(
+        this, tr("Rename"), tr("New name:"),
+        QLineEdit::Normal, QFileInfo(oldPath).fileName(), &ok);
+    if (ok && !newName.isEmpty())
+        QFile::rename(oldPath, QFileInfo(oldPath).dir().absoluteFilePath(newName));
 }
 
 void LocalPanel::onItemActivated(const QModelIndex &index)

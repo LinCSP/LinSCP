@@ -21,6 +21,10 @@ public:
     void        refresh() override;
     QStringList selectedPaths() const override;
 
+    void actionRename() override;
+    void actionMkdir()  override;
+    void actionDelete() override;
+
     void downloadSelected(const QString &localDest);
     void uploadFiles(const QStringList &localPaths);
 

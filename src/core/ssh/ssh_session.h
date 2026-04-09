@@ -51,8 +51,10 @@ public:
     /// Fingerprint текущего сервера (доступен после сигнала hostVerificationRequired)
     QByteArray serverFingerprint() const { return m_fingerprint; }
 
-    /// Вызвать после того, как пользователь подтвердил fingerprint
+    /// Вызвать после того, как пользователь подтвердил fingerprint (сохраняет в known_hosts)
     void acceptHost();
+    /// Принять один раз без сохранения в known_hosts
+    void acceptHostOnce();
     /// Вызвать если пользователь отклонил
     void rejectHost();
 

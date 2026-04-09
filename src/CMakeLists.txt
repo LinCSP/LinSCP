@@ -40,6 +40,7 @@ set(LINSCP_SOURCES
 
     # ui
     ui/main_window.cpp
+    ui/connection_tab.cpp
 
     # ui/panels
     ui/panels/file_panel.cpp
@@ -51,6 +52,7 @@ set(LINSCP_SOURCES
     ui/dialogs/key_dialog.cpp
     ui/dialogs/sync_dialog.cpp
     ui/dialogs/transfer_panel.cpp
+    ui/dialogs/host_fingerprint_dialog.cpp
 
     # ui/widgets
     ui/widgets/breadcrumb_bar.cpp
@@ -68,6 +70,10 @@ if(WITH_TERMINAL)
 endif()
 
 add_executable(linscp ${LINSCP_SOURCES})
+
+set_target_properties(linscp PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
 
 target_include_directories(linscp PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -98,3 +104,16 @@ target_compile_options(linscp PRIVATE
     -Wall -Wextra -Wpedantic
     ${LIBSSH_CFLAGS_OTHER}
 )
+
+# ── i18n / переводы ───────────────────────────────────────────────────────────
+if(Qt6LinguistTools_FOUND)
+    set(TS_FILES i18n/linscp_ru.ts)
+    qt6_add_translations(linscp
+        TS_FILES ${TS_FILES}
+        QM_FILES_OUTPUT_VARIABLE QM_FILES
+        LUPDATE_OPTIONS -no-obsolete
+    )
+    message(STATUS "Qt Linguist found — translations enabled (${TS_FILES})")
+else()
+    message(STATUS "Qt6::LinguistTools not found — translations disabled")
+endif()

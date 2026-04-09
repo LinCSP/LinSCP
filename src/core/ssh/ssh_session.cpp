@@ -91,6 +91,14 @@ void SshSession::acceptHost()
     emit connected();
 }
 
+void SshSession::acceptHostOnce()
+{
+    // Принять fingerprint без сохранения в known_hosts
+    if (!authenticate()) return;
+    setState(SessionState::Connected);
+    emit connected();
+}
+
 void SshSession::rejectHost()
 {
     disconnect();

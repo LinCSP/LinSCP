@@ -8,6 +8,7 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
 find_package(Qt6 6.5 REQUIRED COMPONENTS Core Widgets Network Concurrent Test)
+find_package(Qt6 QUIET OPTIONAL_COMPONENTS LinguistTools)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBSSH REQUIRED libssh>=0.10)
 pkg_check_modules(OPENSSL REQUIRED openssl>=3.0)

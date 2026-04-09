@@ -5,7 +5,7 @@ namespace linscp::core::sftp {
 QString SftpFileInfo::permissionsString() const
 {
     QString s;
-    s += isDir ? 'l' : (isSymLink ? 'l' : '-');
+    s += isDir ? 'd' : (isSymLink ? 'l' : '-');
     s += (permissions & 0400) ? 'r' : '-';
     s += (permissions & 0200) ? 'w' : '-';
     s += (permissions & 0100) ? 'x' : '-';

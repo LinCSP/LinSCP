@@ -4,6 +4,7 @@
 #include "core/transfer/transfer_queue.h"
 #include "ui/widgets/breadcrumb_bar.h"
 #include "ui/widgets/file_list_view.h"
+#include <QHeaderView>
 #include <QMenu>
 #include <QAction>
 #include <QInputDialog>
@@ -24,6 +25,18 @@ RemotePanel::RemotePanel(core::sftp::SftpClient *sftp,
     m_model = new models::RemoteFsModel(sftp, this);
 
     listView()->setModel(m_model);
+
+    // Колонки: 0=Name, 1=Size, 2=Modified, 3=Permissions, 4=Owner
+    auto *hdr = listView()->header();
+    hdr->setSectionResizeMode(0, QHeaderView::Stretch);
+    hdr->setSectionResizeMode(1, QHeaderView::Fixed);
+    hdr->setSectionResizeMode(2, QHeaderView::Fixed);
+    hdr->setSectionResizeMode(3, QHeaderView::Fixed);
+    hdr->resizeSection(1, 75);
+    hdr->resizeSection(2, 130);
+    hdr->resizeSection(3, 100);
+    listView()->hideColumn(models::RemoteFsModel::ColOwner);  // скрываем Owner по умолчанию
+
     breadcrumb()->setPath("/");
 
     connect(m_model, &models::RemoteFsModel::loadingStarted,
@@ -82,6 +95,52 @@ void RemotePanel::uploadFiles(const QStringList &localPaths)
         item.remotePath = currentPath() + '/' + fi.fileName();
         item.totalBytes = fi.size();
         m_queue->enqueue(item);
+    }
+}
+
+void RemotePanel::actionMkdir()
+{
+    bool ok = false;
+    const QString name = QInputDialog::getText(this, tr("New Folder"),
+                                               tr("Folder name:"),
+                                               QLineEdit::Normal, {}, &ok);
+    if (ok && !name.isEmpty()) {
+        m_sftp->mkdir(currentPath() + '/' + name);
+        refresh();
+    }
+}
+
+void RemotePanel::actionDelete()
+{
+    const QStringList paths = selectedPaths();
+    if (paths.isEmpty()) return;
+    if (QMessageBox::question(this, tr("Delete"),
+                              tr("Delete %n item(s)?", nullptr, paths.size()))
+            != QMessageBox::Yes)
+        return;
+    for (const QString &path : paths) {
+        const QModelIndex idx = m_model->indexForPath(path);
+        if (idx.isValid() && m_model->isDir(idx))
+            m_sftp->rmdir(path);
+        else
+            m_sftp->remove(path);
+    }
+    refresh();
+}
+
+void RemotePanel::actionRename()
+{
+    const QModelIndex idx = listView()->currentIndex();
+    if (!idx.isValid()) return;
+    const QString oldPath = m_model->filePath(idx);
+    bool ok = false;
+    const QString newName = QInputDialog::getText(
+        this, tr("Rename"), tr("New name:"),
+        QLineEdit::Normal, m_model->fileInfo(idx).name, &ok);
+    if (ok && !newName.isEmpty()) {
+        const QString newPath = oldPath.section('/', 0, -2) + '/' + newName;
+        m_sftp->rename(oldPath, newPath);
+        refresh();
     }
 }
 

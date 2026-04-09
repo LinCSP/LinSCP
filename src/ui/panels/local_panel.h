@@ -17,6 +17,10 @@ public:
     void        refresh() override;
     QStringList selectedPaths() const override;
 
+    void actionRename() override;
+    void actionMkdir()  override;
+    void actionDelete() override;
+
 protected:
     void onItemActivated(const QModelIndex &index) override;
     void populateContextMenu(QMenu *menu, const QModelIndex &index) override;

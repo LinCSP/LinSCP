@@ -1,30 +1,29 @@
 #include "main_window.h"
-#include "panels/local_panel.h"
-#include "panels/remote_panel.h"
+#include "connection_tab.h"
 #include "dialogs/transfer_panel.h"
 #include "dialogs/session_dialog.h"
 #include "dialogs/key_dialog.h"
 #include "dialogs/sync_dialog.h"
+#include "panels/local_panel.h"
+#include "panels/remote_panel.h"
 
 #include "core/session/session_store.h"
-#include "core/session/session_manager.h"
-#include "core/session/session_profile.h"
-#include "core/ssh/ssh_session.h"
-#include "core/sftp/sftp_client.h"
 #include "core/transfer/transfer_queue.h"
-#include "core/transfer/transfer_manager.h"
-#include "core/sync/sync_engine.h"
 #include "core/keys/key_manager.h"
 #include "core/keys/key_generator.h"
 
 #include <QApplication>
 #include <QMenuBar>
 #include <QMenu>
+#include <QShortcut>
+#include <QTabWidget>
+#include <QTabBar>
 #include <QToolBar>
 #include <QStatusBar>
 #include <QSplitter>
 #include <QComboBox>
 #include <QLabel>
+#include <QToolButton>
 #include <QMessageBox>
 #include <QSettings>
 #include <QDir>
@@ -39,64 +38,63 @@ MainWindow::MainWindow(QWidget *parent)
     setWindowIcon(QIcon::fromTheme("network-server"));
     setMinimumSize(900, 600);
 
-    // ── Core ──────────────────────────────────────────────────────────────────
     QDir().mkpath(QDir::homePath() + "/.config/linscp");
 
-    m_sessionStore   = std::make_unique<core::session::SessionStore>(
+    m_sessionStore  = std::make_unique<core::session::SessionStore>(
         QDir::homePath() + "/.config/linscp/sessions.json");
     m_sessionStore->load();
 
-    m_sessionManager = std::make_unique<core::session::SessionManager>(
-        m_sessionStore.get(), this);
+    m_transferQueue = std::make_unique<core::transfer::TransferQueue>(this);
+    m_keyManager    = std::make_unique<core::keys::KeyManager>(this);
+    m_keyGenerator  = std::make_unique<core::keys::KeyGenerator>(this);
 
-    m_transferQueue  = std::make_unique<core::transfer::TransferQueue>(this);
-    m_keyManager     = std::make_unique<core::keys::KeyManager>(this);
-    m_keyGenerator   = std::make_unique<core::keys::KeyGenerator>(this);
-
-    connect(m_sessionManager.get(), &core::session::SessionManager::sessionOpened,
-            this, [this](const QUuid &) { onSessionConnected(); });
-    connect(m_sessionManager.get(), &core::session::SessionManager::sessionError,
-            this, [this](const QUuid &, const QString &msg) { onSessionError(msg); });
-
-    // ── UI ────────────────────────────────────────────────────────────────────
     setupUi();
     setupMenuBar();
     setupToolBar();
     setupStatusBar();
+    setupHotkeys();
     restoreWindowState();
 }
 
 MainWindow::~MainWindow()
 {
     saveWindowState();
-    m_sessionManager->closeAll();
+    // Вкладки разрушатся сами (children of m_tabWidget),
+    // каждая вызовет disconnectSession() в деструкторе
 }
+
+// ── Построение UI ─────────────────────────────────────────────────────────────
 
 void MainWindow::setupUi()
 {
-    // Локальная панель (всегда активна)
-    m_localPanel = new panels::LocalPanel(this);
+    m_tabWidget = new QTabWidget(this);
+    m_tabWidget->setTabsClosable(true);
+    m_tabWidget->setMovable(true);
+    m_tabWidget->setDocumentMode(true);
 
-    // Удалённая панель создаётся после подключения; заглушка до тех пор
-    auto *remotePlaceholder = new QWidget(this);
-    remotePlaceholder->setObjectName("RemotePlaceholder");
+    // Кнопка "+" для нового таба
+    auto *newTabBtn = new QToolButton(m_tabWidget);
+    newTabBtn->setText("+");
+    newTabBtn->setToolTip(tr("New connection tab"));
+    newTabBtn->setAutoRaise(true);
+    m_tabWidget->setCornerWidget(newTabBtn, Qt::TopRightCorner);
+    connect(newTabBtn, &QToolButton::clicked, this, &MainWindow::onNewTab);
 
-    // Горизонтальный сплиттер: local | remote
-    m_mainSplitter = new QSplitter(Qt::Horizontal, this);
-    m_mainSplitter->addWidget(m_localPanel);
-    m_mainSplitter->addWidget(remotePlaceholder);
-    m_mainSplitter->setSizes({500, 500});
-    m_mainSplitter->setHandleWidth(4);
+    connect(m_tabWidget, &QTabWidget::tabCloseRequested, this, &MainWindow::onCloseTab);
+    connect(m_tabWidget, &QTabWidget::currentChanged,    this, &MainWindow::onTabChanged);
 
-    // Панель передач (внизу)
+    // Добавить первый пустой таб
+    addConnectionTab();
+
+    // Панель передач (общая для всех табов)
     m_transferPanel = new dialogs::TransferPanel(m_transferQueue.get(), this);
-    m_transferPanel->setMaximumHeight(200);
+    m_transferPanel->setMaximumHeight(180);
 
-    // Вертикальный сплиттер: [panels] | [transfer queue]
+    // Вертикальный сплиттер: [tabWidget] | [transferPanel]
     m_vertSplitter = new QSplitter(Qt::Vertical, this);
-    m_vertSplitter->addWidget(m_mainSplitter);
+    m_vertSplitter->addWidget(m_tabWidget);
     m_vertSplitter->addWidget(m_transferPanel);
-    m_vertSplitter->setStretchFactor(0, 3);
+    m_vertSplitter->setStretchFactor(0, 4);
     m_vertSplitter->setStretchFactor(1, 1);
 
     setCentralWidget(m_vertSplitter);
@@ -106,30 +104,35 @@ void MainWindow::setupMenuBar()
 {
     // ── File ─────────────────────────────────────────────────────────────────
     QMenu *fileMenu = menuBar()->addMenu(tr("&File"));
+    fileMenu->addAction(QIcon::fromTheme("tab-new"),
+                        tr("&New Tab"), QKeySequence("Ctrl+T"),
+                        this, &MainWindow::onNewTab);
+    fileMenu->addSeparator();
     fileMenu->addAction(QIcon::fromTheme("network-connect"),
                         tr("&New Session…"), QKeySequence("Ctrl+N"),
                         this, &MainWindow::onNewSession);
     fileMenu->addAction(tr("&Manage Sessions…"),
                         this, &MainWindow::onManageSessions);
     fileMenu->addSeparator();
-    m_connectAction    = fileMenu->addAction(QIcon::fromTheme("network-connect"),
-                                             tr("&Connect"),
-                                             QKeySequence("Ctrl+Return"),
-                                             this, &MainWindow::onConnect);
-    m_disconnectAction = fileMenu->addAction(QIcon::fromTheme("network-disconnect"),
-                                             tr("&Disconnect"),
-                                             this, &MainWindow::onDisconnect);
+    m_connectAction = fileMenu->addAction(
+        QIcon::fromTheme("network-connect"), tr("&Connect"),
+        QKeySequence("Ctrl+Return"), this, &MainWindow::onConnect);
+    m_disconnectAction = fileMenu->addAction(
+        QIcon::fromTheme("network-disconnect"), tr("&Disconnect"),
+        this, &MainWindow::onDisconnect);
     m_disconnectAction->setEnabled(false);
     fileMenu->addSeparator();
-    fileMenu->addAction(tr("&Quit"), QKeySequence::Quit, qApp, &QApplication::quit);
+    fileMenu->addAction(tr("&Quit"), QKeySequence::Quit,
+                        qApp, &QApplication::quit);
 
     // ── Session ───────────────────────────────────────────────────────────────
     QMenu *sessionMenu = menuBar()->addMenu(tr("&Session"));
     sessionMenu->addAction(QIcon::fromTheme("view-refresh"),
                            tr("&Refresh Remote"), QKeySequence(Qt::Key_F5),
                            this, [this]() {
-                               if (m_remotePanel) m_remotePanel->refresh();
-                           });
+        if (auto *tab = currentTab(); tab && tab->remotePanel())
+            tab->remotePanel()->refresh();
+    });
 
     // ── Commands ──────────────────────────────────────────────────────────────
     QMenu *cmdMenu = menuBar()->addMenu(tr("&Commands"));
@@ -143,15 +146,7 @@ void MainWindow::setupMenuBar()
     QMenu *viewMenu = menuBar()->addMenu(tr("&View"));
     QAction *showHidden = viewMenu->addAction(tr("Show &Hidden Files"));
     showHidden->setCheckable(true);
-    connect(showHidden, &QAction::toggled, m_localPanel, [this](bool on) {
-        // LocalPanel использует QFileSystemModel::filter
-        // m_localPanel model().setFilter(...)
-        Q_UNUSED(on);
-    });
-    connect(showHidden, &QAction::toggled, this, [](bool on) {
-        // TODO: if (m_remotePanel) m_remotePanel->model()->setShowHidden(on);
-        Q_UNUSED(on);
-    });
+    connect(showHidden, &QAction::toggled, this, [](bool) { /* TODO */ });
 
     // ── Help ──────────────────────────────────────────────────────────────────
     QMenu *helpMenu = menuBar()->addMenu(tr("&Help"));
@@ -176,7 +171,8 @@ void MainWindow::setupToolBar()
             m_sessionCombo->addItem(p.name, p.id.toString());
     };
     refreshCombo();
-    connect(m_sessionStore.get(), &core::session::SessionStore::changed, this, refreshCombo);
+    connect(m_sessionStore.get(), &core::session::SessionStore::changed,
+            this, refreshCombo);
 
     tb->addWidget(m_sessionCombo);
     tb->addAction(m_connectAction);
@@ -184,6 +180,9 @@ void MainWindow::setupToolBar()
     tb->addSeparator();
     tb->addAction(QIcon::fromTheme("folder-sync"), tr("Sync"),
                   this, &MainWindow::onSync);
+    tb->addSeparator();
+    tb->addAction(QIcon::fromTheme("tab-new"), tr("New Tab"),
+                  this, &MainWindow::onNewTab);
 }
 
 void MainWindow::setupStatusBar()
@@ -194,7 +193,115 @@ void MainWindow::setupStatusBar()
     statusBar()->addPermanentWidget(m_statusLabel);
 }
 
+void MainWindow::setupHotkeys()
+{
+    auto activePanel = [this]() -> panels::FilePanel * {
+        auto *tab = currentTab();
+        if (!tab) return nullptr;
+        QWidget *focus = QApplication::focusWidget();
+        if (tab->remotePanel() &&
+            (tab->remotePanel() == focus || tab->remotePanel()->isAncestorOf(focus)))
+            return tab->remotePanel();
+        return tab->localPanel();
+    };
+
+    new QShortcut(Qt::Key_F5, this, [activePanel]() {
+        if (auto *p = activePanel()) p->refresh();
+    });
+    new QShortcut(Qt::Key_F6, this, [activePanel]() {
+        if (auto *p = activePanel()) p->actionRename();
+    });
+    new QShortcut(Qt::Key_F7, this, [activePanel]() {
+        if (auto *p = activePanel()) p->actionMkdir();
+    });
+    new QShortcut(Qt::Key_F8, this, [activePanel]() {
+        if (auto *p = activePanel()) p->actionDelete();
+    });
+    // Tab — переключить левая/правая панель
+    new QShortcut(Qt::Key_Tab, this, [this, activePanel]() {
+        auto *tab = currentTab();
+        if (!tab || !tab->remotePanel()) return;
+        QWidget *focus = QApplication::focusWidget();
+        if (tab->localPanel()->isAncestorOf(focus) || tab->localPanel() == focus)
+            tab->remotePanel()->setFocused();
+        else
+            tab->localPanel()->setFocused();
+    });
+    // Ctrl+W — закрыть текущий таб
+    new QShortcut(QKeySequence("Ctrl+W"), this, [this]() {
+        onCloseTab(m_tabWidget->currentIndex());
+    });
+}
+
+// ── Управление табами ─────────────────────────────────────────────────────────
+
+ConnectionTab *MainWindow::addConnectionTab(const QString &title)
+{
+    auto *tab = new ConnectionTab(m_sessionStore.get(), m_transferQueue.get(), this);
+    const QString tabTitle = title.isEmpty() ? tr("New connection") : title;
+    const int idx = m_tabWidget->addTab(tab, tabTitle);
+    m_tabWidget->setCurrentIndex(idx);
+
+    connect(tab, &ConnectionTab::titleChanged, this, [this, tab](const QString &t) {
+        const int i = m_tabWidget->indexOf(tab);
+        if (i >= 0) m_tabWidget->setTabText(i, t);
+    });
+    connect(tab, &ConnectionTab::statusChanged, this, [this, tab](const QString &msg) {
+        if (tab == currentTab()) m_connectionLabel->setText(msg);
+    });
+    connect(tab, &ConnectionTab::connectionEstablished, this, [this]() {
+        updateToolbarState();
+    });
+    connect(tab, &ConnectionTab::connectionLost, this, [this]() {
+        updateToolbarState();
+    });
+
+    return tab;
+}
+
+ConnectionTab *MainWindow::currentTab() const
+{
+    return qobject_cast<ConnectionTab *>(m_tabWidget->currentWidget());
+}
+
+void MainWindow::updateToolbarState()
+{
+    // Может вызываться до setupMenuBar/setupStatusBar — проверяем nullptr
+    if (!m_connectAction || !m_disconnectAction) return;
+    auto *tab = currentTab();
+    const bool connected = tab && tab->isConnected();
+    m_connectAction->setEnabled(!connected);
+    m_disconnectAction->setEnabled(connected);
+    if (m_connectionLabel && tab)
+        m_connectionLabel->setText(tab->title());
+}
+
 // ── Слоты ─────────────────────────────────────────────────────────────────────
+
+void MainWindow::onNewTab()
+{
+    addConnectionTab();
+    updateToolbarState();
+}
+
+void MainWindow::onCloseTab(int index)
+{
+    if (m_tabWidget->count() <= 1) {
+        // Оставляем хотя бы один таб, просто дисконнектим
+        if (auto *tab = currentTab())
+            tab->disconnectSession();
+        return;
+    }
+    auto *tab = qobject_cast<ConnectionTab *>(m_tabWidget->widget(index));
+    m_tabWidget->removeTab(index);
+    delete tab;
+    updateToolbarState();
+}
+
+void MainWindow::onTabChanged(int /*index*/)
+{
+    updateToolbarState();
+}
 
 void MainWindow::onConnect()
 {
@@ -202,106 +309,34 @@ void MainWindow::onConnect()
         onNewSession();
         return;
     }
+    auto *tab = currentTab();
+    if (!tab) tab = addConnectionTab();
 
     const QUuid profileId = QUuid::fromString(
         m_sessionCombo->currentData().toString());
-
-    auto *sshSession = m_sessionManager->open(profileId);
-    if (!sshSession) return;
-
-    // SftpClient создаётся после SSH-коннекта в onSessionConnected()
-    m_connectionLabel->setText(tr("Connecting…"));
+    tab->connectToSession(profileId);
+    updateToolbarState();
 }
 
 void MainWindow::onDisconnect()
 {
-    const QUuid profileId = QUuid::fromString(
-        m_sessionCombo->currentData().toString());
-    m_sessionManager->close(profileId);
-
-    // Убрать remote панель
-    if (m_remotePanel) {
-        m_mainSplitter->replaceWidget(1, new QWidget(this));
-        m_remotePanel->deleteLater();
-        m_remotePanel = nullptr;
-    }
-
-    m_connectAction->setEnabled(true);
-    m_disconnectAction->setEnabled(false);
-    m_connectionLabel->setText(tr("Disconnected"));
-}
-
-void MainWindow::onSessionConnected()
-{
-    const QUuid profileId = QUuid::fromString(
-        m_sessionCombo->currentData().toString());
-
-    auto *sshSession = m_sessionManager->active(profileId);
-    if (!sshSession) return;
-
-    // Создать SFTP-клиент на этой сессии
-    m_sftp = new core::sftp::SftpClient(sshSession, this);
-
-    // Создать менеджер передач
-    m_transferManager = new core::transfer::TransferManager(
-        m_sftp, m_transferQueue.get(), this);
-    m_transferManager->start();
-
-    // Создать движок синхронизации
-    m_syncEngine = new core::sync::SyncEngine(m_sftp, m_transferQueue.get(), this);
-
-    // Создать/заменить remote-панель
-    if (m_remotePanel) {
-        m_remotePanel->deleteLater();
-    }
-    m_remotePanel = new panels::RemotePanel(m_sftp, m_transferQueue.get(), this);
-    m_mainSplitter->replaceWidget(1, m_remotePanel);
-
-    // Настроить drag & drop между панелями
-    connect(m_localPanel, &panels::LocalPanel::uploadRequested,
-            this, [this](const QStringList &files, const QString & /*dest*/) {
-                if (m_remotePanel) m_remotePanel->uploadFiles(files);
-            });
-    connect(m_remotePanel, &panels::RemotePanel::downloadRequested,
-            this, [this](const QStringList &files, const QString &dest) {
-                Q_UNUSED(files); Q_UNUSED(dest);
-                if (m_remotePanel) m_remotePanel->downloadSelected(m_localPanel->currentPath());
-            });
-
-    m_connectAction->setEnabled(false);
-    m_disconnectAction->setEnabled(true);
-
-    const auto profile = m_sessionStore->find(profileId);
-    m_connectionLabel->setText(
-        tr("Connected: %1@%2").arg(profile.username, profile.host));
-
-    if (!profile.initialRemotePath.isEmpty())
-        m_remotePanel->navigateTo(profile.initialRemotePath);
-}
-
-void MainWindow::onSessionError(const QString &message)
-{
-    m_connectionLabel->setText(tr("Error"));
-    QMessageBox::warning(this, tr("Connection Error"), message);
-    m_connectAction->setEnabled(true);
-    m_disconnectAction->setEnabled(false);
+    if (auto *tab = currentTab())
+        tab->disconnectSession();
+    updateToolbarState();
 }
 
 void MainWindow::onNewSession()
 {
     dialogs::SessionDialog dlg(this);
     if (dlg.exec() != QDialog::Accepted) return;
-
     const auto profile = dlg.profile();
     if (!profile.isValid()) return;
-
     m_sessionStore->add(profile);
     m_sessionStore->save();
 }
 
 void MainWindow::onManageSessions()
 {
-    // TODO: SessionManagerDialog (список + CRUD)
     QMessageBox::information(this, tr("Sessions"),
                               tr("Session manager UI — coming soon."));
 }
@@ -314,16 +349,18 @@ void MainWindow::onManageKeys()
 
 void MainWindow::onSync()
 {
-    if (!m_syncEngine) {
+    auto *tab = currentTab();
+    if (!tab || !tab->syncEngine()) {
         QMessageBox::information(this, tr("Sync"),
                                   tr("Connect to a remote server first."));
         return;
     }
-
-    dialogs::SyncDialog dlg(m_syncEngine,
-                             m_localPanel->currentPath(),
-                             m_remotePanel ? m_remotePanel->currentPath() : "/",
-                             this);
+    const QString remotePath = tab->remotePanel()
+                                   ? tab->remotePanel()->currentPath()
+                                   : "/";
+    dialogs::SyncDialog dlg(tab->syncEngine(),
+                             tab->localPanel()->currentPath(),
+                             remotePath, this);
     dlg.exec();
 }
 
@@ -332,7 +369,7 @@ void MainWindow::onAbout()
     QMessageBox::about(this, tr("About LinSCP"),
                         tr("<h2>LinSCP v0.1</h2>"
                            "<p>Cross-platform SFTP/SSH file manager.</p>"
-                           "<p>Open source · LGPL 2.1<br>"
+                           "<p>Open source · GPL v2<br>"
                            "<a href=\"https://github.com/\">GitHub</a></p>"));
 }
 
@@ -345,10 +382,9 @@ void MainWindow::closeEvent(QCloseEvent *event)
 void MainWindow::saveWindowState()
 {
     QSettings s("LinSCP", "LinSCP");
-    s.setValue("geometry",        saveGeometry());
-    s.setValue("windowState",     saveState());
-    s.setValue("mainSplitter",    m_mainSplitter->saveState());
-    s.setValue("vertSplitter",    m_vertSplitter->saveState());
+    s.setValue("geometry",    saveGeometry());
+    s.setValue("windowState", saveState());
+    s.setValue("vertSplitter", m_vertSplitter->saveState());
 }
 
 void MainWindow::restoreWindowState()
@@ -356,8 +392,8 @@ void MainWindow::restoreWindowState()
     QSettings s("LinSCP", "LinSCP");
     if (s.contains("geometry"))     restoreGeometry(s.value("geometry").toByteArray());
     if (s.contains("windowState"))  restoreState(s.value("windowState").toByteArray());
-    if (s.contains("mainSplitter")) m_mainSplitter->restoreState(s.value("mainSplitter").toByteArray());
-    if (s.contains("vertSplitter")) m_vertSplitter->restoreState(s.value("vertSplitter").toByteArray());
+    if (s.contains("vertSplitter")) m_vertSplitter->restoreState(
+        s.value("vertSplitter").toByteArray());
 }
 
 } // namespace linscp::ui

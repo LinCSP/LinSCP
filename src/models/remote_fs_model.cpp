@@ -162,12 +162,21 @@ QVariant RemoteFsModel::data(const QModelIndex &index, int role) const
     if (role == Qt::DisplayRole) {
         switch (index.column()) {
         case ColName:        return info.name;
-        case ColSize:        return info.isDir ? QVariant{} : QVariant(info.size);
-        case ColMtime:       return info.mtime.toString(Qt::ISODate);
+        case ColSize: {
+            if (info.isDir) return QVariant{};
+            constexpr qint64 KB = 1024, MB = 1024 * 1024, GB = 1024 * 1024 * 1024;
+            if (info.size < KB)  return tr("%1 B").arg(info.size);
+            if (info.size < MB)  return tr("%1 KB").arg(info.size / KB);
+            if (info.size < GB)  return tr("%1 MB").arg(info.size / MB);
+            return tr("%1 GB").arg(info.size / GB);
+        }
+        case ColMtime:       return info.mtime.toString("dd.MM.yyyy HH:mm");
         case ColPermissions: return info.permissionsString();
         case ColOwner:       return info.owner + ':' + info.group;
         }
     }
+    if (role == Qt::TextAlignmentRole && index.column() == ColSize)
+        return int(Qt::AlignRight | Qt::AlignVCenter);
     if (role == Qt::DecorationRole && index.column() == ColName) {
         return QIcon::fromTheme(info.isDir ? "folder" : "text-x-generic");
     }

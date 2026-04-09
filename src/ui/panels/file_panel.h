@@ -33,6 +33,14 @@ public:
     /// Список выбранных путей
     virtual QStringList selectedPaths() const = 0;
 
+    /// Действия, вызываемые через горячие клавиши (F6/F7/F8)
+    virtual void actionRename() {}
+    virtual void actionMkdir()  {}
+    virtual void actionDelete() {}
+
+    /// Передать фокус списку файлов
+    void setFocused();
+
 signals:
     void pathChanged(const QString &path);
     void selectionChanged(const QStringList &paths);

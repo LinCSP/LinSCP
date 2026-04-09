@@ -66,11 +66,11 @@ void FilePanel::setupToolbar()
 
     m_toolbar->addAction(QIcon::fromTheme("folder-new"),
                          tr("New folder"),
-                         [this]() { /* TODO: диалог */ });
+                         [this]() { actionMkdir(); });
 
     m_toolbar->addAction(QIcon::fromTheme("edit-delete"),
                          tr("Delete"),
-                         [this]() { /* TODO: подтверждение + удаление */ });
+                         [this]() { actionDelete(); });
 }
 
 void FilePanel::onContextMenu(const QModelIndex &index, const QPoint &globalPos)
@@ -79,6 +79,11 @@ void FilePanel::onContextMenu(const QModelIndex &index, const QPoint &globalPos)
     populateContextMenu(&menu, index);
     if (!menu.isEmpty())
         menu.exec(globalPos);
+}
+
+void FilePanel::setFocused()
+{
+    m_listView->setFocus();
 }
 
 void FilePanel::onBreadcrumbRequested(const QString &path)

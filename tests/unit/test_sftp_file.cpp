@@ -26,7 +26,7 @@ private slots:
         f.isDir       = true;
         f.permissions = 0755; // rwxr-xr-x
         const QString s = f.permissionsString();
-        QCOMPARE(s[0], QChar('l')); // isDir → 'l' (TODO: поправить на 'd')
+        QCOMPARE(s[0], QChar('d')); // directory
     }
 
     void testIsHidden() {
