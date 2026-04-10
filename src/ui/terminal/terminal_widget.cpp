@@ -7,7 +7,13 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QProcess>
+#include <QDir>
+#include <QFile>
+#include <QFileDevice>
+#include <QProcessEnvironment>
 #include <QStandardPaths>
+#include <QTimer>
+#include <QUuid>
 #include <QFont>
 
 namespace linscp::ui::terminal {
@@ -67,12 +73,14 @@ void TerminalWidget::setupUi()
 
 void TerminalWidget::setConnectionInfo(const QString &host, quint16 port,
                                         const QString &username,
-                                        const QString &keyPath)
+                                        const QString &keyPath,
+                                        const QString &password)
 {
     m_host     = host;
     m_port     = port;
     m_username = username;
     m_keyPath  = keyPath;
+    m_password = password;
 
     if (host.isEmpty()) {
         m_btnLaunch->setEnabled(false);
@@ -127,6 +135,50 @@ void TerminalWidget::onLaunchClicked()
 
     delete m_process;
     m_process = new QProcess(this);
+
+    // Передать пароль через SSH_ASKPASS если аутентификация парольная.
+    // QTemporaryFile::close() не закрывает FD (намеренное поведение Qt),
+    // поэтому используем обычный QFile — у него close() реально освобождает FD,
+    // иначе дочерний процесс наследует write-FD и ssh получает ETXTBSY при exec.
+    if (!m_password.isEmpty() && m_keyPath.isEmpty()) {
+        // Удалить предыдущий скрипт если остался
+        if (!m_askpassPath.isEmpty()) {
+            QFile::remove(m_askpassPath);
+            m_askpassPath.clear();
+        }
+
+        const QString path = QDir::tempPath()
+            + QStringLiteral("/linscp_askpass_%1.sh")
+                  .arg(QUuid::createUuid().toString(QUuid::WithoutBraces).left(8));
+
+        QFile f(path);
+        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            // Экранируем одиночные кавычки в пароле
+            QString safePass = m_password;
+            safePass.replace(QStringLiteral("'"), QStringLiteral("'\\''"));
+            f.write(QStringLiteral("#!/bin/sh\nprintf '%1'\n").arg(safePass).toUtf8());
+            f.close();  // QFile::close() реально закрывает FD
+
+            QFile::setPermissions(path, QFileDevice::ReadOwner
+                                      | QFileDevice::WriteOwner
+                                      | QFileDevice::ExeOwner);
+            m_askpassPath = path;
+
+            QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+            env.insert(QStringLiteral("SSH_ASKPASS"),         path);
+            env.insert(QStringLiteral("SSH_ASKPASS_REQUIRE"), QStringLiteral("force"));
+            m_process->setProcessEnvironment(env);
+
+            // Удалить скрипт через 30 с — SSH к тому времени уже прочитал пароль
+            QTimer::singleShot(30000, this, [this]() {
+                if (!m_askpassPath.isEmpty()) {
+                    QFile::remove(m_askpassPath);
+                    m_askpassPath.clear();
+                }
+            });
+        }
+    }
+
     connect(m_process, &QProcess::started, this, [this, prog]() {
         updateStatus(tr("Running in %1…  (close the terminal window to stop)").arg(prog));
         m_btnLaunch->setEnabled(false);

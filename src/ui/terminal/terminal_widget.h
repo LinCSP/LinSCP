@@ -18,10 +18,12 @@ public:
     explicit TerminalWidget(QWidget *parent = nullptr);
     ~TerminalWidget() override;
 
-    /// Передать параметры подключения (вызвать перед openShell)
+    /// Передать параметры подключения (вызвать перед openShell).
+    /// password — пустая строка если аутентификация по ключу или агенту.
     void setConnectionInfo(const QString &host, quint16 port,
                            const QString &username,
-                           const QString &keyPath = {});
+                           const QString &keyPath  = {},
+                           const QString &password = {});
 
     /// Запустить внешний терминал. Безопасно вызывать повторно.
     void openShell();
@@ -49,10 +51,12 @@ private:
     quint16  m_port     = 22;
     QString  m_username;
     QString  m_keyPath;
+    QString  m_password;   ///< пусто → не используем SSH_ASKPASS
 
     QPushButton *m_btnLaunch  = nullptr;
     QLabel      *m_statusLbl  = nullptr;
     QProcess    *m_process    = nullptr;
+    QString      m_askpassPath;  ///< путь к временному askpass-скрипту
 };
 
 } // namespace linscp::ui::terminal

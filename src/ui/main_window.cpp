@@ -493,7 +493,8 @@ void MainWindow::attachTerminalToCurrentTab()
     const auto profile = m_sessionStore->find(tab->profileId());
     if (profile.isValid()) {
         m_terminalWidget->setConnectionInfo(
-            profile.host, profile.port, profile.username, profile.privateKeyPath);
+            profile.host, profile.port, profile.username,
+            profile.privateKeyPath, profile.password);
         // Авто-запуск если dok только что открыт и сессия уже подключена
         if (tab->isConnected() && !m_terminalWidget->isShellOpen())
             m_terminalWidget->openShell();
