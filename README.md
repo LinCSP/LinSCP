@@ -8,13 +8,17 @@ It aims to bring the familiar WinSCP experience to Linux and other Unix-like sys
 
 - **Dual-pane interface** — local and remote file browsers side by side
 - **SFTP file operations** — browse, upload, download, rename, delete, chmod, mkdir
+- **Drag & drop between panels** — drag local files to remote and vice versa; CopyDialog confirms the target path
+- **WinSCP-style context menus** — Upload/Download (F5), Move (F6), Rename (F2), Delete, New Folder (F7), Open in Terminal, Properties
+- **Background transfers** — "Download to Queue" enqueues files without showing a dialog
+- **File conflict dialog** — Overwrite / Overwrite All / Skip / Skip All / Rename when a target file already exists
 - **SSH channel multiplexing** — SFTP and terminal share a single SSH connection
 - **Authentication** — password, public key (RSA/Ed25519/ECDSA), SSH agent
 - **Session manager** — save/load profiles with AES-256-GCM encrypted passwords
 - **Path state persistence** — each session remembers the last open local and remote directory
 - **WinSCP import** — import sessions directly from WinSCP.ini (host, port, user, key, paths, folder structure)
 - **SSH key manager** — generate, import, export, and convert keys (PuTTY PPK ↔ OpenSSH)
-- **Transfer queue** — parallel transfers with progress, speed, and ETA display
+- **Transfer queue** — parallel transfers with progress, speed, and ETA display; thread-safe (deadlock-free)
 - **Directory synchronization** — compare local ↔ remote and sync in either direction
 - **Known hosts management** — verify and trust remote host keys
 - **SCP protocol support** — as a fallback when SFTP is unavailable
@@ -110,7 +114,8 @@ linscp/
 │   │   │   ├── key_dialog            # SSH key manager UI
 │   │   │   ├── sync_dialog           # Directory sync (3-page wizard)
 │   │   │   ├── transfer_panel        # Transfer queue dock panel
-│   │   │   ├── copy_dialog           # Copy/move options
+│   │   │   ├── copy_dialog           # Copy/move options (Upload/Download/Move + queue)
+│   │   │   ├── overwrite_dialog      # File conflict: Overwrite/Skip/Rename/Cancel
 │   │   │   ├── properties_dialog     # File/directory properties
 │   │   │   ├── progress_dialog       # Transfer progress dialog
 │   │   │   └── preferences_dialog    # Application preferences
@@ -167,9 +172,13 @@ ctest --test-dir build --output-on-failure
 - [x] Dual-pane Qt UI skeleton
 - [x] Path state persistence — sessions reopen at the last visited directory
 - [x] WinSCP session import (host, auth, paths, folder structure)
+- [x] Drag & drop between panels (local ↔ remote, custom MIME type)
+- [x] WinSCP-style context menus (F5 Copy, F6 Move, F2 Rename, F7 Mkdir, Del Delete)
+- [x] Background transfer queue (Download to Queue)
+- [x] File conflict dialog (Overwrite / Skip / Rename)
+- [x] Transfer queue deadlock fix (emit after mutex release)
 - [ ] Working end-to-end SFTP connection
 - [ ] Embedded terminal (qtermwidget6)
-- [ ] Drag & drop between panels
 - [ ] Bookmarks and recent sessions
 - [ ] CI pipeline (GitHub Actions)
 - [ ] Packages: AppImage, Flatpak, AUR
