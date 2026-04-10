@@ -158,7 +158,7 @@ void MainWindow::setupMenuBar()
     // ── Session ───────────────────────────────────────────────────────────────
     QMenu *sessionMenu = menuBar()->addMenu(tr("&Session"));
     sessionMenu->addAction(QIcon::fromTheme("view-refresh"),
-                           tr("&Refresh Remote"), QKeySequence(Qt::Key_F5),
+                           tr("&Refresh Remote"), QKeySequence("Ctrl+R"),
                            this, [this]() {
         if (auto *tab = currentTab(); tab && tab->remotePanel())
             tab->remotePanel()->refresh();
@@ -291,17 +291,32 @@ void MainWindow::setupHotkeys()
         return tab->localPanel();
     };
 
-    new QShortcut(Qt::Key_F5, this, [activePanel]() {
-        if (auto *p = activePanel()) p->refresh();
-    });
-    new QShortcut(Qt::Key_F6, this, [activePanel]() {
+    // F2 — переименовать (как в WinSCP и стандартных файловых менеджерах)
+    new QShortcut(Qt::Key_F2, this, [activePanel]() {
         if (auto *p = activePanel()) p->actionRename();
     });
+    // F5 — копировать / загрузить / скачать
+    new QShortcut(Qt::Key_F5, this, [activePanel]() {
+        if (auto *p = activePanel()) p->actionCopy();
+    });
+    // F6 — переместить
+    new QShortcut(Qt::Key_F6, this, [activePanel]() {
+        if (auto *p = activePanel()) p->actionMove();
+    });
+    // F7 — новая папка
     new QShortcut(Qt::Key_F7, this, [activePanel]() {
         if (auto *p = activePanel()) p->actionMkdir();
     });
+    // F8 / Delete — удалить
     new QShortcut(Qt::Key_F8, this, [activePanel]() {
         if (auto *p = activePanel()) p->actionDelete();
+    });
+    new QShortcut(Qt::Key_Delete, this, [activePanel]() {
+        if (auto *p = activePanel()) p->actionDelete();
+    });
+    // Ctrl+R — обновить панель
+    new QShortcut(QKeySequence("Ctrl+R"), this, [activePanel]() {
+        if (auto *p = activePanel()) p->refresh();
     });
     // Tab — переключить левая/правая панель
     new QShortcut(Qt::Key_Tab, this, [this, activePanel]() {
