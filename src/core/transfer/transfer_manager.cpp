@@ -1,4 +1,5 @@
 #include "transfer_manager.h"
+#include <QFileInfo>
 
 namespace linscp::core::transfer {
 
@@ -60,13 +61,14 @@ void TransferManager::runItem(const TransferItem &item)
     };
 
     if (item.direction == TransferDirection::Download) {
-        ok = m_sftp->download(item.remotePath, item.localPath, progress);
+        ok = m_sftp->downloadRecursive(item.remotePath, item.localPath, progress);
     } else {
         if (item.resumeOffset > 0)
+            // Resume работает только для файлов
             ok = m_sftp->uploadResume(item.localPath, item.remotePath,
                                       item.resumeOffset, progress);
         else
-            ok = m_sftp->upload(item.localPath, item.remotePath, progress);
+            ok = m_sftp->uploadRecursive(item.localPath, item.remotePath, progress);
     }
 
     const QString err = ok ? QString{} : m_sftp->lastError();

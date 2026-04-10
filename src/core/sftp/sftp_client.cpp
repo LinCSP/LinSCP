@@ -5,6 +5,7 @@
 #include <libssh/sftp.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <QDirIterator>
 
 namespace linscp::core::sftp {
 
@@ -206,9 +207,60 @@ bool SftpClient::rmdir(const QString &remotePath)
     return sftp_rmdir(m_sftp, remotePath.toUtf8().constData()) == SSH_OK;
 }
 
-bool SftpClient::removeRecursive(const QString &remotePath)
+bool SftpClient::uploadRecursive(const QString &localPath, const QString &remotePath,
+                                  ProgressCallback progress)
+{
+    const QFileInfo fi(localPath);
+    if (fi.isDir()) {
+        // Создать директорию на сервере (ошибка игнорируется если уже есть)
+        mkdir(remotePath);
+
+        for (const QString &child :
+             QDir(localPath).entryList(QDir::AllEntries | QDir::NoDotAndDotDot)) {
+            if (!uploadRecursive(localPath + '/' + child,
+                                 remotePath + '/' + child, progress))
+                return false;
+        }
+        return true;
+    }
+    return upload(localPath, remotePath, progress);
+}
+
+bool SftpClient::downloadRecursive(const QString &remotePath, const QString &localPath,
+                                    ProgressCallback progress)
 {
     const SftpFileInfo info = stat(remotePath);
+    if (!info.path.isEmpty() && info.isDir) {
+        // Создать локальную директорию
+        QDir().mkpath(localPath);
+
+        const SftpDirectory dir = listDirectory(remotePath);
+        for (const SftpFileInfo &entry : dir.entries) {
+            if (!downloadRecursive(entry.path, localPath + '/' + entry.name, progress))
+                return false;
+        }
+        return true;
+    }
+    return download(remotePath, localPath, progress);
+}
+
+bool SftpClient::removeRecursive(const QString &remotePath)
+{
+    // Экранируем путь для shell: заменяем ' на '\''
+    QString escaped = remotePath;
+    escaped.replace(QStringLiteral("'"), QStringLiteral("'\\''"));
+    const QString cmd = QStringLiteral("rm -rf '%1'").arg(escaped);
+
+    // Один вызов rm -rf на сервере — мгновенно, как в WinSCP
+    const QString result = m_session->execCommand(cmd);
+    Q_UNUSED(result);
+
+    // Проверяем что путь действительно исчез
+    const SftpFileInfo info = stat(remotePath);
+    if (info.path.isEmpty())
+        return true; // удалено
+
+    // Fallback: SFTP-рекурсия (если сервер запрещает exec)
     if (!info.isDir)
         return remove(remotePath);
 

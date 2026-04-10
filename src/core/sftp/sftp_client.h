@@ -54,6 +54,14 @@ public:
     bool uploadResume(const QString &localPath, const QString &remotePath,
                       qint64 offset, ProgressCallback progress = {});
 
+    /// Загрузить файл или директорию рекурсивно (local → remote)
+    bool uploadRecursive(const QString &localPath, const QString &remotePath,
+                         ProgressCallback progress = {});
+
+    /// Скачать файл или директорию рекурсивно (remote → local)
+    bool downloadRecursive(const QString &remotePath, const QString &localPath,
+                           ProgressCallback progress = {});
+
     bool rename(const QString &oldPath, const QString &newPath);
     bool remove(const QString &remotePath);
     bool mkdir(const QString &remotePath);

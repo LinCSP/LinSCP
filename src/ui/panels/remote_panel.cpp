@@ -15,6 +15,8 @@
 #include <QDir>
 #include <QLabel>
 #include <QTimer>
+#include <QFutureWatcher>
+#include <QtConcurrent/QtConcurrent>
 
 namespace linscp::ui::panels {
 
@@ -103,9 +105,15 @@ void RemotePanel::downloadSelected(const QString &localDest, bool isMove)
     }
 
     if (isMove) {
-        for (const QString &path : paths)
-            m_sftp->removeRecursive(path);
-        refresh();
+        auto *watcher = new QFutureWatcher<void>(this);
+        connect(watcher, &QFutureWatcher<void>::finished, this, [this, watcher]() {
+            watcher->deleteLater();
+            refresh();
+        });
+        watcher->setFuture(QtConcurrent::run([sftp = m_sftp, paths]() {
+            for (const QString &path : paths)
+                sftp->removeRecursive(path);
+        }));
     }
 }
 
@@ -163,9 +171,18 @@ void RemotePanel::actionDelete()
                               tr("Delete %n item(s)?", nullptr, paths.size()))
             != QMessageBox::Yes)
         return;
-    for (const QString &path : paths)
-        m_sftp->removeRecursive(path);
-    refresh();
+
+    statusBar()->setText(tr("Deleting…"));
+
+    auto *watcher = new QFutureWatcher<void>(this);
+    connect(watcher, &QFutureWatcher<void>::finished, this, [this, watcher]() {
+        watcher->deleteLater();
+        refresh();
+    });
+    watcher->setFuture(QtConcurrent::run([sftp = m_sftp, paths]() {
+        for (const QString &path : paths)
+            sftp->removeRecursive(path);
+    }));
 }
 
 void RemotePanel::actionRename()

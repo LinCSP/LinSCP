@@ -161,6 +161,13 @@ void ConnectionTab::onSshConnected()
     connect(m_transferManager, &core::transfer::TransferManager::transferStarted,
             m_progressDlg, &dialogs::ProgressDialog::trackTransfer);
 
+    // Обновить удалённую панель после каждой завершённой успешной передачи
+    connect(m_transferManager, &core::transfer::TransferManager::transferFinished,
+            this, [this](const QUuid &, bool ok) {
+        if (ok && m_remotePanel)
+            m_remotePanel->refresh();
+    });
+
     m_syncEngine = new core::sync::SyncEngine(m_sftp, m_sharedQueue, this);
 
     if (m_remotePanel) {
