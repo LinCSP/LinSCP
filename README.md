@@ -84,11 +84,8 @@ linscp/
 │   │   ├── widgets/      # Reusable widgets (breadcrumb, progress, file list)
 │   │   └── dialogs/      # Session, key, sync, transfer dialogs
 │   └── utils/            # Checksum, crypto utilities, file helpers
-├── tests/
-│   └── unit/             # Qt Test unit tests (one executable per suite)
-└── task/
-    ├── TODO.md           # Task board
-    └── CHANGELOG.md      # Change history
+└── tests/
+    └── unit/             # Qt Test unit tests (one executable per suite)
 ```
 
 ## Architecture

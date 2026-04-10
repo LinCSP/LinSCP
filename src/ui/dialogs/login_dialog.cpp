@@ -119,6 +119,7 @@ void LoginDialog::setupUi()
     formLayout->addRow(tr("Protocol:"),   m_protocol);
     formLayout->addRow(tr("Hostname:"),   hostRow);
     formLayout->addRow(tr("Username:"),   m_username);
+    formLayout->addRow(tr("Auth:"),       m_authMethod);
     formLayout->addRow(tr("Password:"),   m_password);
     formLayout->addRow(tr("Key file:"),   keyRow);
 
@@ -228,6 +229,10 @@ void LoginDialog::buildTree()
     newItem->setData(0, RoleType, QStringLiteral("new"));
     newItem->setIcon(0, QIcon::fromTheme("list-add"));
 
+    // Папки из хранилища (явно сохранённые — сохраняются даже пустыми)
+    for (const QString &folderPath : m_store->folders())
+        ensureFolder(folderPath);
+
     // Сессии из хранилища
     for (const auto &profile : m_store->all()) {
         QTreeWidgetItem *parent = ensureFolder(profile.groupPath);
@@ -241,6 +246,18 @@ void LoginDialog::buildTree()
     }
 
     m_tree->expandAll();
+}
+
+QTreeWidgetItem *LoginDialog::currentFolderItem() const
+{
+    auto *item = m_tree->currentItem();
+    if (!item) return nullptr;
+    const QString type = item->data(0, RoleType).toString();
+    if (type == "folder") return item;
+    // Сессия или "new" — смотрим на родителя
+    auto *p = item->parent();
+    if (p && p->data(0, RoleType).toString() == "folder") return p;
+    return nullptr;
 }
 
 QTreeWidgetItem *LoginDialog::ensureFolder(const QString &groupPath)
@@ -299,8 +316,11 @@ void LoginDialog::onTreeSelectionChanged()
         m_isNewConnection = false;
         const QUuid id = QUuid::fromString(item->data(0, RoleUuid).toString());
         showSessionForm(m_store->find(id));
-    } else {
-        // folder — ничего не меняем в форме, просто запрещаем Войти
+    } else if (type == "folder") {
+        // Папка выбрана — показываем форму нового подключения
+        // (сессия будет сохранена внутри этой папки через currentFolderItem())
+        m_isNewConnection = true;
+        showNewConnectionForm();
     }
     updateButtonStates();
 }
@@ -389,6 +409,9 @@ void LoginDialog::onSave()
                                            p.host, &ok);
             if (!ok || p.name.isEmpty()) return;
         }
+        // Сохраняем в текущую папку дерева
+        if (auto *folder = currentFolderItem())
+            p.groupPath = folder->data(0, Qt::UserRole + 2).toString();
         m_store->add(p);
     } else {
         p.id = m_selectedProfile.id;
@@ -449,9 +472,10 @@ void LoginDialog::updateButtonStates()
     const QString type = item ? item->data(0, RoleType).toString() : QString{};
 
     const bool isSession = (type == "session");
-    const bool isNewOrSession = (type == "new" || type == "session");
+    // Папка тоже разрешает сохранение — новая сессия попадёт внутрь
+    const bool isNewOrSession = (type == "new" || type == "session" || type == "folder");
 
-    m_loginBtn->setEnabled(isNewOrSession);
+    m_loginBtn->setEnabled(type == "new" || type == "session");
     m_saveBtn->setEnabled(isNewOrSession);
     m_advancedBtn->setEnabled(isNewOrSession);
 
@@ -479,14 +503,28 @@ void LoginDialog::onNewFolder()
         this, tr("New folder"), tr("Folder name:"),
         QLineEdit::Normal, QString{}, &ok);
     if (!ok || name.isEmpty()) return;
-    // Папка создаётся в дереве как визуальный узел;
-    // реальных пустых папок в хранилище нет — они существуют пока есть сессии
-    auto *folderItem = new QTreeWidgetItem(m_tree, QStringList{name});
-    folderItem->setData(0, RoleType, QStringLiteral("folder"));
-    folderItem->setData(0, Qt::UserRole + 2, name);
+
+    // Определяем родительскую папку из текущего выбора
+    QTreeWidgetItem *parentFolder = currentFolderItem();
+
+    const QString parentPath = parentFolder
+        ? parentFolder->data(0, Qt::UserRole + 2).toString()
+        : QString{};
+    const QString newPath = parentPath.isEmpty() ? name : parentPath + '/' + name;
+
+    auto *folderItem = parentFolder
+        ? new QTreeWidgetItem(parentFolder, QStringList{name})
+        : new QTreeWidgetItem(m_tree,       QStringList{name});
+    folderItem->setData(0, RoleType,        QStringLiteral("folder"));
+    folderItem->setData(0, Qt::UserRole + 2, newPath);
     folderItem->setIcon(0, QIcon::fromTheme("folder"));
     folderItem->setExpanded(true);
+    if (parentFolder) parentFolder->setExpanded(true);
     m_tree->setCurrentItem(folderItem);
+
+    // Сохраняем папку в store — она будет персистентной
+    m_store->addFolder(newPath);
+    m_store->save();
 }
 
 void LoginDialog::onDeleteSession()
@@ -505,9 +543,13 @@ void LoginDialog::onDeleteSession()
 
     m_store->remove(id);
     m_store->save();
-    buildTree();
 
-    // После удаления выбрать "Новое подключение"
+    // Удаляем только сам узел — папки остаются (они хранятся явно в store)
+    QTreeWidgetItem *parent = item->parent();
+    delete item;
+    Q_UNUSED(parent);
+
+    // Выбрать "Новое подключение"
     m_tree->setCurrentItem(m_tree->topLevelItem(0));
 }
 

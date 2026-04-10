@@ -57,6 +57,9 @@ private:
     /// Найти или создать узел-папку для пути "A-media/Cobalt-pro"
     QTreeWidgetItem *ensureFolder(const QString &groupPath);
 
+    /// Папка, в которой находится текущий выбранный элемент (или nullptr)
+    QTreeWidgetItem *currentFolderItem() const;
+
     void showNewConnectionForm();
     void showSessionForm(const core::session::SessionProfile &p);
 

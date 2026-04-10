@@ -23,6 +23,12 @@ public:
     void update(const SessionProfile &profile);
     void remove(const QUuid &id);
 
+    // ── Папки ─────────────────────────────────────────────────────────────────
+    /// Явно сохранённые пути папок (напр. "A-media", "A-media/Cobalt-pro")
+    QStringList folders() const;
+    void addFolder(const QString &path);
+    void removeFolder(const QString &path);
+
     /// Экспорт в JSON (без шифрования — для резервной копии)
     bool exportJson(const QString &path) const;
     /// Импорт из JSON
@@ -34,6 +40,7 @@ signals:
 private:
     QString                m_filePath;
     QList<SessionProfile>  m_profiles;
+    QStringList            m_folders;   ///< явно созданные папки
 
     QByteArray encrypt(const QByteArray &data, const QString &password) const;
     QByteArray decrypt(const QByteArray &data, const QString &password) const;

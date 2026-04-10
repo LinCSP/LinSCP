@@ -226,7 +226,18 @@ bool SessionStore::load(const QString &masterPassword)
     QByteArray raw = f.readAll();
     if (!masterPassword.isEmpty()) raw = decrypt(raw, masterPassword);
 
-    const QJsonArray arr = QJsonDocument::fromJson(raw).array();
+    const QJsonDocument doc = QJsonDocument::fromJson(raw);
+    // Формат: { "sessions": [...], "folders": [...] }
+    // Для обратной совместимости поддерживаем и старый формат — голый массив
+    QJsonArray arr;
+    m_folders.clear();
+    if (doc.isObject()) {
+        arr = doc.object()["sessions"].toArray();
+        for (const auto &v : doc.object()["folders"].toArray())
+            m_folders.append(v.toString());
+    } else {
+        arr = doc.array();
+    }
     m_profiles.clear();
     for (const auto &v : arr)
         m_profiles.append(jsonToProfile(v.toObject()));
@@ -237,7 +248,12 @@ bool SessionStore::save(const QString &masterPassword) const
 {
     QJsonArray arr;
     for (const auto &p : m_profiles) arr.append(profileToJson(p));
-    QByteArray data = QJsonDocument(arr).toJson(QJsonDocument::Compact);
+    QJsonArray foldersArr;
+    for (const auto &f : m_folders) foldersArr.append(f);
+    QJsonObject root;
+    root["sessions"] = arr;
+    root["folders"]  = foldersArr;
+    QByteArray data = QJsonDocument(root).toJson(QJsonDocument::Compact);
     if (!masterPassword.isEmpty()) data = encrypt(data, masterPassword);
 
     QFile f(m_filePath);
@@ -270,6 +286,25 @@ void SessionStore::update(const SessionProfile &profile)
 void SessionStore::remove(const QUuid &id)
 {
     m_profiles.removeIf([&id](const SessionProfile &p) { return p.id == id; });
+    emit changed();
+}
+
+QStringList SessionStore::folders() const { return m_folders; }
+
+void SessionStore::addFolder(const QString &path)
+{
+    if (!m_folders.contains(path)) {
+        m_folders.append(path);
+        emit changed();
+    }
+}
+
+void SessionStore::removeFolder(const QString &path)
+{
+    // Удаляем папку и все её дочерние пути
+    m_folders.removeIf([&path](const QString &f) {
+        return f == path || f.startsWith(path + '/');
+    });
     emit changed();
 }
 
