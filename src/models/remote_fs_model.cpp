@@ -67,10 +67,16 @@ void RemoteFsModel::refresh(const QModelIndex &index)
     ++m_generation;
     Node *node = index.isValid() ? nodeForIndex(index) : m_root.get();
     if (!node) return;
+
+    // ВАЖНО: beginResetModel/endResetModel обязательны перед очисткой children.
+    // Иначе QTreeView удерживает QModelIndex::internalPointer на уже удалённые
+    // узлы и крашится при следующем paintEvent в parent().
+    beginResetModel();
+    node->children.clear();
     node->loaded  = false;
     node->loading = false;
-    node->children.clear();
-    emit dataChanged(index, index);
+    endResetModel();
+
     loadDirectory(node);
 }
 
@@ -82,10 +88,34 @@ void RemoteFsModel::setSortColumn(Column col, Qt::SortOrder order)
     m_sortCol   = col;
     m_sortOrder = order;
 
-    if (!m_root->loaded) return; // нечего сортировать
+    if (!m_root->loaded || m_root->children.empty()) return;
+
+    // Сохраняем persistent-индексы ДО перестановки
+    const QModelIndexList oldPersistent = persistentIndexList();
 
     emit layoutAboutToBeChanged();
+
     applySortToNode(m_root.get());
+
+    // Пересчитываем persistent-индексы ПОСЛЕ перестановки.
+    // Без этого QTreeView держит индексы со старыми номерами строк.
+    // Поиск идёт по internalPointer (Node*), который не меняется при сортировке.
+    QModelIndexList newPersistent;
+    newPersistent.reserve(oldPersistent.size());
+    for (const QModelIndex &oldIdx : oldPersistent) {
+        if (!oldIdx.isValid()) { newPersistent << QModelIndex{}; continue; }
+        auto *n = static_cast<Node *>(oldIdx.internalPointer());
+        Node *p = n->parent ? n->parent : m_root.get();
+        int newRow = -1;
+        for (int i = 0; i < (int)p->children.size(); ++i) {
+            if (p->children[i].get() == n) { newRow = i; break; }
+        }
+        newPersistent << (newRow >= 0
+            ? createIndex(newRow, oldIdx.column(), n)
+            : QModelIndex{});
+    }
+    changePersistentIndexList(oldPersistent, newPersistent);
+
     emit layoutChanged();
 }
 
