@@ -24,6 +24,7 @@
 #include <QMenu>
 #include <QAction>
 #include <QDir>
+#include <QSettings>
 #include <QUuid>
 
 namespace linscp::ui::dialogs {
@@ -67,6 +68,10 @@ void LoginDialog::setupUi()
             this, [this](QTreeWidgetItem *, QTreeWidgetItem *) {
                 onTreeSelectionChanged();
             });
+    connect(m_tree, &QTreeWidget::itemExpanded,
+            this, [this](QTreeWidgetItem *) { saveExpandState(); });
+    connect(m_tree, &QTreeWidget::itemCollapsed,
+            this, [this](QTreeWidgetItem *) { saveExpandState(); });
     connect(m_tree, &QTreeWidget::itemDoubleClicked,
             this, [this](QTreeWidgetItem *item, int) {
                 if (item && item->data(0, RoleType).toString() == "session")
@@ -225,6 +230,7 @@ void LoginDialog::setupUi()
 
 void LoginDialog::buildTree()
 {
+    m_tree->blockSignals(true);
     m_tree->clear();
 
     // "Новое подключение"
@@ -248,7 +254,8 @@ void LoginDialog::buildTree()
         sessionItem->setIcon(0, QIcon::fromTheme("network-server"));
     }
 
-    m_tree->expandAll();
+    m_tree->blockSignals(false);
+    restoreExpandState();
 }
 
 QTreeWidgetItem *LoginDialog::currentFolderItem() const
@@ -679,6 +686,63 @@ void LoginDialog::onExportSessions()
         QMessageBox::information(this, tr("Export"), tr("Sessions exported successfully."));
     else
         QMessageBox::warning(this, tr("Export"), tr("Failed to export sessions."));
+}
+
+// ─── Expand / collapse state ──────────────────────────────────────────────────
+
+// Рекурсивно обходим дерево и собираем пути всех свёрнутых папок
+static void collectCollapsed(QTreeWidgetItem *item, QStringList &out)
+{
+    if (item->data(0, Qt::UserRole).toString() == QLatin1String("folder")
+        && !item->isExpanded())
+    {
+        out << item->data(0, Qt::UserRole + 2).toString();
+    }
+    for (int i = 0; i < item->childCount(); ++i)
+        collectCollapsed(item->child(i), out);
+}
+
+void LoginDialog::saveExpandState() const
+{
+    QStringList collapsed;
+    for (int i = 0; i < m_tree->topLevelItemCount(); ++i)
+        collectCollapsed(m_tree->topLevelItem(i), collapsed);
+
+    QSettings s(QStringLiteral("LinSCP"), QStringLiteral("LinSCP"));
+    s.setValue(QStringLiteral("LoginDialog/collapsedFolders"), collapsed);
+}
+
+// Рекурсивно применяем сохранённое состояние
+static void applyExpandState(QTreeWidgetItem *item, const QSet<QString> &collapsed)
+{
+    if (item->data(0, Qt::UserRole).toString() == QLatin1String("folder")) {
+        const QString path = item->data(0, Qt::UserRole + 2).toString();
+        item->setExpanded(!collapsed.contains(path));
+    }
+    for (int i = 0; i < item->childCount(); ++i)
+        applyExpandState(item->child(i), collapsed);
+}
+
+void LoginDialog::restoreExpandState()
+{
+    // Сигналы уже заблокированы вызывающим buildTree().
+    // Здесь setExpanded() не вызовет saveExpandState().
+    QSettings s(QStringLiteral("LinSCP"), QStringLiteral("LinSCP"));
+    const QStringList list =
+        s.value(QStringLiteral("LoginDialog/collapsedFolders")).toStringList();
+
+    if (list.isEmpty()) {
+        // Первый запуск — свернуть все папки
+        for (int i = 0; i < m_tree->topLevelItemCount(); ++i) {
+            auto *item = m_tree->topLevelItem(i);
+            if (item->data(0, Qt::UserRole).toString() == QLatin1String("folder"))
+                item->setExpanded(false);
+        }
+    } else {
+        const QSet<QString> collapsed(list.begin(), list.end());
+        for (int i = 0; i < m_tree->topLevelItemCount(); ++i)
+            applyExpandState(m_tree->topLevelItem(i), collapsed);
+    }
 }
 
 } // namespace linscp::ui::dialogs

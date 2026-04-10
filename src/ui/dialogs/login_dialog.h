@@ -54,6 +54,8 @@ private slots:
 private:
     void setupUi();
     void buildTree();
+    void saveExpandState() const;
+    void restoreExpandState();
 
     /// Найти или создать узел-папку для пути "A-media/Cobalt-pro"
     QTreeWidgetItem *ensureFolder(const QString &groupPath);
