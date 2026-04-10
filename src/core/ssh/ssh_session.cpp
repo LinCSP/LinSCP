@@ -1,7 +1,6 @@
 #include "ssh_session.h"
 #include <QDir>
-#include <QThread>
-#include <QThreadPool>
+#include <QtConcurrent/QtConcurrent>
 #include <libssh/libssh.h>
 
 namespace linscp::core::ssh {
@@ -16,7 +15,15 @@ SshSession::SshSession(QObject *parent)
 
 SshSession::~SshSession()
 {
-    disconnect();
+    // Сигнализируем воркеру о завершении и прерываем блокирующий ssh_connect/auth
+    m_aborting = true;
+    if (m_session)
+        ssh_disconnect(m_session);  // прерывает ssh_connect() в воркере
+
+    // Ждём завершения воркер-потока прежде чем освободить m_session
+    if (m_workerFuture.isRunning())
+        m_workerFuture.waitForFinished();
+
     if (m_session) {
         ssh_free(m_session);
         m_session = nullptr;
@@ -38,26 +45,34 @@ void SshSession::connectToHost(const QString &host, quint16 port,
     // Соединение выполняется в воркер-потоке чтобы не блокировать UI.
     // Сигналы emitятся из воркера — Qt автоматически ставит их в очередь
     // к UI-потоку (AutoConnection → QueuedConnection для cross-thread).
+    m_aborting = false;
     setState(SessionState::Connecting);
-    QThreadPool::globalInstance()->start([this]() { doConnect(); });
+    m_workerFuture = QtConcurrent::run([this]() { doConnect(); });
 }
 
 void SshSession::doConnect()
 {
+    if (m_aborting) return;
+
+    emit logMessage(tr("Looking for host %1…").arg(m_host));
     ssh_options_set(m_session, SSH_OPTIONS_HOST, m_host.toUtf8().constData());
     ssh_options_set(m_session, SSH_OPTIONS_PORT, &m_port);
     ssh_options_set(m_session, SSH_OPTIONS_USER, m_username.toUtf8().constData());
 
     emit connectProgress(10);
+    emit logMessage(tr("Connecting to %1:%2…").arg(m_host).arg(m_port));
 
     if (ssh_connect(m_session) != SSH_OK) {
+        if (m_aborting) return;
         m_lastError = QString::fromUtf8(ssh_get_error(m_session));
         setState(SessionState::Error);
         emit errorOccurred(m_lastError);
         return;
     }
+    if (m_aborting) return;
 
     emit connectProgress(40);
+    emit logMessage(tr("Connected. Verifying host key…"));
 
     // Fingerprint хоста
     ssh_key key = nullptr;
@@ -74,14 +89,15 @@ void SshSession::doConnect()
     if (hvr != HostVerifyResult::Ok) {
         setState(SessionState::VerifyingHost);
         emit hostVerificationRequired(hvr, m_fingerprint);
-        // Ждём acceptHost() / rejectHost() от UI
         return;
     }
 
     emit connectProgress(60);
     if (!authenticate()) return;
+    if (m_aborting) return;
 
     emit connectProgress(100);
+    emit logMessage(tr("Opening session…"));
     setState(SessionState::Connected);
     emit connected();
 }
@@ -89,8 +105,11 @@ void SshSession::doConnect()
 void SshSession::acceptHost()
 {
     m_knownHosts->accept(m_host, m_port, m_fingerprint);
-    QThreadPool::globalInstance()->start([this]() {
+    m_workerFuture = QtConcurrent::run([this]() {
+        if (m_aborting) return;
         if (!authenticate()) return;
+        if (m_aborting) return;
+        emit logMessage(tr("Opening session…"));
         setState(SessionState::Connected);
         emit connected();
     });
@@ -98,8 +117,11 @@ void SshSession::acceptHost()
 
 void SshSession::acceptHostOnce()
 {
-    QThreadPool::globalInstance()->start([this]() {
+    m_workerFuture = QtConcurrent::run([this]() {
+        if (m_aborting) return;
         if (!authenticate()) return;
+        if (m_aborting) return;
+        emit logMessage(tr("Opening session…"));
         setState(SessionState::Connected);
         emit connected();
     });
@@ -113,16 +135,21 @@ void SshSession::rejectHost()
 
 bool SshSession::authenticate()
 {
+    if (m_aborting) return false;
     setState(SessionState::Authenticating);
+    emit logMessage(tr("Authenticating as %1…").arg(m_username));
 
     int rc = SSH_AUTH_ERROR;
     switch (m_auth.method) {
     case AuthMethod::Password:
+        emit logMessage(tr("Using username \"%1\".").arg(m_username));
+        emit logMessage(tr("Authenticating with pre-entered password."));
         rc = ssh_userauth_password(m_session, nullptr,
                                    m_auth.password.toUtf8().constData());
         break;
 
     case AuthMethod::PublicKey: {
+        emit logMessage(tr("Authenticating with public key \"%1\".").arg(m_auth.privateKeyPath));
         ssh_key privKey = nullptr;
         const char *pass = m_auth.passphrase.isEmpty()
                                ? nullptr
@@ -140,14 +167,16 @@ bool SshSession::authenticate()
     }
 
     case AuthMethod::Agent:
+        emit logMessage(tr("Authenticating via SSH agent."));
         rc = ssh_userauth_agent(m_session, nullptr);
         break;
 
     case AuthMethod::Interactive:
-        // TODO: keyboard-interactive через сигнал в UI
         rc = SSH_AUTH_ERROR;
         break;
     }
+
+    if (m_aborting) return false;
 
     if (rc != SSH_AUTH_SUCCESS) {
         m_lastError = QString::fromUtf8(ssh_get_error(m_session));
@@ -155,6 +184,7 @@ bool SshSession::authenticate()
         emit errorOccurred(m_lastError);
         return false;
     }
+    emit logMessage(tr("Authentication successful."));
     return true;
 }
 

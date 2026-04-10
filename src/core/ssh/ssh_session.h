@@ -2,7 +2,9 @@
 #include <QObject>
 #include <QString>
 #include <QByteArray>
+#include <QFuture>
 #include <memory>
+#include <atomic>
 #include <libssh/libssh.h>
 
 #include "ssh_auth.h"
@@ -82,6 +84,9 @@ signals:
     /// Прогресс рукопожатия (0..100)
     void connectProgress(int percent);
 
+    /// Строка лога подключения — аналог WinSCP Authentication Log
+    void logMessage(const QString &message);
+
 private slots:
     void doConnect();
 
@@ -100,6 +105,10 @@ private:
     QByteArray   m_fingerprint;
 
     std::unique_ptr<KnownHosts> m_knownHosts;
+
+    // Управление воркер-потоком: безопасное завершение при удалении объекта
+    std::atomic<bool> m_aborting{false};
+    QFuture<void>     m_workerFuture;
 };
 
 } // namespace linscp::core::ssh

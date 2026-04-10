@@ -73,6 +73,7 @@ private:
 
     std::unique_ptr<Node>   m_root;
     QThreadPool             m_pool;
+    int                     m_generation = 0; // инкрементируется при каждом reset
 };
 
 } // namespace linscp::models

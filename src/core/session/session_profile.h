@@ -108,8 +108,7 @@ struct SessionProfile {
     QString         keyPassphrase;    ///< passphrase (пусто — спросить при подключении)
     bool            useAgent         = false;
 
-    // Транзиентные поля — не сохраняются на диск, только в памяти сессии
-    QString         password;         ///< пароль (не хранится, передаётся при подключении)
+    QString         password;         ///< пароль (хранится в JSON; шифруется мастер-паролем)
 
     // Пути
     QString initialRemotePath  = "/";

@@ -26,7 +26,7 @@ struct RemoteFsModel::Node {
 RemoteFsModel::RemoteFsModel(core::sftp::SftpClient *sftp, QObject *parent)
     : QAbstractItemModel(parent), m_sftp(sftp)
 {
-    m_pool.setMaxThreadCount(2);
+    m_pool.setMaxThreadCount(1); // sftp_session не thread-safe — только 1 поток
     m_root = std::make_unique<Node>();
     m_root->info.isDir = true;
 }
@@ -35,6 +35,7 @@ RemoteFsModel::~RemoteFsModel() = default;
 
 void RemoteFsModel::setRootPath(const QString &path)
 {
+    ++m_generation;
     beginResetModel();
     m_rootPath = path;
     m_root->info.path = path;
@@ -55,6 +56,7 @@ void RemoteFsModel::setShowHidden(bool show)
 
 void RemoteFsModel::refresh(const QModelIndex &index)
 {
+    ++m_generation;
     Node *node = index.isValid() ? nodeForIndex(index) : m_root.get();
     if (!node) return;
     node->loaded = false;
@@ -70,15 +72,13 @@ void RemoteFsModel::loadDirectory(Node *node)
     const QString path = node->info.path;
     emit loadingStarted(path);
 
-    m_pool.start([this, node, path]() {
+    const int gen = m_generation;
+    m_pool.start([this, node, path, gen]() {
         auto dir = m_sftp->listDirectory(path);
 
-        QMetaObject::invokeMethod(this, [this, node, dir = std::move(dir)]() mutable {
-            // Найти индекс node в модели
-            QModelIndex nodeIdx;
-            if (node != m_root.get()) {
-                nodeIdx = createIndex(node->row(), 0, node);
-            }
+        QMetaObject::invokeMethod(this, [this, node, dir = std::move(dir), gen]() mutable {
+            // Если модель сбросилась пока шла загрузка — узел может быть удалён
+            if (gen != m_generation) return;
 
             beginResetModel(); // простой способ; для больших деревьев — insertRows
 
@@ -145,7 +145,10 @@ QModelIndex RemoteFsModel::parent(const QModelIndex &index) const
 int RemoteFsModel::rowCount(const QModelIndex &parent) const
 {
     Node *node = nodeForIndex(parent);
-    if (!node->loaded && !node->loading) {
+    // Автозагрузка только для корня — дочерние узлы загружаются через navigateTo.
+    // Иначе QTreeView вызывает rowCount(child) для expand-стрелок и создаёт
+    // dangling-pointer UAF при смене директории.
+    if (node == m_root.get() && !node->loaded && !node->loading) {
         const_cast<RemoteFsModel *>(this)->loadDirectory(node);
     }
     return static_cast<int>(node->children.size());

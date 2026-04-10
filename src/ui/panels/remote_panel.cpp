@@ -45,8 +45,6 @@ RemotePanel::RemotePanel(core::sftp::SftpClient *sftp,
             this, &RemotePanel::onLoadingStarted);
     connect(m_model, &models::RemoteFsModel::loadingFinished,
             this, &RemotePanel::onLoadingFinished);
-
-    navigateTo("/");
 }
 
 QString RemotePanel::currentPath() const

@@ -32,6 +32,7 @@ static QJsonObject profileToJson(const SessionProfile &p)
     o["authMethod"]      = static_cast<int>(p.authMethod);
     o["privateKeyPath"]  = p.privateKeyPath;
     o["useAgent"]        = p.useAgent;
+    o["password"]        = p.password;
     o["initialRemote"]   = p.initialRemotePath;
     o["initialLocal"]    = p.initialLocalPath;
     o["syncBrowsing"]    = p.syncBrowsing;
@@ -97,6 +98,7 @@ static SessionProfile jsonToProfile(const QJsonObject &o)
     p.authMethod      = static_cast<ssh::AuthMethod>(o["authMethod"].toInt());
     p.privateKeyPath  = o["privateKeyPath"].toString();
     p.useAgent        = o["useAgent"].toBool();
+    p.password        = o["password"].toString();
     p.initialRemotePath = o["initialRemote"].toString("/");
     p.initialLocalPath  = o["initialLocal"].toString();
     p.syncBrowsing    = o["syncBrowsing"].toBool();

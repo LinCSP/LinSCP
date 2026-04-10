@@ -1,4 +1,5 @@
 #include "sftp_client.h"
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <libssh/sftp.h>
@@ -59,7 +60,8 @@ SftpDirectory SftpClient::listDirectory(const QString &remotePath)
 
         SftpFileInfo info;
         info.name        = name;
-        info.path        = remotePath + '/' + name;
+        // QDir::cleanPath убирает двойные слеши (напр. при remotePath == "/")
+        info.path        = QDir::cleanPath(remotePath + '/' + name);
         info.size        = static_cast<qint64>(attr->size);
         info.mtime       = QDateTime::fromSecsSinceEpoch(attr->mtime);
         info.atime       = QDateTime::fromSecsSinceEpoch(attr->atime);

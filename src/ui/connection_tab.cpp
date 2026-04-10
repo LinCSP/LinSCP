@@ -2,6 +2,7 @@
 #include "panels/local_panel.h"
 #include "panels/remote_panel.h"
 #include "dialogs/host_fingerprint_dialog.h"
+#include "dialogs/auth_dialog.h"
 
 #include "core/session/session_store.h"
 #include "core/session/session_manager.h"
@@ -68,22 +69,34 @@ void ConnectionTab::connectToSession(const QUuid &profileId)
         return;
     }
 
-    // Верификация fingerprint — показываем диалог в UI-потоке
+    // Диалог прогресса подключения — аналог WinSCP TAuthenticateForm
+    // Показываем немодально: закроется сам при connected() или оставит ошибку
+    auto *authDlg = new dialogs::AuthDialog(sshSession, this);
+    authDlg->setAttribute(Qt::WA_DeleteOnClose);
+    authDlg->setModal(true);
+    authDlg->show();
+
+    // Верификация fingerprint — закрываем AuthDialog, показываем fingerprint-диалог,
+    // затем после решения пользователя показываем новый AuthDialog для auth-фазы
     connect(sshSession, &core::ssh::SshSession::hostVerificationRequired,
-            this, [this, sshSession](core::ssh::HostVerifyResult reason,
-                                     const QByteArray &fp) {
+            this, [this, sshSession, authDlg](core::ssh::HostVerifyResult reason,
+                                               const QByteArray &fp) {
+        authDlg->hide();
         const auto profile = m_store->find(m_profileId);
         dialogs::HostFingerprintDialog dlg(profile.host, profile.port, fp, reason,
                                            this);
         dlg.exec();
         switch (dlg.decision()) {
         case dialogs::HostFingerprintDialog::Decision::Accept:
+            authDlg->show();
             sshSession->acceptHost();
             break;
         case dialogs::HostFingerprintDialog::Decision::AcceptOnce:
+            authDlg->show();
             sshSession->acceptHostOnce();
             break;
         case dialogs::HostFingerprintDialog::Decision::Reject:
+            authDlg->close();
             sshSession->rejectHost();
             break;
         }
@@ -108,6 +121,12 @@ void ConnectionTab::connectToProfile(const core::session::SessionProfile &profil
 
 void ConnectionTab::disconnectSession()
 {
+    // SFTP должен закрыться ДО ssh_disconnect: sftp_free() отправляет EOF
+    // по SSH-каналу, а ssh_disconnect делает сокет недействительным.
+    delete m_transferManager;  m_transferManager = nullptr;
+    delete m_syncEngine;       m_syncEngine       = nullptr;
+    delete m_sftp;             m_sftp             = nullptr;
+
     if (m_sessionManager)
         m_sessionManager->closeAll();
 
@@ -116,10 +135,6 @@ void ConnectionTab::disconnectSession()
         m_store->remove(m_tempProfileId);
         m_tempProfileId = {};
     }
-
-    delete m_transferManager;  m_transferManager = nullptr;
-    delete m_syncEngine;       m_syncEngine       = nullptr;
-    delete m_sftp;             m_sftp             = nullptr;
 
     m_sessionManager.reset();
     m_profileId = {};
@@ -170,15 +185,18 @@ void ConnectionTab::onSshConnected()
     });
 
     const auto profile = m_store->find(m_profileId);
-    m_title = tr("%1@%2").arg(profile.username, profile.host);
+    // Имя вкладки: имя сессии если задано (как в WinSCP), иначе user@host
+    m_title = profile.name.isEmpty()
+                  ? tr("%1@%2").arg(profile.username, profile.host)
+                  : profile.name;
     emit titleChanged(m_title);
     emit statusChanged(tr("Connected: %1@%2:%3")
                            .arg(profile.username, profile.host)
                            .arg(profile.port));
     emit connectionEstablished();
 
-    if (!profile.initialRemotePath.isEmpty())
-        m_remotePanel->navigateTo(profile.initialRemotePath);
+    m_remotePanel->navigateTo(
+        profile.initialRemotePath.isEmpty() ? QStringLiteral("/") : profile.initialRemotePath);
 }
 
 void ConnectionTab::onSshError(const QString &msg)
