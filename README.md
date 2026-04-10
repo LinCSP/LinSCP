@@ -11,6 +11,8 @@ It aims to bring the familiar WinSCP experience to Linux and other Unix-like sys
 - **SSH channel multiplexing** — SFTP and terminal share a single SSH connection
 - **Authentication** — password, public key (RSA/Ed25519/ECDSA), SSH agent
 - **Session manager** — save/load profiles with AES-256-GCM encrypted passwords
+- **Path state persistence** — each session remembers the last open local and remote directory
+- **WinSCP import** — import sessions directly from WinSCP.ini (host, port, user, key, paths, folder structure)
 - **SSH key manager** — generate, import, export, and convert keys (PuTTY PPK ↔ OpenSSH)
 - **Transfer queue** — parallel transfers with progress, speed, and ETA display
 - **Directory synchronization** — compare local ↔ remote and sync in either direction
@@ -52,7 +54,7 @@ git clone https://github.com/YOUR_USERNAME/linscp.git
 cd linscp
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-./build/src/linscp
+./build/bin/linscp
 ```
 
 ### Optional features
@@ -71,21 +73,55 @@ cmake -B build -G Ninja -DWITH_KEYRING=ON
 linscp/
 ├── src/
 │   ├── core/
-│   │   ├── ssh/          # SSH session, channel, auth, known hosts
-│   │   ├── sftp/         # SFTP client, file/directory types
-│   │   ├── scp/          # SCP protocol fallback
-│   │   ├── transfer/     # Transfer queue and manager
-│   │   ├── sync/         # Directory synchronization engine
-│   │   ├── session/      # Session profiles and encrypted store
-│   │   └── keys/         # SSH key manager and generator
-│   ├── models/           # Qt item models (local FS, remote FS, transfer queue)
+│   │   ├── app_settings.h/cpp        # Application-wide settings (QSettings wrapper)
+│   │   ├── ssh/                      # SSH session, channel, auth, known hosts
+│   │   ├── sftp/                     # SFTP client, file and directory types
+│   │   ├── scp/                      # SCP protocol fallback
+│   │   ├── transfer/                 # Transfer queue and manager (async, QThreadPool)
+│   │   ├── sync/                     # Directory synchronization engine
+│   │   ├── keys/                     # SSH key manager, generator, PPK converter
+│   │   └── session/
+│   │       ├── session_profile       # SessionProfile struct (all connection settings)
+│   │       ├── session_store         # Encrypted JSON store (AES-256-GCM)
+│   │       ├── session_manager       # Manages active SSH connections
+│   │       ├── path_state_store      # Persists last visited paths per session
+│   │       └── winscp_importer       # Import sessions from WinSCP.ini
+│   ├── models/
+│   │   ├── local_fs_model            # QAbstractItemModel for local filesystem
+│   │   ├── remote_fs_model           # QAbstractItemModel for remote SFTP (async)
+│   │   └── transfer_queue_model      # Model for transfer queue view
 │   ├── ui/
-│   │   ├── panels/       # Local and remote file panels
-│   │   ├── widgets/      # Reusable widgets (breadcrumb, progress, file list)
-│   │   └── dialogs/      # Session, key, sync, transfer dialogs
-│   └── utils/            # Checksum, crypto utilities, file helpers
+│   │   ├── main_window               # Main window, tab management, menu/toolbar
+│   │   ├── connection_tab            # One tab: LocalPanel + RemotePanel per SSH session
+│   │   ├── panels/
+│   │   │   ├── file_panel            # Base class (toolbar, breadcrumb, list, statusbar)
+│   │   │   ├── local_panel           # Left panel — local filesystem
+│   │   │   └── remote_panel          # Right panel — remote SFTP filesystem
+│   │   ├── widgets/
+│   │   │   ├── breadcrumb_bar        # Clickable path bar with inline edit
+│   │   │   ├── file_list_view        # File list with drag & drop support
+│   │   │   └── transfer_progress_widget  # Per-transfer progress row
+│   │   ├── dialogs/
+│   │   │   ├── login_dialog          # Session tree + connection form (main entry point)
+│   │   │   ├── session_dialog        # Quick connect dialog
+│   │   │   ├── advanced_session_dialog   # Tunnel, proxy, environment, SSH settings
+│   │   │   ├── auth_dialog           # Authentication progress
+│   │   │   ├── host_fingerprint_dialog   # Unknown/changed host key warning
+│   │   │   ├── key_dialog            # SSH key manager UI
+│   │   │   ├── sync_dialog           # Directory sync (3-page wizard)
+│   │   │   ├── transfer_panel        # Transfer queue dock panel
+│   │   │   ├── copy_dialog           # Copy/move options
+│   │   │   ├── properties_dialog     # File/directory properties
+│   │   │   ├── progress_dialog       # Transfer progress dialog
+│   │   │   └── preferences_dialog    # Application preferences
+│   │   └── terminal/
+│   │       └── terminal_widget       # Embedded terminal (qtermwidget6, optional)
+│   └── utils/
+│       ├── checksum                  # Local and remote file checksums
+│       ├── crypto_utils              # AES-256-GCM encrypt/decrypt helpers
+│       └── file_utils                # Path and file utility functions
 └── tests/
-    └── unit/             # Qt Test unit tests (one executable per suite)
+    └── unit/                         # Qt Test unit tests (one executable per suite)
 ```
 
 ## Architecture
@@ -96,8 +132,21 @@ LinSCP is organized around these core components:
 - **`linscp::core::sftp`** — `SftpClient` provides the full SFTP API. Directory listings are loaded asynchronously via `QThreadPool`.
 - **`linscp::core::transfer`** — Thread-safe `TransferQueue` + `TransferManager` that runs transfers in a worker pool.
 - **`linscp::core::sync`** — `SyncComparator` diffs local ↔ remote trees and feeds deltas to `SyncEngine`.
-- **`linscp::core::session`** — `SessionProfile` serialized to JSON, with passwords encrypted using AES-256-GCM (OpenSSL EVP).
+- **`linscp::core::session`** — `SessionProfile` serialized to JSON with AES-256-GCM encrypted passwords. `PathStateStore` saves the last visited local and remote path for each session in `~/.config/linscp/path_state.json`. `WinScpImporter` parses WinSCP.ini and converts sessions including folder hierarchy.
 - **`linscp::models`** — `RemoteFsModel` / `LocalFsModel` implement `QAbstractItemModel` for the dual-pane view.
+
+## WinSCP import
+
+**Tools → Import from WinSCP…** in the Login dialog accepts a `WinSCP.ini` file.
+
+Imported fields per session:
+- Host, port, username
+- Protocol (SCP / SFTP)
+- Public key file path (Windows path converted to Linux)
+- Initial remote and local directories
+- Folder hierarchy (e.g. `Moy/A-media/Cobalt-pro`)
+
+Passwords are **not** imported — they are stored encrypted with a WinSCP-specific key and cannot be decoded. You will be prompted for a password or key on first connect.
 
 ## Running tests
 
@@ -116,6 +165,8 @@ ctest --test-dir build --output-on-failure
 - [x] SSH key manager and generator
 - [x] Directory synchronization engine
 - [x] Dual-pane Qt UI skeleton
+- [x] Path state persistence — sessions reopen at the last visited directory
+- [x] WinSCP session import (host, auth, paths, folder structure)
 - [ ] Working end-to-end SFTP connection
 - [ ] Embedded terminal (qtermwidget6)
 - [ ] Drag & drop between panels

@@ -9,7 +9,7 @@ class QAction;
 class QLabel;
 class QDockWidget;
 
-namespace linscp::core::session { class SessionStore; }
+namespace linscp::core::session { class SessionStore; class PathStateStore; }
 namespace linscp::core::transfer { class TransferQueue; }
 namespace linscp::core::keys    { class KeyManager; class KeyGenerator; }
 
@@ -76,10 +76,11 @@ private:
     void attachTerminalToCurrentTab();
 
     // Core
-    std::unique_ptr<core::session::SessionStore>   m_sessionStore;
-    std::unique_ptr<core::transfer::TransferQueue> m_transferQueue;
-    std::unique_ptr<core::keys::KeyManager>        m_keyManager;
-    std::unique_ptr<core::keys::KeyGenerator>      m_keyGenerator;
+    std::unique_ptr<core::session::SessionStore>    m_sessionStore;
+    std::unique_ptr<core::session::PathStateStore>  m_pathStateStore;
+    std::unique_ptr<core::transfer::TransferQueue>  m_transferQueue;
+    std::unique_ptr<core::keys::KeyManager>         m_keyManager;
+    std::unique_ptr<core::keys::KeyGenerator>       m_keyGenerator;
 
     // UI
     QTabWidget             *m_tabWidget     = nullptr;

@@ -1,5 +1,6 @@
 #include "login_dialog.h"
 #include "advanced_session_dialog.h"
+#include "core/session/winscp_importer.h"
 
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -170,6 +171,8 @@ void LoginDialog::setupUi()
 
     // Инструменты ▼
     m_toolsMenu = new QMenu(this);
+    m_toolsMenu->addAction(tr("Import from WinSCP…"), this, &LoginDialog::onImportWinScp);
+    m_toolsMenu->addSeparator();
     m_toolsMenu->addAction(tr("Import sessions…"), this, &LoginDialog::onImportSessions);
     m_toolsMenu->addAction(tr("Export sessions…"), this, &LoginDialog::onExportSessions);
 
@@ -479,7 +482,7 @@ void LoginDialog::updateButtonStates()
     m_saveBtn->setEnabled(isNewOrSession);
     m_advancedBtn->setEnabled(isNewOrSession);
 
-    m_actDelete->setEnabled(isSession);
+    m_actDelete->setEnabled(isSession || type == "folder");
     m_actRename->setEnabled(isSession);
     m_actDuplicate->setEnabled(isSession);
 }
@@ -527,10 +530,46 @@ void LoginDialog::onNewFolder()
     m_store->save();
 }
 
+// Рекурсивно собрать UUID сессий из узла дерева и всех его потомков
+static void collectSessionIds(QTreeWidgetItem *node, QList<QUuid> &out)
+{
+    if (node->data(0, Qt::UserRole).toString() == QLatin1String("session"))
+        out.append(QUuid::fromString(node->data(0, Qt::UserRole + 1).toString()));
+    for (int i = 0; i < node->childCount(); ++i)
+        collectSessionIds(node->child(i), out);
+}
+
 void LoginDialog::onDeleteSession()
 {
     auto *item = m_tree->currentItem();
-    if (!item || item->data(0, RoleType).toString() != "session") return;
+    if (!item) return;
+
+    const QString type = item->data(0, RoleType).toString();
+
+    if (type == QLatin1String("folder")) {
+        QList<QUuid> ids;
+        collectSessionIds(item, ids);
+        const QString folderPath = item->data(0, Qt::UserRole + 2).toString();
+
+        const QString msg = ids.isEmpty()
+            ? tr("Delete folder \"%1\"?").arg(item->text(0))
+            : tr("Delete folder \"%1\" and %2 session(s) inside?")
+                  .arg(item->text(0)).arg(ids.size());
+
+        if (QMessageBox::question(this, tr("Delete folder"), msg,
+                QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes)
+            return;
+
+        for (const QUuid &id : ids)
+            m_store->remove(id);
+        m_store->removeFolder(folderPath);
+        m_store->save();
+        delete item;
+        m_tree->setCurrentItem(m_tree->topLevelItem(0));
+        return;
+    }
+
+    if (type != QLatin1String("session")) return;
 
     const QUuid id = QUuid::fromString(item->data(0, RoleUuid).toString());
     const auto profile = m_store->find(id);
@@ -544,12 +583,7 @@ void LoginDialog::onDeleteSession()
     m_store->remove(id);
     m_store->save();
 
-    // Удаляем только сам узел — папки остаются (они хранятся явно в store)
-    QTreeWidgetItem *parent = item->parent();
     delete item;
-    Q_UNUSED(parent);
-
-    // Выбрать "Новое подключение"
     m_tree->setCurrentItem(m_tree->topLevelItem(0));
 }
 
@@ -595,6 +629,28 @@ void LoginDialog::onDuplicateSession()
 }
 
 // ─── Tools menu ───────────────────────────────────────────────────────────────
+
+void LoginDialog::onImportWinScp()
+{
+    const QString path = QFileDialog::getOpenFileName(
+        this, tr("Import from WinSCP"), QDir::homePath(),
+        tr("WinSCP config (*.ini);;All files (*)"));
+    if (path.isEmpty()) return;
+
+    const auto profiles = core::session::WinScpImporter::import(path);
+    if (profiles.isEmpty()) {
+        QMessageBox::warning(this, tr("Import"), tr("No sessions found in the selected file."));
+        return;
+    }
+
+    for (const auto &p : profiles)
+        m_store->add(p);
+    m_store->save();
+    buildTree();
+
+    QMessageBox::information(this, tr("Import"),
+        tr("Imported %1 session(s) from WinSCP.").arg(profiles.size()));
+}
 
 void LoginDialog::onImportSessions()
 {

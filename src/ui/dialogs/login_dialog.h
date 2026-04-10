@@ -47,6 +47,7 @@ private slots:
     void onRenameSession();
     void onDuplicateSession();
     // Инструменты
+    void onImportWinScp();
     void onImportSessions();
     void onExportSessions();
 

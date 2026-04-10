@@ -8,6 +8,7 @@
 #include "core/session/session_store.h"
 #include "core/session/session_manager.h"
 #include "core/session/session_profile.h"
+#include "core/session/path_state_store.h"
 #include "core/ssh/ssh_session.h"
 #include "core/sftp/sftp_client.h"
 #include "core/transfer/transfer_manager.h"
@@ -20,12 +21,14 @@
 
 namespace linscp::ui {
 
-ConnectionTab::ConnectionTab(core::session::SessionStore   *store,
-                             core::transfer::TransferQueue *sharedQueue,
+ConnectionTab::ConnectionTab(core::session::SessionStore    *store,
+                             core::transfer::TransferQueue  *sharedQueue,
+                             core::session::PathStateStore  *pathState,
                              QWidget *parent)
     : QWidget(parent)
     , m_store(store)
     , m_sharedQueue(sharedQueue)
+    , m_pathState(pathState)
 {
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -176,6 +179,22 @@ void ConnectionTab::onSshConnected()
             m_remotePanel->downloadSelected(m_localPanel->currentPath());
     });
 
+    // Сохранять текущие пути при навигации
+    if (m_pathState) {
+        connect(m_localPanel, &panels::FilePanel::pathChanged,
+                this, [this](const QString &path) {
+            auto state = m_pathState->load(m_profileId);
+            state.localPath = path;
+            m_pathState->save(m_profileId, state);
+        });
+        connect(m_remotePanel, &panels::FilePanel::pathChanged,
+                this, [this](const QString &path) {
+            auto state = m_pathState->load(m_profileId);
+            state.remotePath = path;
+            m_pathState->save(m_profileId, state);
+        });
+    }
+
     const auto profile = m_store->find(m_profileId);
     m_title = profile.name.isEmpty()
                   ? tr("%1@%2").arg(profile.username, profile.host)
@@ -186,8 +205,21 @@ void ConnectionTab::onSshConnected()
                            .arg(profile.port));
     emit connectionEstablished();
 
-    m_remotePanel->navigateTo(
-        profile.initialRemotePath.isEmpty() ? QStringLiteral("/") : profile.initialRemotePath);
+    // Восстановить пути: сначала из PathStateStore, иначе из профиля
+    if (m_pathState) {
+        const auto state = m_pathState->load(m_profileId);
+        if (!state.localPath.isEmpty())
+            m_localPanel->navigateTo(state.localPath);
+        const QString remotePath = !state.remotePath.isEmpty()
+                                       ? state.remotePath
+                                       : (profile.initialRemotePath.isEmpty()
+                                              ? QStringLiteral("/")
+                                              : profile.initialRemotePath);
+        m_remotePanel->navigateTo(remotePath);
+    } else {
+        m_remotePanel->navigateTo(
+            profile.initialRemotePath.isEmpty() ? QStringLiteral("/") : profile.initialRemotePath);
+    }
 }
 
 void ConnectionTab::onSshError(const QString &msg)

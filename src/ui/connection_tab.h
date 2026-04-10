@@ -7,7 +7,7 @@
 
 class QSplitter;
 
-namespace linscp::core::session { class SessionStore; class SessionManager; }
+namespace linscp::core::session { class SessionStore; class SessionManager; class PathStateStore; }
 namespace linscp::core::transfer { class TransferQueue; class TransferManager; }
 namespace linscp::core::sftp    { class SftpClient; }
 namespace linscp::core::sync    { class SyncEngine; }
@@ -23,8 +23,9 @@ namespace dialogs { class HostFingerprintDialog; class ProgressDialog; }
 class ConnectionTab : public QWidget {
     Q_OBJECT
 public:
-    explicit ConnectionTab(core::session::SessionStore   *store,
-                           core::transfer::TransferQueue *sharedQueue,
+    explicit ConnectionTab(core::session::SessionStore    *store,
+                           core::transfer::TransferQueue  *sharedQueue,
+                           core::session::PathStateStore  *pathState,
                            QWidget *parent = nullptr);
     ~ConnectionTab() override;
 
@@ -62,8 +63,9 @@ private:
     void showPlaceholder();
     void replaceRemotePanel(QWidget *w);
 
-    core::session::SessionStore   *m_store;
-    core::transfer::TransferQueue *m_sharedQueue;
+    core::session::SessionStore    *m_store;
+    core::transfer::TransferQueue  *m_sharedQueue;
+    core::session::PathStateStore  *m_pathState;
 
     QUuid   m_profileId;
     QUuid   m_tempProfileId;

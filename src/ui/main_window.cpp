@@ -11,6 +11,7 @@
 #include "dialogs/preferences_dialog.h"
 
 #include "core/session/session_store.h"
+#include "core/session/path_state_store.h"
 #include "core/transfer/transfer_queue.h"
 #include "core/keys/key_manager.h"
 #include "core/keys/key_generator.h"
@@ -48,6 +49,9 @@ MainWindow::MainWindow(QWidget *parent)
     m_sessionStore  = std::make_unique<core::session::SessionStore>(
         QDir::homePath() + "/.config/linscp/sessions.json");
     m_sessionStore->load();
+
+    m_pathStateStore = std::make_unique<core::session::PathStateStore>(
+        QDir::homePath() + "/.config/linscp/path_state.json", this);
 
     m_transferQueue = std::make_unique<core::transfer::TransferQueue>(this);
     m_keyManager    = std::make_unique<core::keys::KeyManager>(this);
@@ -319,7 +323,8 @@ void MainWindow::setupHotkeys()
 
 ConnectionTab *MainWindow::addConnectionTab(const QString &title)
 {
-    auto *tab = new ConnectionTab(m_sessionStore.get(), m_transferQueue.get(), this);
+    auto *tab = new ConnectionTab(m_sessionStore.get(), m_transferQueue.get(),
+                                  m_pathStateStore.get(), this);
     const QString tabTitle = title.isEmpty() ? tr("New connection") : title;
     const int idx = m_tabWidget->addTab(tab, tabTitle);
     m_tabWidget->setCurrentIndex(idx);
