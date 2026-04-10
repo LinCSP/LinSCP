@@ -103,15 +103,8 @@ void RemotePanel::downloadSelected(const QString &localDest, bool isMove)
     }
 
     if (isMove) {
-        // Удалить remote файлы после постановки в очередь
-        // (TransferManager завершит перенос, удаление сразу — acceptable для Move)
-        for (const QString &path : paths) {
-            const QModelIndex idx = m_model->indexForPath(path);
-            if (idx.isValid() && m_model->isDir(idx))
-                m_sftp->rmdir(path);
-            else
-                m_sftp->remove(path);
-        }
+        for (const QString &path : paths)
+            m_sftp->removeRecursive(path);
         refresh();
     }
 }
@@ -170,13 +163,8 @@ void RemotePanel::actionDelete()
                               tr("Delete %n item(s)?", nullptr, paths.size()))
             != QMessageBox::Yes)
         return;
-    for (const QString &path : paths) {
-        const QModelIndex idx = m_model->indexForPath(path);
-        if (idx.isValid() && m_model->isDir(idx))
-            m_sftp->rmdir(path);
-        else
-            m_sftp->remove(path);
-    }
+    for (const QString &path : paths)
+        m_sftp->removeRecursive(path);
     refresh();
 }
 

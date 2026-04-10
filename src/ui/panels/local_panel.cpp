@@ -1,4 +1,5 @@
 #include "local_panel.h"
+#include "core/app_settings.h"
 #include "models/local_fs_model.h"
 #include "ui/widgets/breadcrumb_bar.h"
 #include "ui/widgets/file_list_view.h"
@@ -13,7 +14,64 @@
 #include <QInputDialog>
 #include <QMessageBox>
 #include <QProcess>
+#include <QStandardPaths>
 #include <QTimer>
+
+namespace {
+
+/// Открывает локальный терминал в директории dir.
+/// Использует настройку AppSettings::terminalMode() — тот же эмулятор что и для SSH.
+static void openLocalTerminal(const QString &dir)
+{
+    using Mode = linscp::core::AppSettings::TerminalMode;
+    const Mode mode = linscp::core::AppSettings::terminalMode();
+
+    auto tryLaunch = [&](const QString &bin) -> bool {
+        const QString path = QStandardPaths::findExecutable(bin);
+        if (path.isEmpty()) return false;
+        QProcess::startDetached(path, {}, dir);
+        return true;
+    };
+
+    if (mode == Mode::Custom) {
+        const QString custom = linscp::core::AppSettings::terminalCustomPath();
+        if (!custom.isEmpty()) QProcess::startDetached(custom, {}, dir);
+        return;
+    }
+
+    if (mode != Mode::AutoDetect) {
+        const QString bin = linscp::core::AppSettings::terminalBinaryForMode(mode);
+        if (!bin.isEmpty()) tryLaunch(bin);
+        return;
+    }
+
+    // AutoDetect — тот же приоритет что в TerminalWidget
+    for (const char *bin : { "kitty", "konsole", "gnome-terminal",
+                              "xfce4-terminal", "alacritty", "xterm",
+                              "lxterminal", "mate-terminal", "tilix" }) {
+        if (tryLaunch(bin)) return;
+    }
+}
+
+/// Рекурсивно копирует файл или директорию src в destDir/name(src).
+/// Возвращает false при первой ошибке.
+bool copyRecursively(const QString &src, const QString &destDir)
+{
+    const QFileInfo fi(src);
+    const QString dst = destDir + '/' + fi.fileName();
+    if (fi.isDir()) {
+        if (!QDir(destDir).mkdir(fi.fileName()))
+            return false;
+        for (const QString &child : QDir(src).entryList(QDir::AllEntries | QDir::NoDotAndDotDot)) {
+            if (!copyRecursively(src + '/' + child, dst))
+                return false;
+        }
+        return true;
+    }
+    return QFile::copy(src, dst);
+}
+
+} // anonymous namespace
 
 namespace linscp::ui::panels {
 
@@ -120,10 +178,16 @@ void LocalPanel::actionDelete()
     if (paths.isEmpty()) return;
     if (QMessageBox::question(this, tr("Delete"),
                               tr("Delete %n item(s)?", nullptr, paths.size()))
-            == QMessageBox::Yes) {
-        for (const QString &p : paths)
+            != QMessageBox::Yes)
+        return;
+
+    for (const QString &p : paths) {
+        if (QFileInfo(p).isDir())
+            QDir(p).removeRecursively();
+        else
             QFile::remove(p);
     }
+    refresh();
 }
 
 void LocalPanel::actionRename()
@@ -199,9 +263,9 @@ void LocalPanel::populateContextMenu(QMenu *menu, const QModelIndex &index)
     // ── Открыть в терминале ───────────────────────────────────────────────────
     menu->addAction(QIcon::fromTheme("utilities-terminal"),
                     tr("Open in Terminal"),
-                    [this, path]() {
+                    [path]() {
         const QString dir = QFileInfo(path).isDir() ? path : QFileInfo(path).dir().absolutePath();
-        QProcess::startDetached("xterm", {}, dir);
+        openLocalTerminal(dir);
     });
 
     // ── Свойства ──────────────────────────────────────────────────────────────
@@ -230,9 +294,8 @@ void LocalPanel::onDropToPath(const QStringList &sourcePaths,
             // Local → Local: копирование внутри локальной ФС
             const QString dest = targetPath.isEmpty() ? currentPath() : targetPath;
             for (const QString &src : sourcePaths) {
-                const QString dstPath = dest + '/' + QFileInfo(src).fileName();
-                if (src != dstPath)
-                    QFile::copy(src, dstPath);
+                if (src != dest + '/' + QFileInfo(src).fileName())
+                    copyRecursively(src, dest);
             }
             refresh();
         }

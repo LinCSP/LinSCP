@@ -206,6 +206,20 @@ bool SftpClient::rmdir(const QString &remotePath)
     return sftp_rmdir(m_sftp, remotePath.toUtf8().constData()) == SSH_OK;
 }
 
+bool SftpClient::removeRecursive(const QString &remotePath)
+{
+    const SftpFileInfo info = stat(remotePath);
+    if (!info.isDir)
+        return remove(remotePath);
+
+    const SftpDirectory dir = listDirectory(remotePath);
+    for (const SftpFileInfo &entry : dir.entries) {
+        if (!removeRecursive(entry.path))
+            return false;
+    }
+    return rmdir(remotePath);
+}
+
 bool SftpClient::chmod(const QString &remotePath, uint mode)
 {
     return sftp_chmod(m_sftp, remotePath.toUtf8().constData(), mode) == SSH_OK;

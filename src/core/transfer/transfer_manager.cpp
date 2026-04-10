@@ -46,7 +46,10 @@ void TransferManager::scheduleNext()
             runItem(item);
         });
     }
-    emit overallProgress(m_active.load(), 0 /* TODO */);
+    int queued = 0;
+    for (const auto &it : m_queue->items())
+        if (it.status == TransferStatus::Queued) ++queued;
+    emit overallProgress(m_active.load(), queued);
 }
 
 void TransferManager::runItem(const TransferItem &item)

@@ -58,6 +58,8 @@ public:
     bool remove(const QString &remotePath);
     bool mkdir(const QString &remotePath);
     bool rmdir(const QString &remotePath);
+    /// Рекурсивно удалить файл или директорию (включая непустые)
+    bool removeRecursive(const QString &remotePath);
     bool chmod(const QString &remotePath, uint mode);
 
     QString lastError() const { return m_lastError; }
