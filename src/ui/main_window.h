@@ -91,12 +91,13 @@ private:
     QDockWidget              *m_terminalDock   = nullptr;
     terminal::TerminalWidget *m_terminalWidget = nullptr;
 
-    QComboBox *m_sessionCombo     = nullptr;
-    QAction   *m_connectAction    = nullptr;
-    QAction   *m_disconnectAction = nullptr;
-    QAction   *m_terminalAction   = nullptr;
-    QLabel    *m_connectionLabel  = nullptr;
-    QLabel    *m_statusLabel      = nullptr;
+    QComboBox *m_sessionCombo       = nullptr;
+    QAction   *m_connectAction      = nullptr;
+    QAction   *m_disconnectAction   = nullptr;
+    QAction   *m_terminalAction     = nullptr;
+    QAction   *m_showHiddenAction   = nullptr;
+    QLabel    *m_connectionLabel    = nullptr;
+    QLabel    *m_statusLabel        = nullptr;
 };
 
 } // namespace linscp::ui

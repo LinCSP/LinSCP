@@ -180,10 +180,10 @@ void MainWindow::setupMenuBar()
 
     // ── View ──────────────────────────────────────────────────────────────────
     QMenu *viewMenu = menuBar()->addMenu(tr("&View"));
-    QAction *showHidden = viewMenu->addAction(tr("Show &Hidden Files"));
-    showHidden->setCheckable(true);
-    showHidden->setShortcut(QKeySequence("Ctrl+Alt+H"));
-    connect(showHidden, &QAction::toggled, this, [this](bool show) {
+    m_showHiddenAction = viewMenu->addAction(tr("Show &Hidden Files"));
+    m_showHiddenAction->setCheckable(true);
+    m_showHiddenAction->setShortcut(QKeySequence("Ctrl+Alt+H"));
+    connect(m_showHiddenAction, &QAction::toggled, this, [this](bool show) {
         // Применяем к обеим панелям текущего таба
         if (auto *tab = currentTab()) {
             if (tab->localPanel())
@@ -329,6 +329,14 @@ ConnectionTab *MainWindow::addConnectionTab(const QString &title)
     const int idx = m_tabWidget->addTab(tab, tabTitle);
     m_tabWidget->setCurrentIndex(idx);
 
+    // Применяем текущее состояние «показывать скрытые» к новому табу
+    if (m_showHiddenAction && m_showHiddenAction->isChecked()) {
+        if (tab->localPanel())
+            tab->localPanel()->setShowHiddenFiles(true);
+        if (tab->remotePanel())
+            tab->remotePanel()->setShowHiddenFiles(true);
+    }
+
     connect(tab, &ConnectionTab::titleChanged, this, [this, tab](const QString &t) {
         const int i = m_tabWidget->indexOf(tab);
         if (i >= 0) m_tabWidget->setTabText(i, t);
@@ -336,8 +344,11 @@ ConnectionTab *MainWindow::addConnectionTab(const QString &title)
     connect(tab, &ConnectionTab::statusChanged, this, [this, tab](const QString &msg) {
         if (tab == currentTab()) m_connectionLabel->setText(msg);
     });
-    connect(tab, &ConnectionTab::connectionEstablished, this, [this]() {
+    connect(tab, &ConnectionTab::connectionEstablished, this, [this, tab]() {
         updateToolbarState();
+        // Применяем showHidden к новой RemotePanel, которая создаётся при коннекте
+        if (m_showHiddenAction && m_showHiddenAction->isChecked() && tab->remotePanel())
+            tab->remotePanel()->setShowHiddenFiles(true);
         // Если терминал виден — открыть shell на новой сессии
         if (m_terminalDock && m_terminalDock->isVisible())
             attachTerminalToCurrentTab();
@@ -528,6 +539,8 @@ void MainWindow::saveWindowState()
     s.setValue("geometry",    saveGeometry());
     s.setValue("windowState", saveState());
     s.setValue("vertSplitter", m_vertSplitter->saveState());
+    if (m_showHiddenAction)
+        s.setValue("showHiddenFiles", m_showHiddenAction->isChecked());
 }
 
 void MainWindow::restoreWindowState()
@@ -537,6 +550,8 @@ void MainWindow::restoreWindowState()
     if (s.contains("windowState"))  restoreState(s.value("windowState").toByteArray());
     if (s.contains("vertSplitter")) m_vertSplitter->restoreState(
         s.value("vertSplitter").toByteArray());
+    if (m_showHiddenAction && s.contains("showHiddenFiles"))
+        m_showHiddenAction->setChecked(s.value("showHiddenFiles").toBool());
 }
 
 } // namespace linscp::ui
