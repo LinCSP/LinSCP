@@ -352,7 +352,8 @@ core::session::SessionProfile LoginDialog::collectProfile() const
     p.authMethod = static_cast<core::ssh::AuthMethod>(
         m_authMethod->currentData().toInt());
     p.privateKeyPath = m_keyPath->text();
-    p.notes     = m_noteMemo->toPlainText();
+    p.password   = m_password->text();   // транзиентно — не сохраняется на диск
+    p.notes      = m_noteMemo->toPlainText();
 
     return p;
 }

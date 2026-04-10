@@ -33,10 +33,10 @@ ssh::SshSession *SessionManager::open(const QUuid &profileId)
         auth = ssh::AuthParams::withAgent();
         break;
     case ssh::AuthMethod::PublicKey:
-        auth = ssh::AuthParams::withKey(profile.privateKeyPath);
+        auth = ssh::AuthParams::withKey(profile.privateKeyPath, profile.keyPassphrase);
         break;
     default:
-        auth = ssh::AuthParams::withPassword({});
+        auth = ssh::AuthParams::withPassword(profile.password);
         break;
     }
 

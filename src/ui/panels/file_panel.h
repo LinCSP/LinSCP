@@ -38,6 +38,10 @@ public:
     virtual void actionMkdir()  {}
     virtual void actionDelete() {}
 
+    /// Включить/выключить отображение скрытых файлов (аналог WinSCP ShowHiddenFiles)
+    virtual void setShowHiddenFiles(bool show) { Q_UNUSED(show); }
+    virtual bool showHiddenFiles() const { return false; }
+
     /// Передать фокус списку файлов
     void setFocused();
 

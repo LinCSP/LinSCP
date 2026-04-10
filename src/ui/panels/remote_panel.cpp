@@ -4,6 +4,8 @@
 #include "core/transfer/transfer_queue.h"
 #include "ui/widgets/breadcrumb_bar.h"
 #include "ui/widgets/file_list_view.h"
+#include "ui/dialogs/copy_dialog.h"
+#include "ui/dialogs/properties_dialog.h"
 #include <QHeaderView>
 #include <QMenu>
 #include <QAction>
@@ -75,24 +77,46 @@ QStringList RemotePanel::selectedPaths() const
 
 void RemotePanel::downloadSelected(const QString &localDest)
 {
-    for (const QString &remotePath : selectedPaths()) {
+    const QStringList paths = selectedPaths();
+    if (paths.isEmpty()) return;
+
+    QString dest = localDest;
+    if (dest.isEmpty()) {
+        // Показываем CopyDialog — аналог WinSCP TCopyDialog
+        dialogs::CopyDialog dlg(dialogs::CopyDialog::Direction::Download,
+                                /*isMove=*/false, paths,
+                                QDir::homePath(), this);
+        if (dlg.exec() != QDialog::Accepted) return;
+        dest = dlg.targetDirectory();
+    }
+
+    for (const QString &remotePath : paths) {
         const QFileInfo fi(remotePath);
         core::transfer::TransferItem item;
         item.direction  = core::transfer::TransferDirection::Download;
         item.remotePath = remotePath;
-        item.localPath  = localDest + '/' + fi.fileName();
+        item.localPath  = dest + '/' + fi.fileName();
         m_queue->enqueue(item);
     }
 }
 
 void RemotePanel::uploadFiles(const QStringList &localPaths)
 {
+    if (localPaths.isEmpty()) return;
+
+    // Показываем CopyDialog — аналог WinSCP TCopyDialog (Upload direction)
+    dialogs::CopyDialog dlg(dialogs::CopyDialog::Direction::Upload,
+                            /*isMove=*/false, localPaths,
+                            currentPath(), this);
+    if (dlg.exec() != QDialog::Accepted) return;
+    const QString destPath = dlg.targetDirectory();
+
     for (const QString &localPath : localPaths) {
         const QFileInfo fi(localPath);
         core::transfer::TransferItem item;
         item.direction  = core::transfer::TransferDirection::Upload;
         item.localPath  = localPath;
-        item.remotePath = currentPath() + '/' + fi.fileName();
+        item.remotePath = destPath + '/' + fi.fileName();
         item.totalBytes = fi.size();
         m_queue->enqueue(item);
     }
@@ -164,8 +188,7 @@ void RemotePanel::populateContextMenu(QMenu *menu, const QModelIndex &index)
 
     if (hasSelection) {
         menu->addAction(QIcon::fromTheme("folder-download"), tr("Download"), [this]() {
-            // TODO: выбор папки назначения
-            downloadSelected(QDir::homePath());
+            downloadSelected(); // покажет CopyDialog
         });
         menu->addSeparator();
         menu->addAction(tr("Rename…"), [this, index]() {
@@ -202,6 +225,23 @@ void RemotePanel::populateContextMenu(QMenu *menu, const QModelIndex &index)
             refresh();
         }
     });
+
+    if (hasSelection) {
+        menu->addSeparator();
+        menu->addAction(QIcon::fromTheme("document-properties"), tr("Properties…"),
+                        [this, index]() {
+            const core::sftp::SftpFileInfo info = m_model->fileInfo(index);
+            dialogs::PropertiesDialog dlg(info, m_sftp, this);
+            dlg.exec();
+            refresh();
+        });
+    }
+}
+
+void RemotePanel::setShowHiddenFiles(bool show)
+{
+    m_showHidden = show;
+    m_model->setShowHidden(show);
 }
 
 void RemotePanel::onLoadingStarted(const QString &path)

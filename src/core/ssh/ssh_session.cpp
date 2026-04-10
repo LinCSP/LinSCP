@@ -1,6 +1,7 @@
 #include "ssh_session.h"
 #include <QDir>
 #include <QThread>
+#include <QThreadPool>
 #include <libssh/libssh.h>
 
 namespace linscp::core::ssh {
@@ -34,9 +35,11 @@ void SshSession::connectToHost(const QString &host, quint16 port,
     m_username = username;
     m_auth     = auth;
 
-    // Соединение выполняется в отдельном потоке чтобы не блокировать UI
-    QMetaObject::invokeMethod(this, &SshSession::doConnect, Qt::QueuedConnection);
+    // Соединение выполняется в воркер-потоке чтобы не блокировать UI.
+    // Сигналы emitятся из воркера — Qt автоматически ставит их в очередь
+    // к UI-потоку (AutoConnection → QueuedConnection для cross-thread).
     setState(SessionState::Connecting);
+    QThreadPool::globalInstance()->start([this]() { doConnect(); });
 }
 
 void SshSession::doConnect()
@@ -86,17 +89,20 @@ void SshSession::doConnect()
 void SshSession::acceptHost()
 {
     m_knownHosts->accept(m_host, m_port, m_fingerprint);
-    if (!authenticate()) return;
-    setState(SessionState::Connected);
-    emit connected();
+    QThreadPool::globalInstance()->start([this]() {
+        if (!authenticate()) return;
+        setState(SessionState::Connected);
+        emit connected();
+    });
 }
 
 void SshSession::acceptHostOnce()
 {
-    // Принять fingerprint без сохранения в known_hosts
-    if (!authenticate()) return;
-    setState(SessionState::Connected);
-    emit connected();
+    QThreadPool::globalInstance()->start([this]() {
+        if (!authenticate()) return;
+        setState(SessionState::Connected);
+        emit connected();
+    });
 }
 
 void SshSession::rejectHost()

@@ -147,4 +147,15 @@ void LocalPanel::populateContextMenu(QMenu *menu, const QModelIndex &index)
     }
 }
 
+void LocalPanel::setShowHiddenFiles(bool show)
+{
+    m_showHidden = show;
+    QDir::Filters f = m_model->filter();
+    if (show)
+        f |= QDir::Hidden;
+    else
+        f &= ~QDir::Hidden;
+    m_model->setFilter(f);
+}
+
 } // namespace linscp::ui::panels

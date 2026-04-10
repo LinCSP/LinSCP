@@ -21,12 +21,16 @@ public:
     void actionMkdir()  override;
     void actionDelete() override;
 
+    void setShowHiddenFiles(bool show) override;
+    bool showHiddenFiles() const override { return m_showHidden; }
+
 protected:
     void onItemActivated(const QModelIndex &index) override;
     void populateContextMenu(QMenu *menu, const QModelIndex &index) override;
 
 private:
-    models::LocalFsModel *m_model = nullptr;
+    models::LocalFsModel *m_model      = nullptr;
+    bool                  m_showHidden = false;
 };
 
 } // namespace linscp::ui::panels

@@ -148,7 +148,16 @@ void MainWindow::setupMenuBar()
     QMenu *viewMenu = menuBar()->addMenu(tr("&View"));
     QAction *showHidden = viewMenu->addAction(tr("Show &Hidden Files"));
     showHidden->setCheckable(true);
-    connect(showHidden, &QAction::toggled, this, [](bool) { /* TODO */ });
+    showHidden->setShortcut(QKeySequence("Ctrl+Alt+H"));
+    connect(showHidden, &QAction::toggled, this, [this](bool show) {
+        // Применяем к обеим панелям текущего таба
+        if (auto *tab = currentTab()) {
+            if (tab->localPanel())
+                tab->localPanel()->setShowHiddenFiles(show);
+            if (tab->remotePanel())
+                tab->remotePanel()->setShowHiddenFiles(show);
+        }
+    });
 
     viewMenu->addSeparator();
 

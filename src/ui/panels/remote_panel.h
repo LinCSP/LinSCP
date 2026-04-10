@@ -25,7 +25,12 @@ public:
     void actionMkdir()  override;
     void actionDelete() override;
 
-    void downloadSelected(const QString &localDest);
+    void setShowHiddenFiles(bool show) override;
+    bool showHiddenFiles() const override { return m_showHidden; }
+
+    /// Показывает CopyDialog, затем ставит в очередь загрузку выделенных файлов.
+    /// Если localDest пуст — спрашивает пользователя через CopyDialog.
+    void downloadSelected(const QString &localDest = {});
     void uploadFiles(const QStringList &localPaths);
 
 protected:
@@ -39,7 +44,8 @@ private slots:
 private:
     core::sftp::SftpClient        *m_sftp;
     core::transfer::TransferQueue *m_queue;
-    models::RemoteFsModel         *m_model = nullptr;
+    models::RemoteFsModel         *m_model      = nullptr;
+    bool                           m_showHidden = false;
 };
 
 } // namespace linscp::ui::panels
