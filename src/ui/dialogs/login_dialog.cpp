@@ -41,10 +41,7 @@ LoginDialog::LoginDialog(core::session::SessionStore *store, QWidget *parent)
 {
     setupUi();
     buildTree();
-
-    // Выбрать "Новое подключение" по умолчанию
-    if (m_tree->topLevelItemCount() > 0)
-        m_tree->setCurrentItem(m_tree->topLevelItem(0));
+    restoreLastSelection();
 }
 
 // ─── setupUi ─────────────────────────────────────────────────────────────────
@@ -399,6 +396,10 @@ void LoginDialog::onLogin()
         return;
     }
     m_selectedProfile = p;
+    if (!p.id.isNull()) {
+        QSettings s(QStringLiteral("LinSCP"), QStringLiteral("LinSCP"));
+        s.setValue(QStringLiteral("LoginDialog/lastSessionId"), p.id.toString());
+    }
     accept();
 }
 
@@ -686,6 +687,44 @@ void LoginDialog::onExportSessions()
         QMessageBox::information(this, tr("Export"), tr("Sessions exported successfully."));
     else
         QMessageBox::warning(this, tr("Export"), tr("Failed to export sessions."));
+}
+
+// ─── Last session selection ───────────────────────────────────────────────────
+
+static QTreeWidgetItem *findItemByUuid(QTreeWidgetItem *root, const QString &uuid)
+{
+    if (root->data(0, Qt::UserRole + 1).toString() == uuid) return root;
+    for (int i = 0; i < root->childCount(); ++i) {
+        if (auto *found = findItemByUuid(root->child(i), uuid))
+            return found;
+    }
+    return nullptr;
+}
+
+void LoginDialog::restoreLastSelection()
+{
+    QSettings s(QStringLiteral("LinSCP"), QStringLiteral("LinSCP"));
+    const QString lastId = s.value(QStringLiteral("LoginDialog/lastSessionId")).toString();
+
+    if (!lastId.isEmpty()) {
+        for (int i = 0; i < m_tree->topLevelItemCount(); ++i) {
+            if (auto *item = findItemByUuid(m_tree->topLevelItem(i), lastId)) {
+                // Развернуть все родительские папки чтобы элемент был виден
+                QTreeWidgetItem *parent = item->parent();
+                while (parent) {
+                    parent->setExpanded(true);
+                    parent = parent->parent();
+                }
+                m_tree->setCurrentItem(item);
+                m_tree->scrollToItem(item, QAbstractItemView::PositionAtCenter);
+                return;
+            }
+        }
+    }
+
+    // Сессия не найдена — выбрать "Новое подключение"
+    if (m_tree->topLevelItemCount() > 0)
+        m_tree->setCurrentItem(m_tree->topLevelItem(0));
 }
 
 // ─── Expand / collapse state ──────────────────────────────────────────────────

@@ -56,6 +56,7 @@ private:
     void buildTree();
     void saveExpandState() const;
     void restoreExpandState();
+    void restoreLastSelection();
 
     /// Найти или создать узел-папку для пути "A-media/Cobalt-pro"
     QTreeWidgetItem *ensureFolder(const QString &groupPath);
