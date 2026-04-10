@@ -33,10 +33,12 @@ public:
     /// Список выбранных путей
     virtual QStringList selectedPaths() const = 0;
 
-    /// Действия, вызываемые через горячие клавиши (F6/F7/F8)
-    virtual void actionRename() {}
-    virtual void actionMkdir()  {}
-    virtual void actionDelete() {}
+    /// Действия, вызываемые через горячие клавиши
+    virtual void actionCopy()   {}   ///< F5 — Copy / Upload / Download
+    virtual void actionMove()   {}   ///< F6 — Move
+    virtual void actionRename() {}   ///< F2 / Shift+F6
+    virtual void actionMkdir()  {}   ///< F7
+    virtual void actionDelete() {}   ///< F8 / Del
 
     /// Включить/выключить отображение скрытых файлов (аналог WinSCP ShowHiddenFiles)
     virtual void setShowHiddenFiles(bool show) { Q_UNUSED(show); }
@@ -48,7 +50,9 @@ public:
 signals:
     void pathChanged(const QString &path);
     void selectionChanged(const QStringList &paths);
+    /// Запрос на загрузку local→remote: файлы + целевой remote-путь
     void uploadRequested(const QStringList &localPaths, const QString &remoteDest);
+    /// Запрос на скачивание remote→local: файлы + целевой local-путь
     void downloadRequested(const QStringList &remotePaths, const QString &localDest);
 
 protected:
@@ -62,6 +66,13 @@ protected:
 
     /// Заполнить контекстное меню — переопределяется в подклассах
     virtual void populateContextMenu(QMenu *menu, const QModelIndex &index) = 0;
+
+    /// Обработать drag-and-drop на эту панель.
+    /// sourcePaths — пути источника, fromRemote — true если дроп из remote-панели.
+    /// По умолчанию: remote→local = emit downloadRequested, local→remote = emit uploadRequested.
+    virtual void onDropToPath(const QStringList &sourcePaths,
+                              const QString     &targetPath,
+                              bool               fromRemote);
 
 private slots:
     void onContextMenu(const QModelIndex &index, const QPoint &globalPos);

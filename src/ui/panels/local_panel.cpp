@@ -12,6 +12,8 @@
 #include <QUrl>
 #include <QInputDialog>
 #include <QMessageBox>
+#include <QProcess>
+#include <QTimer>
 
 namespace linscp::ui::panels {
 
@@ -23,6 +25,8 @@ LocalPanel::LocalPanel(QWidget *parent)
 
     listView()->setModel(m_model);
     listView()->setRootIndex(m_model->index(QDir::homePath()));
+    // Local панель — не remote mode (по умолчанию false, явно для ясности)
+    listView()->setRemoteMode(false);
 
     // Колонки QFileSystemModel: 0=Name, 1=Size, 2=Type, 3=Date Modified
     listView()->header()->setSectionResizeMode(0, QHeaderView::Stretch);
@@ -42,6 +46,8 @@ LocalPanel::LocalPanel(QWidget *parent)
     });
 }
 
+// ── Навигация ─────────────────────────────────────────────────────────────────
+
 QString LocalPanel::currentPath() const
 {
     return m_model->rootPath();
@@ -60,8 +66,6 @@ void LocalPanel::navigateTo(const QString &path)
 
 void LocalPanel::refresh()
 {
-    // QFileSystemModel обновляется автоматически через inotify;
-    // явного refresh достаточно через сброс root
     navigateTo(currentPath());
 }
 
@@ -71,6 +75,33 @@ QStringList LocalPanel::selectedPaths() const
     for (const QModelIndex &idx : listView()->selectionModel()->selectedRows())
         result << m_model->filePath(idx);
     return result;
+}
+
+// ── Действия (F-клавиши) ──────────────────────────────────────────────────────
+
+void LocalPanel::actionCopy()
+{
+    // F5 — запросить upload выбранных файлов на remote
+    const QStringList paths = selectedPaths();
+    if (!paths.isEmpty())
+        emit uploadRequested(paths, QString{});
+}
+
+void LocalPanel::actionMove()
+{
+    // F6 — Upload + Delete local после подтверждения
+    const QStringList paths = selectedPaths();
+    if (paths.isEmpty()) return;
+
+    if (QMessageBox::question(this, tr("Move to Remote"),
+                              tr("Upload %n item(s) and delete local copies?",
+                                 nullptr, paths.size()))
+            != QMessageBox::Yes)
+        return;
+
+    emit uploadRequested(paths, QString{});  // ConnectionTab должен удалить после загрузки
+    for (const QString &p : paths)
+        QFile::remove(p);
 }
 
 void LocalPanel::actionMkdir()
@@ -108,6 +139,8 @@ void LocalPanel::actionRename()
         QFile::rename(oldPath, QFileInfo(oldPath).dir().absoluteFilePath(newName));
 }
 
+// ── Активация ─────────────────────────────────────────────────────────────────
+
 void LocalPanel::onItemActivated(const QModelIndex &index)
 {
     const QString path = m_model->filePath(index);
@@ -117,35 +150,96 @@ void LocalPanel::onItemActivated(const QModelIndex &index)
         QDesktopServices::openUrl(QUrl::fromLocalFile(path));
 }
 
+// ── Контекстное меню ──────────────────────────────────────────────────────────
+
 void LocalPanel::populateContextMenu(QMenu *menu, const QModelIndex &index)
 {
-    const QString path = index.isValid() ? m_model->filePath(index) : currentPath();
-    const bool isDir   = index.isValid() && m_model->isDir(index);
+    const bool hasSelection = index.isValid();
+    const QString path = hasSelection ? m_model->filePath(index) : currentPath();
+    const bool isDir   = hasSelection && m_model->isDir(index);
 
+    // Открыть
     if (isDir) {
         menu->addAction(QIcon::fromTheme("folder-open"), tr("Open"), [this, path]() {
             navigateTo(path);
         });
+        menu->addSeparator();
     }
 
-    menu->addAction(QIcon::fromTheme("folder-new"), tr("New Folder"), [this]() {
-        bool ok = false;
-        const QString name = QInputDialog::getText(this, tr("New Folder"),
-                                                   tr("Folder name:"),
-                                                   QLineEdit::Normal, {}, &ok);
-        if (ok && !name.isEmpty())
-            QDir(currentPath()).mkdir(name);
+    // ── Передача на remote ───────────────────────────────────────────────────
+    if (hasSelection) {
+        auto *copyAct = menu->addAction(
+            QIcon::fromTheme("go-up"), tr("Upload…\tF5"),
+            [this]() { actionCopy(); });
+        copyAct->setEnabled(true);
+
+        auto *moveAct = menu->addAction(
+            QIcon::fromTheme("go-up"), tr("Move to Remote…\tF6"),
+            [this]() { actionMove(); });
+        moveAct->setEnabled(true);
+
+        menu->addSeparator();
+    }
+
+    // ── Правка ───────────────────────────────────────────────────────────────
+    if (hasSelection) {
+        menu->addAction(QIcon::fromTheme("edit-rename"), tr("Rename…\tF2"),
+                        [this]() { actionRename(); });
+
+        menu->addAction(QIcon::fromTheme("edit-delete"), tr("Delete\tDel"),
+                        [this]() { actionDelete(); });
+
+        menu->addSeparator();
+    }
+
+    // ── Новая папка ───────────────────────────────────────────────────────────
+    menu->addAction(QIcon::fromTheme("folder-new"), tr("New Folder…\tF7"),
+                    [this]() { actionMkdir(); });
+
+    // ── Открыть в терминале ───────────────────────────────────────────────────
+    menu->addAction(QIcon::fromTheme("utilities-terminal"),
+                    tr("Open in Terminal"),
+                    [this, path]() {
+        const QString dir = QFileInfo(path).isDir() ? path : QFileInfo(path).dir().absolutePath();
+        QProcess::startDetached("xterm", {}, dir);
     });
 
-    if (index.isValid()) {
+    // ── Свойства ──────────────────────────────────────────────────────────────
+    if (hasSelection) {
         menu->addSeparator();
-        menu->addAction(QIcon::fromTheme("edit-delete"), tr("Delete"), [this, path]() {
-            if (QMessageBox::question(this, tr("Delete"),
-                                      tr("Delete '%1'?").arg(path)) == QMessageBox::Yes)
-                QFile::remove(path);
+        menu->addAction(QIcon::fromTheme("document-properties"), tr("Properties"),
+                        [path]() {
+            QDesktopServices::openUrl(QUrl::fromLocalFile(path));
         });
     }
 }
+
+// ── Drag & Drop ───────────────────────────────────────────────────────────────
+
+void LocalPanel::onDropToPath(const QStringList &sourcePaths,
+                              const QString     &targetPath,
+                              bool               fromRemote)
+{
+    // Откладываем — нельзя открывать диалог или менять модель внутри dropEvent
+    QTimer::singleShot(0, this, [this, sourcePaths, targetPath, fromRemote]() {
+        if (fromRemote) {
+            // Remote → Local: скачать
+            const QString dest = targetPath.isEmpty() ? currentPath() : targetPath;
+            emit downloadRequested(sourcePaths, dest);
+        } else {
+            // Local → Local: копирование внутри локальной ФС
+            const QString dest = targetPath.isEmpty() ? currentPath() : targetPath;
+            for (const QString &src : sourcePaths) {
+                const QString dstPath = dest + '/' + QFileInfo(src).fileName();
+                if (src != dstPath)
+                    QFile::copy(src, dstPath);
+            }
+            refresh();
+        }
+    });
+}
+
+// ── Фильтры ───────────────────────────────────────────────────────────────────
 
 void LocalPanel::setShowHiddenFiles(bool show)
 {

@@ -14,6 +14,7 @@
 #include <QFileInfo>
 #include <QDir>
 #include <QLabel>
+#include <QTimer>
 
 namespace linscp::ui::panels {
 
@@ -27,6 +28,7 @@ RemotePanel::RemotePanel(core::sftp::SftpClient *sftp,
     m_model = new models::RemoteFsModel(sftp, this);
 
     listView()->setModel(m_model);
+    listView()->setRemoteMode(true);    // remote DnD MIME
 
     // Колонки: 0=Name, 1=Size, 2=Modified, 3=Permissions, 4=Owner
     auto *hdr = listView()->header();
@@ -37,7 +39,7 @@ RemotePanel::RemotePanel(core::sftp::SftpClient *sftp,
     hdr->resizeSection(1, 75);
     hdr->resizeSection(2, 130);
     hdr->resizeSection(3, 100);
-    listView()->hideColumn(models::RemoteFsModel::ColOwner);  // скрываем Owner по умолчанию
+    listView()->hideColumn(models::RemoteFsModel::ColOwner);
 
     breadcrumb()->setPath("/");
 
@@ -46,6 +48,8 @@ RemotePanel::RemotePanel(core::sftp::SftpClient *sftp,
     connect(m_model, &models::RemoteFsModel::loadingFinished,
             this, &RemotePanel::onLoadingFinished);
 }
+
+// ── Навигация ─────────────────────────────────────────────────────────────────
 
 QString RemotePanel::currentPath() const
 {
@@ -73,16 +77,17 @@ QStringList RemotePanel::selectedPaths() const
     return result;
 }
 
-void RemotePanel::downloadSelected(const QString &localDest)
+// ── Передача файлов ───────────────────────────────────────────────────────────
+
+void RemotePanel::downloadSelected(const QString &localDest, bool isMove)
 {
     const QStringList paths = selectedPaths();
     if (paths.isEmpty()) return;
 
     QString dest = localDest;
     if (dest.isEmpty()) {
-        // Показываем CopyDialog — аналог WinSCP TCopyDialog
         dialogs::CopyDialog dlg(dialogs::CopyDialog::Direction::Download,
-                                /*isMove=*/false, paths,
+                                isMove, paths,
                                 QDir::homePath(), this);
         if (dlg.exec() != QDialog::Accepted) return;
         dest = dlg.targetDirectory();
@@ -96,15 +101,27 @@ void RemotePanel::downloadSelected(const QString &localDest)
         item.localPath  = dest + '/' + fi.fileName();
         m_queue->enqueue(item);
     }
+
+    if (isMove) {
+        // Удалить remote файлы после постановки в очередь
+        // (TransferManager завершит перенос, удаление сразу — acceptable для Move)
+        for (const QString &path : paths) {
+            const QModelIndex idx = m_model->indexForPath(path);
+            if (idx.isValid() && m_model->isDir(idx))
+                m_sftp->rmdir(path);
+            else
+                m_sftp->remove(path);
+        }
+        refresh();
+    }
 }
 
-void RemotePanel::uploadFiles(const QStringList &localPaths)
+void RemotePanel::uploadFiles(const QStringList &localPaths, bool isMove)
 {
     if (localPaths.isEmpty()) return;
 
-    // Показываем CopyDialog — аналог WinSCP TCopyDialog (Upload direction)
     dialogs::CopyDialog dlg(dialogs::CopyDialog::Direction::Upload,
-                            /*isMove=*/false, localPaths,
+                            isMove, localPaths,
                             currentPath(), this);
     if (dlg.exec() != QDialog::Accepted) return;
     const QString destPath = dlg.targetDirectory();
@@ -118,6 +135,19 @@ void RemotePanel::uploadFiles(const QStringList &localPaths)
         item.totalBytes = fi.size();
         m_queue->enqueue(item);
     }
+    // isMove: локальные файлы удаляет вызывающий (LocalPanel::actionMove)
+}
+
+// ── Действия (F-клавиши) ──────────────────────────────────────────────────────
+
+void RemotePanel::actionCopy()
+{
+    downloadSelected({}, /*isMove=*/false);
+}
+
+void RemotePanel::actionMove()
+{
+    downloadSelected({}, /*isMove=*/true);
 }
 
 void RemotePanel::actionMkdir()
@@ -166,6 +196,8 @@ void RemotePanel::actionRename()
     }
 }
 
+// ── Активация ─────────────────────────────────────────────────────────────────
+
 void RemotePanel::onItemActivated(const QModelIndex &index)
 {
     if (!index.isValid()) return;
@@ -174,59 +206,70 @@ void RemotePanel::onItemActivated(const QModelIndex &index)
     // TODO: открыть файл во встроенном редакторе
 }
 
+// ── Контекстное меню (WinSCP-style) ──────────────────────────────────────────
+
 void RemotePanel::populateContextMenu(QMenu *menu, const QModelIndex &index)
 {
     const bool hasSelection = index.isValid();
 
+    // ── Открыть ───────────────────────────────────────────────────────────────
     if (hasSelection && m_model->isDir(index)) {
         menu->addAction(QIcon::fromTheme("folder-open"), tr("Open"), [this, index]() {
             navigateTo(m_model->filePath(index));
         });
+        menu->addSeparator();
     }
 
+    // ── Скачать / Переместить ─────────────────────────────────────────────────
     if (hasSelection) {
-        menu->addAction(QIcon::fromTheme("folder-download"), tr("Download"), [this]() {
-            downloadSelected(); // покажет CopyDialog
+        menu->addAction(QIcon::fromTheme("folder-download"),
+                        tr("Download…\tF5"),
+                        [this]() { actionCopy(); });
+
+        menu->addAction(QIcon::fromTheme("folder-download"),
+                        tr("Download and Delete…\tF6"),
+                        [this]() { actionMove(); });
+
+        // Скачать в фоне (добавить в очередь без диалога)
+        menu->addAction(QIcon::fromTheme("folder-download"),
+                        tr("Download to Queue"),
+                        [this]() {
+            const QStringList paths = selectedPaths();
+            for (const QString &remotePath : paths) {
+                core::transfer::TransferItem item;
+                item.direction  = core::transfer::TransferDirection::Download;
+                item.remotePath = remotePath;
+                item.localPath  = QDir::homePath() + '/' + QFileInfo(remotePath).fileName();
+                m_queue->enqueue(item);
+            }
         });
+
         menu->addSeparator();
-        menu->addAction(tr("Rename…"), [this, index]() {
-            bool ok = false;
-            const QString newName = QInputDialog::getText(
-                this, tr("Rename"), tr("New name:"), QLineEdit::Normal,
-                m_model->fileInfo(index).name, &ok);
-            if (ok && !newName.isEmpty()) {
-                const QString oldPath = m_model->filePath(index);
-                const QString newPath = oldPath.section('/', 0, -2) + '/' + newName;
-                m_sftp->rename(oldPath, newPath);
-                refresh();
-            }
-        });
-        menu->addAction(QIcon::fromTheme("edit-delete"), tr("Delete"), [this, index]() {
-            const QString path = m_model->filePath(index);
-            if (QMessageBox::question(this, tr("Delete"),
-                                      tr("Delete '%1'?").arg(path)) == QMessageBox::Yes) {
-                if (m_model->isDir(index)) m_sftp->rmdir(path);
-                else                       m_sftp->remove(path);
-                refresh();
-            }
-        });
     }
 
-    menu->addSeparator();
-    menu->addAction(QIcon::fromTheme("folder-new"), tr("New folder…"), [this]() {
-        bool ok = false;
-        const QString name = QInputDialog::getText(this, tr("New Folder"),
-                                                   tr("Folder name:"),
-                                                   QLineEdit::Normal, {}, &ok);
-        if (ok && !name.isEmpty()) {
-            m_sftp->mkdir(currentPath() + '/' + name);
-            refresh();
-        }
-    });
+    // ── Правка ────────────────────────────────────────────────────────────────
+    if (hasSelection) {
+        menu->addAction(QIcon::fromTheme("edit-rename"),
+                        tr("Rename…\tF2"),
+                        [this]() { actionRename(); });
 
+        menu->addAction(QIcon::fromTheme("edit-delete"),
+                        tr("Delete\tDel"),
+                        [this]() { actionDelete(); });
+
+        menu->addSeparator();
+    }
+
+    // ── Создать папку ─────────────────────────────────────────────────────────
+    menu->addAction(QIcon::fromTheme("folder-new"),
+                    tr("New Folder…\tF7"),
+                    [this]() { actionMkdir(); });
+
+    // ── Свойства ──────────────────────────────────────────────────────────────
     if (hasSelection) {
         menu->addSeparator();
-        menu->addAction(QIcon::fromTheme("document-properties"), tr("Properties…"),
+        menu->addAction(QIcon::fromTheme("document-properties"),
+                        tr("Properties…"),
                         [this, index]() {
             const core::sftp::SftpFileInfo info = m_model->fileInfo(index);
             dialogs::PropertiesDialog dlg(info, m_sftp, this);
@@ -236,11 +279,37 @@ void RemotePanel::populateContextMenu(QMenu *menu, const QModelIndex &index)
     }
 }
 
-void RemotePanel::setShowHiddenFiles(bool show)
+// ── Drag & Drop ───────────────────────────────────────────────────────────────
+
+void RemotePanel::onDropToPath(const QStringList &sourcePaths,
+                               const QString     &targetPath,
+                               bool               fromRemote)
 {
-    m_showHidden = show;
-    m_model->setShowHidden(show);
+    if (fromRemote) return;  // Remote → Remote: не поддерживается
+
+    // Откладываем — нельзя открывать диалог внутри dropEvent
+    QTimer::singleShot(0, this, [this, sourcePaths, targetPath]() {
+        // Local → Remote: показываем CopyDialog и ставим в очередь
+        const QString dest = targetPath.isEmpty() ? currentPath() : targetPath;
+        dialogs::CopyDialog dlg(dialogs::CopyDialog::Direction::Upload,
+                                /*isMove=*/false, sourcePaths,
+                                dest, this);
+        if (dlg.exec() != QDialog::Accepted) return;
+        const QString finalDest = dlg.targetDirectory();
+
+        for (const QString &localPath : sourcePaths) {
+            const QFileInfo fi(localPath);
+            core::transfer::TransferItem item;
+            item.direction  = core::transfer::TransferDirection::Upload;
+            item.localPath  = localPath;
+            item.remotePath = finalDest + '/' + fi.fileName();
+            item.totalBytes = fi.size();
+            m_queue->enqueue(item);
+        }
+    });
 }
+
+// ── Статусная строка ──────────────────────────────────────────────────────────
 
 void RemotePanel::onLoadingStarted(const QString &path)
 {
@@ -252,6 +321,14 @@ void RemotePanel::onLoadingFinished(const QString &path)
     Q_UNUSED(path);
     statusBar()->setText(tr("%1 items").arg(
         m_model->rowCount(m_model->indexForPath(currentPath()))));
+}
+
+// ── Фильтры ───────────────────────────────────────────────────────────────────
+
+void RemotePanel::setShowHiddenFiles(bool show)
+{
+    m_showHidden = show;
+    m_model->setShowHidden(show);
 }
 
 } // namespace linscp::ui::panels

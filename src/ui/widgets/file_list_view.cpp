@@ -9,6 +9,8 @@
 #include <QDrag>
 #include <QHeaderView>
 #include <QApplication>
+#include <QPixmap>
+#include <QPainter>
 
 namespace linscp::ui::widgets {
 
@@ -31,6 +33,13 @@ FileListView::FileListView(QWidget *parent)
     header()->setStretchLastSection(false);
     header()->setSectionResizeMode(0, QHeaderView::Stretch);
 }
+
+void FileListView::setRemoteMode(bool remote)
+{
+    m_remoteMode = remote;
+}
+
+// ── Активация ─────────────────────────────────────────────────────────────────
 
 void FileListView::mouseDoubleClickEvent(QMouseEvent *event)
 {
@@ -56,33 +65,53 @@ void FileListView::contextMenuEvent(QContextMenuEvent *event)
     emit contextMenuRequested(idx, event->globalPos());
 }
 
+// ── Drag & Drop ───────────────────────────────────────────────────────────────
+
 void FileListView::dragEnterEvent(QDragEnterEvent *event)
 {
-    if (event->mimeData()->hasUrls() || event->mimeData()->hasText())
+    if (event->mimeData()->hasUrls() ||
+        event->mimeData()->hasFormat(kRemoteMimeType))
         event->acceptProposedAction();
+    else
+        event->ignore();
 }
 
 void FileListView::dragMoveEvent(QDragMoveEvent *event)
 {
-    event->acceptProposedAction();
+    if (event->mimeData()->hasUrls() ||
+        event->mimeData()->hasFormat(kRemoteMimeType))
+        event->acceptProposedAction();
+    else
+        event->ignore();
 }
 
 void FileListView::dropEvent(QDropEvent *event)
 {
-    if (!event->mimeData()->hasUrls()) return;
+    const bool fromRemote = event->mimeData()->hasFormat(kRemoteMimeType);
 
     QStringList paths;
-    for (const QUrl &url : event->mimeData()->urls())
-        paths << url.toLocalFile();
+    if (fromRemote) {
+        const QString raw = QString::fromUtf8(
+            event->mimeData()->data(kRemoteMimeType));
+        paths = raw.split('\n', Qt::SkipEmptyParts);
+    } else if (event->mimeData()->hasUrls()) {
+        for (const QUrl &url : event->mimeData()->urls()) {
+            const QString p = url.toLocalFile();
+            if (!p.isEmpty()) paths << p;
+        }
+    }
 
+    if (paths.isEmpty()) { event->ignore(); return; }
+
+    // Определяем целевую директорию:
+    // если дроп на файл/папку — берём путь этого элемента,
+    // иначе — текущий корень панели (Qt::UserRole+1 содержит полный путь).
     const QModelIndex target = indexAt(event->position().toPoint());
     const QString targetPath = target.isValid()
-                                   ? target.data(Qt::UserRole + 1).toString()
-                                   : rootIndex().data(Qt::UserRole + 1).toString();
+        ? target.data(Qt::UserRole + 1).toString()
+        : rootIndex().data(Qt::UserRole + 1).toString();
 
-    if (!paths.isEmpty())
-        emit dropToPath(paths, targetPath);
-
+    emit dropToPath(paths, targetPath, fromRemote);
     event->acceptProposedAction();
 }
 
@@ -92,23 +121,48 @@ void FileListView::startDrag(Qt::DropActions supportedActions)
     if (selected.isEmpty()) return;
 
     QList<QUrl> urls;
+    QStringList remotePaths;
     QStringList names;
+
     for (const QModelIndex &idx : selected) {
         if (idx.column() != 0) continue;
         const QString path = idx.data(Qt::UserRole + 1).toString();
-        if (!path.isEmpty()) {
+        if (path.isEmpty()) continue;
+        names << idx.data(Qt::DisplayRole).toString();
+        if (m_remoteMode) {
+            remotePaths << path;
+        } else {
             urls << QUrl::fromLocalFile(path);
-            names << idx.data(Qt::DisplayRole).toString();
         }
     }
 
-    if (urls.isEmpty()) return;
+    if (names.isEmpty()) return;
 
     auto *drag = new QDrag(this);
     auto *mime = new QMimeData;
-    mime->setUrls(urls);
-    mime->setText(names.join('\n'));
+
+    if (m_remoteMode) {
+        mime->setData(kRemoteMimeType, remotePaths.join('\n').toUtf8());
+        // Также добавляем текст для отладки
+        mime->setText(remotePaths.join('\n'));
+    } else {
+        mime->setUrls(urls);
+        mime->setText(names.join('\n'));
+    }
+
     drag->setMimeData(mime);
+
+    // Иконка-превью: имя первого файла + счётчик если несколько
+    if (names.size() > 1) {
+        const QString label = tr("%1 files").arg(names.size());
+        QPixmap px(200, 24);
+        px.fill(Qt::transparent);
+        QPainter p(&px);
+        p.setPen(palette().color(QPalette::Text));
+        p.drawText(px.rect(), Qt::AlignVCenter | Qt::AlignLeft, label);
+        drag->setPixmap(px);
+    }
+
     drag->exec(supportedActions, Qt::CopyAction);
 }
 

@@ -6,6 +6,7 @@
 #include <QLabel>
 #include <QMenu>
 #include <QAction>
+#include <QTimer>
 
 namespace linscp::ui::panels {
 
@@ -34,12 +35,14 @@ void FilePanel::setupUi()
     connect(m_breadcrumb, &widgets::BreadcrumbBar::pathRequested,
             this, &FilePanel::onBreadcrumbRequested);
 
-    // File list
+    // File list — remote mode устанавливается в конструкторах подклассов
     m_listView = new widgets::FileListView(this);
     connect(m_listView, &widgets::FileListView::fileActivated,
             this, &FilePanel::onItemActivated);
     connect(m_listView, &widgets::FileListView::contextMenuRequested,
             this, &FilePanel::onContextMenu);
+    connect(m_listView, &widgets::FileListView::dropToPath,
+            this, &FilePanel::onDropToPath);
 
     // Status bar
     m_statusBar = new QLabel(this);
@@ -89,6 +92,24 @@ void FilePanel::setFocused()
 void FilePanel::onBreadcrumbRequested(const QString &path)
 {
     navigateTo(path);
+}
+
+void FilePanel::onDropToPath(const QStringList &sourcePaths,
+                             const QString     &targetPath,
+                             bool               fromRemote)
+{
+    // Откладываем на следующий тик — нельзя открывать диалог внутри dropEvent
+    QTimer::singleShot(0, this, [this, sourcePaths, targetPath, fromRemote]() {
+        if (m_side == Side::Local && fromRemote) {
+            // Remote → Local: скачать
+            const QString dest = targetPath.isEmpty() ? currentPath() : targetPath;
+            emit downloadRequested(sourcePaths, dest);
+        } else if (m_side == Side::Remote && !fromRemote) {
+            // Local → Remote: загрузить
+            emit uploadRequested(sourcePaths, currentPath());
+        }
+        // Local→Local или Remote→Remote обрабатывают подклассы
+    });
 }
 
 } // namespace linscp::ui::panels

@@ -17,6 +17,8 @@ public:
     void        refresh() override;
     QStringList selectedPaths() const override;
 
+    void actionCopy()   override;   ///< F5 → Upload выбранных файлов на remote
+    void actionMove()   override;   ///< F6 → Upload + Delete local
     void actionRename() override;
     void actionMkdir()  override;
     void actionDelete() override;
@@ -27,6 +29,9 @@ public:
 protected:
     void onItemActivated(const QModelIndex &index) override;
     void populateContextMenu(QMenu *menu, const QModelIndex &index) override;
+    void onDropToPath(const QStringList &sourcePaths,
+                      const QString     &targetPath,
+                      bool               fromRemote) override;
 
 private:
     models::LocalFsModel *m_model      = nullptr;

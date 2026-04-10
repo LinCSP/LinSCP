@@ -11,10 +11,15 @@ TransferQueue::TransferQueue(QObject *parent) : QObject(parent) {}
 
 QUuid TransferQueue::enqueue(TransferItem item)
 {
-    QMutexLocker lock(&m_mutex);
-    m_items.append(item);
-    emit itemAdded(item.id);
-    return item.id;
+    const QUuid id = item.id;
+    {
+        QMutexLocker lock(&m_mutex);
+        m_items.append(std::move(item));
+    }
+    // Эмитируем ПОСЛЕ освобождения мьютекса — иначе дедлок если слот
+    // вызывает items() / nextQueued() из того же потока
+    emit itemAdded(id);
+    return id;
 }
 
 void TransferQueue::cancel(const QUuid &id)
@@ -34,16 +39,18 @@ void TransferQueue::resume(const QUuid &id)
 
 void TransferQueue::clearCompleted()
 {
-    QMutexLocker lock(&m_mutex);
     QList<QUuid> removed;
-    m_items.removeIf([&removed](const TransferItem &it) {
-        if (it.status == TransferStatus::Completed ||
-            it.status == TransferStatus::Cancelled) {
-            removed << it.id;
-            return true;
-        }
-        return false;
-    });
+    {
+        QMutexLocker lock(&m_mutex);
+        m_items.removeIf([&removed](const TransferItem &it) {
+            if (it.status == TransferStatus::Completed ||
+                it.status == TransferStatus::Cancelled) {
+                removed << it.id;
+                return true;
+            }
+            return false;
+        });
+    }
     for (const auto &id : removed) emit itemRemoved(id);
 }
 
@@ -71,31 +78,35 @@ std::optional<TransferItem> TransferQueue::nextQueued() const
 
 void TransferQueue::updateProgress(const QUuid &id, qint64 transferred)
 {
-    QMutexLocker lock(&m_mutex);
-    for (auto &it : m_items) {
-        if (it.id == id) {
-            it.transferredBytes = transferred;
-            emit itemChanged(id);
-            return;
+    {
+        QMutexLocker lock(&m_mutex);
+        for (auto &it : m_items) {
+            if (it.id == id) {
+                it.transferredBytes = transferred;
+                break;
+            }
         }
     }
+    emit itemChanged(id);
 }
 
 void TransferQueue::setStatus(const QUuid &id, TransferStatus status, const QString &error)
 {
-    QMutexLocker lock(&m_mutex);
-    for (auto &it : m_items) {
-        if (it.id == id) {
-            it.status = status;
-            if (!error.isEmpty()) it.errorMessage = error;
-            if (status == TransferStatus::InProgress && !it.startedAt.isValid())
-                it.startedAt = QDateTime::currentDateTime();
-            if (status == TransferStatus::Completed || status == TransferStatus::Failed)
-                it.finishedAt = QDateTime::currentDateTime();
-            emit itemChanged(id);
-            return;
+    {
+        QMutexLocker lock(&m_mutex);
+        for (auto &it : m_items) {
+            if (it.id == id) {
+                it.status = status;
+                if (!error.isEmpty()) it.errorMessage = error;
+                if (status == TransferStatus::InProgress && !it.startedAt.isValid())
+                    it.startedAt = QDateTime::currentDateTime();
+                if (status == TransferStatus::Completed || status == TransferStatus::Failed)
+                    it.finishedAt = QDateTime::currentDateTime();
+                break;
+            }
         }
     }
+    emit itemChanged(id);
 }
 
 void TransferQueue::save(const QString &path) const
@@ -125,6 +136,7 @@ void TransferQueue::load(const QString &path)
     if (!f.open(QIODevice::ReadOnly)) return;
 
     const QJsonArray arr = QJsonDocument::fromJson(f.readAll()).array();
+    QMutexLocker lock(&m_mutex);
     for (const auto &v : arr) {
         const QJsonObject obj = v.toObject();
         TransferItem it;
@@ -134,7 +146,7 @@ void TransferQueue::load(const QString &path)
         it.remotePath       = obj["remotePath"].toString();
         it.totalBytes       = obj["totalBytes"].toInteger();
         it.resumeOffset     = obj["transferred"].toInteger();
-        it.status           = TransferStatus::Queued; // перезапуск
+        it.status           = TransferStatus::Queued;
         m_items.append(it);
     }
 }

@@ -18,6 +18,7 @@
 #include <QSplitter>
 #include <QLabel>
 #include <QVBoxLayout>
+#include <QFileInfo>
 
 namespace linscp::ui {
 
@@ -169,14 +170,34 @@ void ConnectionTab::onSshConnected()
     m_remotePanel = new panels::RemotePanel(m_sftp, m_sharedQueue, this);
     replaceRemotePanel(m_remotePanel);
 
-    connect(m_localPanel,  &panels::LocalPanel::uploadRequested,
-            this, [this](const QStringList &files, const QString &) {
-        if (m_remotePanel) m_remotePanel->uploadFiles(files);
+    // Local → Remote: upload (F5 / DnD / контекстное меню)
+    connect(m_localPanel, &panels::FilePanel::uploadRequested,
+            this, [this](const QStringList &files, const QString &dest) {
+        if (!m_remotePanel) return;
+        const QString target = dest.isEmpty() ? m_remotePanel->currentPath() : dest;
+        m_remotePanel->uploadFiles(files);
+        Q_UNUSED(target);
     });
-    connect(m_remotePanel, &panels::RemotePanel::downloadRequested,
-            this, [this](const QStringList &, const QString &) {
-        if (m_remotePanel)
-            m_remotePanel->downloadSelected(m_localPanel->currentPath());
+
+    // Remote → Local: download (F5 / DnD / контекстное меню)
+    connect(m_remotePanel, &panels::FilePanel::downloadRequested,
+            this, [this](const QStringList &remotePaths, const QString &localDest) {
+        if (!m_remotePanel) return;
+        const QString dest = localDest.isEmpty()
+                                 ? m_localPanel->currentPath()
+                                 : localDest;
+        // Если пути переданы явно (из DnD) — ставим напрямую в очередь
+        if (!remotePaths.isEmpty() && !localDest.isEmpty()) {
+            for (const QString &remotePath : remotePaths) {
+                core::transfer::TransferItem item;
+                item.direction  = core::transfer::TransferDirection::Download;
+                item.remotePath = remotePath;
+                item.localPath  = dest + '/' + QFileInfo(remotePath).fileName();
+                m_sharedQueue->enqueue(item);
+            }
+        } else {
+            m_remotePanel->downloadSelected(dest);
+        }
     });
 
     // Сохранять текущие пути при навигации

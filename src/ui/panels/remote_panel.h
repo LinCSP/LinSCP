@@ -12,7 +12,7 @@ namespace linscp::ui::panels {
 class RemotePanel : public FilePanel {
     Q_OBJECT
 public:
-    explicit RemotePanel(core::sftp::SftpClient    *sftp,
+    explicit RemotePanel(core::sftp::SftpClient       *sftp,
                          core::transfer::TransferQueue *queue,
                          QWidget *parent = nullptr);
 
@@ -21,6 +21,8 @@ public:
     void        refresh() override;
     QStringList selectedPaths() const override;
 
+    void actionCopy()   override;   ///< F5 → Download выбранных файлов
+    void actionMove()   override;   ///< F6 → Download + Delete remote
     void actionRename() override;
     void actionMkdir()  override;
     void actionDelete() override;
@@ -28,14 +30,21 @@ public:
     void setShowHiddenFiles(bool show) override;
     bool showHiddenFiles() const override { return m_showHidden; }
 
-    /// Показывает CopyDialog, затем ставит в очередь загрузку выделенных файлов.
-    /// Если localDest пуст — спрашивает пользователя через CopyDialog.
-    void downloadSelected(const QString &localDest = {});
-    void uploadFiles(const QStringList &localPaths);
+    /// Показывает CopyDialog, затем ставит в очередь загрузку выбранных файлов.
+    /// @param localDest  если пуст — спрашивает через CopyDialog
+    /// @param isMove     если true — удалять remote-файлы после загрузки
+    void downloadSelected(const QString &localDest = {}, bool isMove = false);
+
+    /// Показывает CopyDialog, затем ставит в очередь выгрузку localPaths.
+    /// @param isMove  если true — удалять локальные файлы после выгрузки
+    void uploadFiles(const QStringList &localPaths, bool isMove = false);
 
 protected:
     void onItemActivated(const QModelIndex &index) override;
     void populateContextMenu(QMenu *menu, const QModelIndex &index) override;
+    void onDropToPath(const QStringList &sourcePaths,
+                      const QString     &targetPath,
+                      bool               fromRemote) override;
 
 private slots:
     void onLoadingStarted(const QString &path);

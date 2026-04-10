@@ -448,6 +448,20 @@
     <message><source>Rename</source><translation>Переименовать</translation></message>
     <message><source>New name:</source><translation>Новое имя:</translation></message>
     <message><source>Open</source><translation>Открыть</translation></message>
+    <!-- Новые строки контекстного меню -->
+    <message><source>Upload…	F5</source><translation>Загрузить…	F5</translation></message>
+    <message><source>Move to Remote…	F6</source><translation>Переместить на сервер…	F6</translation></message>
+    <message><source>Move to Remote</source><translation>Переместить на сервер</translation></message>
+    <message numerus="yes"><source>Upload %n item(s) and delete local copies?</source><translation>
+        <numerusform>Загрузить %n элемент и удалить локальную копию?</numerusform>
+        <numerusform>Загрузить %n элемента и удалить локальные копии?</numerusform>
+        <numerusform>Загрузить %n элементов и удалить локальные копии?</numerusform>
+    </translation></message>
+    <message><source>Rename…	F2</source><translation>Переименовать…	F2</translation></message>
+    <message><source>Delete	Del</source><translation>Удалить	Del</translation></message>
+    <message><source>New Folder…	F7</source><translation>Новая папка…	F7</translation></message>
+    <message><source>Open in Terminal</source><translation>Открыть в терминале</translation></message>
+    <message><source>Properties</source><translation>Свойства</translation></message>
 </context>
 
 <!-- RemotePanel -->
@@ -471,6 +485,48 @@
     <message><source>New folder…</source><translation>Новая папка…</translation></message>
     <message><source>Loading %1…</source><translation>Загрузка %1…</translation></message>
     <message><source>%1 items</source><translation>%1 элементов</translation></message>
+    <!-- Новые строки контекстного меню -->
+    <message><source>Download…	F5</source><translation>Скачать…	F5</translation></message>
+    <message><source>Download and Delete…	F6</source><translation>Скачать и удалить…	F6</translation></message>
+    <message><source>Download to Queue</source><translation>Скачать в фоне</translation></message>
+    <message><source>Rename…	F2</source><translation>Переименовать…	F2</translation></message>
+    <message><source>Delete	Del</source><translation>Удалить	Del</translation></message>
+    <message><source>New Folder…	F7</source><translation>Новая папка…	F7</translation></message>
+</context>
+
+<!-- OverwriteDialog -->
+<context>
+    <name>linscp::ui::dialogs::OverwriteDialog</name>
+    <message><source>File Conflict</source><translation>Конфликт файлов</translation></message>
+    <message><source>&lt;b&gt;The target file already exists.&lt;/b&gt;&lt;br&gt;What would you like to do?</source>
+        <translation>&lt;b&gt;Файл назначения уже существует.&lt;/b&gt;&lt;br&gt;Что вы хотите сделать?</translation>
+    </message>
+    <message><source>Source</source><translation>Источник</translation></message>
+    <message><source>Target</source><translation>Назначение</translation></message>
+    <message><source>Name:</source><translation>Имя:</translation></message>
+    <message><source>Size:</source><translation>Размер:</translation></message>
+    <message><source>Modified:</source><translation>Изменён:</translation></message>
+    <message><source>%1 bytes</source><translation>%1 байт</translation></message>
+    <message><source>unknown</source><translation>неизвестно</translation></message>
+    <message><source>—</source><translation>—</translation></message>
+    <message><source>Overwrite</source><translation>Заменить</translation></message>
+    <message><source>Overwrite All</source><translation>Заменить все</translation></message>
+    <message><source>Skip</source><translation>Пропустить</translation></message>
+    <message><source>Skip All</source><translation>Пропустить все</translation></message>
+    <message><source>Rename…</source><translation>Переименовать…</translation></message>
+    <message><source>Cancel</source><translation>Отмена</translation></message>
+    <message><source>Rename Target</source><translation>Переименовать файл назначения</translation></message>
+    <message><source>New name for the target file:</source><translation>Новое имя для файла назначения:</translation></message>
+</context>
+
+<!-- FileListView -->
+<context>
+    <name>linscp::ui::widgets::FileListView</name>
+    <message numerus="yes"><source>%1 files</source><translation>
+        <numerusform>%1 файл</numerusform>
+        <numerusform>%1 файла</numerusform>
+        <numerusform>%1 файлов</numerusform>
+    </translation></message>
 </context>
 
 <!-- TerminalWidget -->

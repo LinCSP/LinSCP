@@ -58,6 +58,7 @@ set(LINSCP_SOURCES
     ui/dialogs/transfer_panel.cpp
     ui/dialogs/host_fingerprint_dialog.cpp
     ui/dialogs/copy_dialog.cpp
+    ui/dialogs/overwrite_dialog.cpp
     ui/dialogs/properties_dialog.cpp
     ui/dialogs/auth_dialog.cpp
     ui/dialogs/progress_dialog.cpp
