@@ -11,8 +11,9 @@ class QPushButton;
 class QLabel;
 class QProgressBar;
 class QStackedWidget;
+class QComboBox;
 
-namespace linscp::core::sync  { class SyncEngine; }
+namespace linscp::core::sync  { class SyncEngine; class SyncProfileStore; }
 
 namespace linscp::ui::dialogs {
 
@@ -23,9 +24,11 @@ namespace linscp::ui::dialogs {
 class SyncDialog : public QDialog {
     Q_OBJECT
 public:
-    explicit SyncDialog(core::sync::SyncEngine *engine,
-                        const QString &localPath,
-                        const QString &remotePath,
+    /// @param profileStore  опционально — хранилище профилей (nullptr — без сохранения)
+    explicit SyncDialog(core::sync::SyncEngine      *engine,
+                        const QString               &localPath,
+                        const QString               &remotePath,
+                        core::sync::SyncProfileStore *profileStore = nullptr,
                         QWidget *parent = nullptr);
 
 private slots:
@@ -34,18 +37,28 @@ private slots:
     void onPreviewReady(const QList<core::sync::SyncDiffEntry> &diff);
     void onSyncProgress(int percent);
     void onSyncFinished(bool success, const QString &error);
+    void onProfileSelected(int index);
+    void onSaveProfile();
+    void onDeleteProfile();
 
 private:
     void setupUi(const QString &localPath, const QString &remotePath);
     void showPage(int page);
     void populateDiff(const QList<core::sync::SyncDiffEntry> &diff);
+    void populateProfileCombo();
+    void loadProfileToForm(const core::sync::SyncProfile &p);
+    core::sync::SyncProfile collectProfile() const;
 
-    core::sync::SyncEngine           *m_engine;
+    core::sync::SyncEngine       *m_engine;
+    core::sync::SyncProfileStore *m_profileStore = nullptr;
     QList<core::sync::SyncDiffEntry>  m_diff;
 
     QStackedWidget *m_stack;
 
     // Страница 0: настройки
+    QComboBox   *m_profileCombo;
+    QPushButton *m_saveProfileBtn;
+    QPushButton *m_deleteProfileBtn;
     QLineEdit   *m_localPath;
     QLineEdit   *m_remotePath;
     QRadioButton *m_dirLocal;

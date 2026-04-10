@@ -2,9 +2,10 @@
 #include "file_panel.h"
 #include <memory>
 
-namespace linscp::core::sftp  { class SftpClient;  }
+namespace linscp::core::sftp     { class SftpClient;  }
 namespace linscp::core::transfer { class TransferQueue; }
-namespace linscp::models { class RemoteFsModel; }
+namespace linscp::core::ssh      { class SshSession; }
+namespace linscp::models         { class RemoteFsModel; }
 
 namespace linscp::ui::panels {
 
@@ -15,6 +16,10 @@ public:
     explicit RemotePanel(core::sftp::SftpClient       *sftp,
                          core::transfer::TransferQueue *queue,
                          QWidget *parent = nullptr);
+
+    /// Передать SSH-сессию для запроса свободного места (df -P).
+    /// Вызывается из ConnectionTab::onSshConnected после создания панели.
+    void setSshSession(core::ssh::SshSession *session) { m_sshSession = session; }
 
     QString     currentPath() const override;
     void        navigateTo(const QString &path) override;
@@ -51,8 +56,13 @@ private slots:
     void onLoadingFinished(const QString &path);
 
 private:
+    /// Запросить свободное место через `df -P <path>`, вернуть строку "X.X GB free"
+    /// или пустую строку при ошибке. Блокирующий вызов — только из фонового потока.
+    QString queryFreeSpace(const QString &path) const;
+
     core::sftp::SftpClient        *m_sftp;
     core::transfer::TransferQueue *m_queue;
+    core::ssh::SshSession         *m_sshSession = nullptr;
     models::RemoteFsModel         *m_model      = nullptr;
     bool                           m_showHidden = false;
 };

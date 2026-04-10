@@ -22,6 +22,7 @@ set(LINSCP_SOURCES
     core/sync/sync_profile.cpp
     core/sync/sync_comparator.cpp
     core/sync/sync_engine.cpp
+    core/sync/sync_profile_store.cpp
 
     # core/keys
     core/keys/key_manager.cpp

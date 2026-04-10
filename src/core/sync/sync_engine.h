@@ -6,6 +6,7 @@
 #include "sync_profile.h"
 #include "sync_comparator.h"
 #include "core/sftp/sftp_client.h"
+#include "core/ssh/ssh_session.h"
 #include "core/transfer/transfer_queue.h"
 
 namespace linscp::core::sync {
@@ -18,6 +19,9 @@ public:
     explicit SyncEngine(sftp::SftpClient *sftp,
                         transfer::TransferQueue *queue,
                         QObject *parent = nullptr);
+
+    /// Задать SSH-сессию — нужна для режима сравнения по контрольным суммам
+    void setSshSession(ssh::SshSession *session) { m_session = session; }
 
     /// Dry-run: вернуть diff без изменений (вызывать из воркера)
     QList<SyncDiffEntry> preview(const SyncProfile &profile);
@@ -33,6 +37,7 @@ signals:
 private:
     sftp::SftpClient         *m_sftp;
     transfer::TransferQueue  *m_queue;
+    ssh::SshSession          *m_session = nullptr;
     SyncComparator            m_comparator;
 };
 

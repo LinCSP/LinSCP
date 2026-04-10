@@ -169,12 +169,14 @@ void ConnectionTab::onSshConnected()
     });
 
     m_syncEngine = new core::sync::SyncEngine(m_sftp, m_sharedQueue, this);
+    m_syncEngine->setSshSession(ssh);
 
     if (m_remotePanel) {
         m_remotePanel->deleteLater();
         m_remotePanel = nullptr;
     }
     m_remotePanel = new panels::RemotePanel(m_sftp, m_sharedQueue, this);
+    m_remotePanel->setSshSession(ssh);
     replaceRemotePanel(m_remotePanel);
 
     // Local → Remote: upload (F5 / DnD / контекстное меню)

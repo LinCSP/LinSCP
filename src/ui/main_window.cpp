@@ -15,6 +15,7 @@
 #include "core/transfer/transfer_queue.h"
 #include "core/keys/key_manager.h"
 #include "core/keys/key_generator.h"
+#include "core/sync/sync_profile_store.h"
 
 #include <QApplication>
 #include <QMenuBar>
@@ -53,9 +54,12 @@ MainWindow::MainWindow(QWidget *parent)
     m_pathStateStore = std::make_unique<core::session::PathStateStore>(
         QDir::homePath() + "/.config/linscp/path_state.json", this);
 
-    m_transferQueue = std::make_unique<core::transfer::TransferQueue>(this);
-    m_keyManager    = std::make_unique<core::keys::KeyManager>(this);
-    m_keyGenerator  = std::make_unique<core::keys::KeyGenerator>(this);
+    m_transferQueue     = std::make_unique<core::transfer::TransferQueue>(this);
+    m_keyManager        = std::make_unique<core::keys::KeyManager>(this);
+    m_keyGenerator      = std::make_unique<core::keys::KeyGenerator>(this);
+    m_syncProfileStore  = std::make_unique<core::sync::SyncProfileStore>(
+        QDir::homePath() + "/.config/linscp/sync_profiles.json", this);
+    m_syncProfileStore->load();
 
     setupUi();
     setupMenuBar();
@@ -491,7 +495,9 @@ void MainWindow::onSync()
                                    : "/";
     dialogs::SyncDialog dlg(tab->syncEngine(),
                              tab->localPanel()->currentPath(),
-                             remotePath, this);
+                             remotePath,
+                             m_syncProfileStore.get(),
+                             this);
     dlg.exec();
 }
 

@@ -12,6 +12,7 @@ class QDockWidget;
 namespace linscp::core::session { class SessionStore; class PathStateStore; }
 namespace linscp::core::transfer { class TransferQueue; }
 namespace linscp::core::keys    { class KeyManager; class KeyGenerator; }
+namespace linscp::core::sync    { class SyncProfileStore; }
 
 namespace linscp::ui {
 
@@ -81,6 +82,7 @@ private:
     std::unique_ptr<core::transfer::TransferQueue>  m_transferQueue;
     std::unique_ptr<core::keys::KeyManager>         m_keyManager;
     std::unique_ptr<core::keys::KeyGenerator>       m_keyGenerator;
+    std::unique_ptr<core::sync::SyncProfileStore>   m_syncProfileStore;
 
     // UI
     QTabWidget             *m_tabWidget     = nullptr;

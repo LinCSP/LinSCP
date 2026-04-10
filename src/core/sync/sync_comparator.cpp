@@ -1,5 +1,7 @@
 #include "sync_comparator.h"
 #include "core/sftp/sftp_client.h"
+#include "core/ssh/ssh_session.h"
+#include "utils/checksum.h"
 #include <QDirIterator>
 #include <QRegularExpression>
 
@@ -8,7 +10,8 @@ namespace linscp::core::sync {
 SyncComparator::SyncComparator(QObject *parent) : QObject(parent) {}
 
 QList<SyncDiffEntry> SyncComparator::compare(const SyncProfile &profile,
-                                              sftp::SftpClient *sftp)
+                                              sftp::SftpClient *sftp,
+                                              ssh::SshSession  *session)
 {
     // 1. Сканируем локаль
     QHash<QString, QDateTime> localMtimes;
@@ -54,7 +57,26 @@ QList<SyncDiffEntry> SyncComparator::compare(const SyncProfile &profile,
             bool localNewer = entry.localMtime > entry.remoteMtime;
             bool sizeMatch  = entry.localSize  == entry.remoteSize;
 
-            if (profile.compareMode == SyncCompareMode::MtimeAndSize && sizeMatch)
+            if (profile.compareMode == SyncCompareMode::Checksum && session) {
+                // Точное сравнение по SHA-256: пропускаем если суммы совпадают
+                const bool same = utils::Checksum::equal(
+                    entry.localPath, entry.remotePath,
+                    utils::ChecksumAlgo::SHA256, session);
+                if (same) {
+                    entry.action = SyncAction::Skip;
+                } else {
+                    // Файлы различаются — определяем направление по mtime
+                    if (profile.direction == SyncDirection::Bidirectional
+                        && !entry.localMtime.isNull()
+                        && !entry.remoteMtime.isNull()
+                        && entry.localMtime != entry.remoteMtime) {
+                        // Оба изменились — конфликт
+                        entry.action = SyncAction::Conflict;
+                    } else {
+                        entry.action = localNewer ? SyncAction::Upload : SyncAction::Download;
+                    }
+                }
+            } else if (profile.compareMode == SyncCompareMode::MtimeAndSize && sizeMatch)
                 entry.action = SyncAction::Skip;
             else if (localNewer)
                 entry.action = SyncAction::Upload;

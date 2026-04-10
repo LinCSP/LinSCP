@@ -1,11 +1,13 @@
 #include "remote_panel.h"
 #include "models/remote_fs_model.h"
+#include "core/ssh/ssh_session.h"
 #include "core/transfer/transfer_item.h"
 #include "core/transfer/transfer_queue.h"
 #include "ui/widgets/breadcrumb_bar.h"
 #include "ui/widgets/file_list_view.h"
 #include "ui/dialogs/copy_dialog.h"
 #include "ui/dialogs/properties_dialog.h"
+#include "utils/file_utils.h"
 #include <QHeaderView>
 #include <QMenu>
 #include <QAction>
@@ -323,9 +325,45 @@ void RemotePanel::onLoadingStarted(const QString &path)
 
 void RemotePanel::onLoadingFinished(const QString &path)
 {
-    Q_UNUSED(path);
-    statusBar()->setText(tr("%1 items").arg(
-        m_model->rowCount(m_model->indexForPath(currentPath()))));
+    const int count = m_model->rowCount(m_model->indexForPath(currentPath()));
+
+    if (!m_sshSession) {
+        statusBar()->setText(tr("%1 items").arg(count));
+        return;
+    }
+
+    // Запросить свободное место асинхронно — df блокирует сеть
+    const QString snapshotPath = path.isEmpty() ? currentPath() : path;
+    auto *watcher = new QFutureWatcher<QString>(this);
+    connect(watcher, &QFutureWatcher<QString>::finished,
+            this, [this, watcher, count]() {
+        watcher->deleteLater();
+        const QString free = watcher->result();
+        if (free.isEmpty())
+            statusBar()->setText(tr("%1 items").arg(count));
+        else
+            statusBar()->setText(tr("%1 items  |  Free: %2").arg(count).arg(free));
+    });
+    watcher->setFuture(QtConcurrent::run(
+        [this, snapshotPath]() { return queryFreeSpace(snapshotPath); }));
+}
+
+QString RemotePanel::queryFreeSpace(const QString &path) const
+{
+    if (!m_sshSession) return {};
+
+    // df -P выводит строго-POSIX формат: Filesystem / 1024-blocks / Used / Available / ...
+    const QString cmd = QStringLiteral("df -P '%1' 2>/dev/null | awk 'NR==2{print $4}'")
+                            .arg(QString(path).replace('\'', "'\\''"));
+    const QString out = m_sshSession->execCommand(cmd).trimmed();
+    if (out.isEmpty()) return {};
+
+    bool ok = false;
+    const qint64 blocks = out.toLongLong(&ok);
+    if (!ok || blocks < 0) return {};
+
+    // df -P возвращает 1024-байтные блоки
+    return utils::FileUtils::humanSize(blocks * 1024LL);
 }
 
 // ── Фильтры ───────────────────────────────────────────────────────────────────

@@ -2070,6 +2070,42 @@
         <source>Error: %1</source>
         <translation>Ошибка: %1</translation>
     </message>
+    <message>
+        <location filename="../ui/dialogs/sync_dialog.cpp" line="51"/>
+        <source>Profile:</source>
+        <translation>Профиль:</translation>
+    </message>
+    <message>
+        <location filename="../ui/dialogs/sync_dialog.cpp" line="53"/>
+        <source>Save Profile…</source>
+        <translation>Сохранить профиль…</translation>
+    </message>
+    <message>
+        <location filename="../ui/dialogs/sync_dialog.cpp" line="54"/>
+        <location filename="../ui/dialogs/sync_dialog.cpp" line="384"/>
+        <source>Delete Profile</source>
+        <translation>Удалить профиль</translation>
+    </message>
+    <message>
+        <location filename="../ui/dialogs/sync_dialog.cpp" line="294"/>
+        <source>— new profile —</source>
+        <translation>— новый профиль —</translation>
+    </message>
+    <message>
+        <location filename="../ui/dialogs/sync_dialog.cpp" line="358"/>
+        <source>Save Sync Profile</source>
+        <translation>Сохранить профиль синхронизации</translation>
+    </message>
+    <message>
+        <location filename="../ui/dialogs/sync_dialog.cpp" line="359"/>
+        <source>Profile name:</source>
+        <translation>Имя профиля:</translation>
+    </message>
+    <message>
+        <location filename="../ui/dialogs/sync_dialog.cpp" line="385"/>
+        <source>Delete profile &quot;%1&quot;?</source>
+        <translation>Удалить профиль «%1»?</translation>
+    </message>
 </context>
 <context>
     <name>linscp::ui::dialogs::TransferPanel</name>
@@ -2303,6 +2339,11 @@
         <location filename="../ui/panels/remote_panel.cpp" line="270"/>
         <source>New Folder…	F7</source>
         <translation>Новая папка…	F7</translation>
+    </message>
+    <message>
+        <location filename="../ui/panels/remote_panel.cpp" line="330"/>
+        <source>%1 items  |  Free: %2</source>
+        <translation>%1 элементов  |  Свободно: %2</translation>
     </message>
 </context>
 <context>

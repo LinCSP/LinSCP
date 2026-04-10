@@ -1,5 +1,6 @@
 #include "sync_dialog.h"
 #include "core/sync/sync_engine.h"
+#include "core/sync/sync_profile_store.h"
 #include <QThreadPool>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -14,16 +15,20 @@
 #include <QLabel>
 #include <QProgressBar>
 #include <QPushButton>
+#include <QComboBox>
+#include <QInputDialog>
+#include <QMessageBox>
 #include <QDialogButtonBox>
 #include <QtConcurrent>
 
 namespace linscp::ui::dialogs {
 
-SyncDialog::SyncDialog(core::sync::SyncEngine *engine,
-                       const QString &localPath,
-                       const QString &remotePath,
+SyncDialog::SyncDialog(core::sync::SyncEngine       *engine,
+                       const QString                &localPath,
+                       const QString                &remotePath,
+                       core::sync::SyncProfileStore *profileStore,
                        QWidget *parent)
-    : QDialog(parent), m_engine(engine)
+    : QDialog(parent), m_engine(engine), m_profileStore(profileStore)
 {
     setupUi(localPath, remotePath);
 
@@ -46,6 +51,26 @@ void SyncDialog::setupUi(const QString &localPath, const QString &remotePath)
     auto *settingsPage = new QWidget;
     auto *sLayout = new QVBoxLayout(settingsPage);
     sLayout->setContentsMargins(12, 12, 12, 12);
+
+    // ── Строка профилей ───────────────────────────────────────────────────────
+    m_profileCombo     = new QComboBox(settingsPage);
+    m_saveProfileBtn   = new QPushButton(tr("Save Profile…"),   settingsPage);
+    m_deleteProfileBtn = new QPushButton(tr("Delete Profile"),  settingsPage);
+    m_deleteProfileBtn->setEnabled(false);
+
+    auto *profileRow = new QHBoxLayout;
+    profileRow->addWidget(new QLabel(tr("Profile:"), settingsPage));
+    profileRow->addWidget(m_profileCombo, 1);
+    profileRow->addWidget(m_saveProfileBtn);
+    profileRow->addWidget(m_deleteProfileBtn);
+    sLayout->addLayout(profileRow);
+
+    populateProfileCombo();
+
+    connect(m_profileCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+            this, &SyncDialog::onProfileSelected);
+    connect(m_saveProfileBtn,   &QPushButton::clicked, this, &SyncDialog::onSaveProfile);
+    connect(m_deleteProfileBtn, &QPushButton::clicked, this, &SyncDialog::onDeleteProfile);
 
     auto *pathBox    = new QGroupBox(tr("Directories"), settingsPage);
     auto *pathLayout = new QFormLayout(pathBox);
@@ -260,6 +285,112 @@ void SyncDialog::onSyncFinished(bool success, const QString &error)
     } else {
         m_progressLabel->setText(tr("Error: %1").arg(error));
     }
+}
+
+// ── Профили ───────────────────────────────────────────────────────────────────
+
+void SyncDialog::populateProfileCombo()
+{
+    const QSignalBlocker blocker(m_profileCombo);
+    m_profileCombo->clear();
+    m_profileCombo->addItem(tr("— new profile —"), QVariant{});
+
+    if (!m_profileStore) return;
+    for (const auto &p : m_profileStore->all())
+        m_profileCombo->addItem(p.name, p.id.toString());
+}
+
+void SyncDialog::onProfileSelected(int index)
+{
+    const bool isSaved = index > 0;
+    m_deleteProfileBtn->setEnabled(isSaved && m_profileStore);
+
+    if (!isSaved || !m_profileStore) return;
+    const QUuid id = QUuid::fromString(m_profileCombo->currentData().toString());
+    loadProfileToForm(m_profileStore->find(id));
+}
+
+void SyncDialog::loadProfileToForm(const core::sync::SyncProfile &p)
+{
+    m_localPath->setText(p.localPath);
+    m_remotePath->setText(p.remotePath);
+
+    switch (p.direction) {
+    case core::sync::SyncDirection::RemoteToLocal: m_dirRemote->setChecked(true); break;
+    case core::sync::SyncDirection::Bidirectional: m_dirBoth->setChecked(true);   break;
+    default:                                       m_dirLocal->setChecked(true);  break;
+    }
+    m_cmChecksum->setChecked(p.compareMode == core::sync::SyncCompareMode::Checksum);
+    m_cmMtime->setChecked(p.compareMode    != core::sync::SyncCompareMode::Checksum);
+    m_excludeEdit->setText(p.excludePatterns.join(", "));
+    m_excludeHidden->setChecked(p.excludeHidden);
+}
+
+core::sync::SyncProfile SyncDialog::collectProfile() const
+{
+    core::sync::SyncProfile p;
+    p.localPath  = m_localPath->text();
+    p.remotePath = m_remotePath->text();
+
+    if (m_dirRemote->isChecked())    p.direction = core::sync::SyncDirection::RemoteToLocal;
+    else if (m_dirBoth->isChecked()) p.direction = core::sync::SyncDirection::Bidirectional;
+    else                             p.direction = core::sync::SyncDirection::LocalToRemote;
+
+    p.compareMode = m_cmChecksum->isChecked()
+                        ? core::sync::SyncCompareMode::Checksum
+                        : core::sync::SyncCompareMode::MtimeAndSize;
+
+    const QStringList raw = m_excludeEdit->text().split(',', Qt::SkipEmptyParts);
+    for (const auto &s : raw) p.excludePatterns.append(s.trimmed());
+    p.excludeHidden = m_excludeHidden->isChecked();
+    return p;
+}
+
+void SyncDialog::onSaveProfile()
+{
+    if (!m_profileStore) return;
+
+    // Если выбран существующий профиль — обновляем его, иначе создаём новый
+    const int idx = m_profileCombo->currentIndex();
+    const bool isExisting = idx > 0;
+
+    if (isExisting) {
+        const QUuid id = QUuid::fromString(m_profileCombo->currentData().toString());
+        core::sync::SyncProfile p = collectProfile();
+        p.id   = id;
+        p.name = m_profileCombo->currentText();
+        m_profileStore->update(p);
+    } else {
+        bool ok = false;
+        const QString name = QInputDialog::getText(
+            this, tr("Save Sync Profile"), tr("Profile name:"),
+            QLineEdit::Normal, {}, &ok);
+        if (!ok || name.trimmed().isEmpty()) return;
+
+        core::sync::SyncProfile p = collectProfile();
+        p.name = name.trimmed();
+        m_profileStore->add(p);
+        populateProfileCombo();
+
+        // Выбрать только что сохранённый профиль
+        const int last = m_profileCombo->count() - 1;
+        m_profileCombo->setCurrentIndex(last);
+    }
+}
+
+void SyncDialog::onDeleteProfile()
+{
+    if (!m_profileStore || m_profileCombo->currentIndex() <= 0) return;
+    const QString name = m_profileCombo->currentText();
+    if (QMessageBox::question(this, tr("Delete Profile"),
+                              tr("Delete profile \"%1\"?").arg(name))
+            != QMessageBox::Yes)
+        return;
+
+    const QUuid id = QUuid::fromString(m_profileCombo->currentData().toString());
+    m_profileStore->remove(id);
+    populateProfileCombo();
+    m_profileCombo->setCurrentIndex(0);
 }
 
 } // namespace linscp::ui::dialogs

@@ -7,8 +7,9 @@
 
 #include "sync_profile.h"
 
-// Forward declaration — избегаем циклических зависимостей
+// Forward declarations — избегаем циклических зависимостей
 namespace linscp::core::sftp { class SftpClient; }
+namespace linscp::core::ssh  { class SshSession; }
 
 namespace linscp::core::sync {
 
@@ -41,9 +42,11 @@ class SyncComparator : public QObject {
 public:
     explicit SyncComparator(QObject *parent = nullptr);
 
-    /// Основной метод: вернуть список diff без применения изменений (dry-run)
+    /// Основной метод: вернуть список diff без применения изменений (dry-run).
+    /// @param session  опционально — нужен для режима SyncCompareMode::Checksum
     QList<SyncDiffEntry> compare(const SyncProfile &profile,
-                                 linscp::core::sftp::SftpClient *sftp);
+                                 linscp::core::sftp::SftpClient *sftp,
+                                 linscp::core::ssh::SshSession  *session = nullptr);
 
 signals:
     /// Прогресс сканирования (0..100)
