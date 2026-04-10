@@ -7,6 +7,21 @@ namespace linscp::core::transfer {
 
 enum class TransferDirection { Upload, Download };
 
+/// Решение при конфликте существующего файла (аналог WinSCP TCopyParamType::OnTransferExists)
+enum class OverwritePolicy {
+    Ask,       ///< Спросить пользователя (по умолчанию)
+    Overwrite, ///< Заменить без вопросов
+    Skip,      ///< Пропустить этот файл
+    Cancel,    ///< Отменить всю операцию
+};
+
+/// Информация о файле для диалога конфликта
+struct ConflictInfo {
+    QString   path;
+    qint64    size  = -1;
+    QDateTime mtime;
+};
+
 enum class TransferStatus {
     Queued,
     InProgress,

@@ -4,6 +4,7 @@
 #include "dialogs/host_fingerprint_dialog.h"
 #include "dialogs/auth_dialog.h"
 #include "dialogs/progress_dialog.h"
+#include "dialogs/overwrite_dialog.h"
 
 #include "core/session/session_store.h"
 #include "core/session/session_manager.h"
@@ -19,6 +20,8 @@
 #include <QLabel>
 #include <QVBoxLayout>
 #include <QFileInfo>
+#include <memory>
+#include <atomic>
 
 namespace linscp::ui {
 
@@ -154,6 +157,61 @@ void ConnectionTab::onSshConnected()
 
     m_transferManager = new core::transfer::TransferManager(
         m_sftp, m_sharedQueue, this);
+
+    // ── Overwrite callback ────────────────────────────────────────────────────
+    // Вызывается из воркер-потока → маршаллим в UI-поток через BlockingQueuedConnection.
+    // OverwriteAll/SkipAll хранятся в shared_ptr<atomic> чтобы избежать обращений к this
+    // из другого потока.
+    auto overwriteAll = std::make_shared<std::atomic<bool>>(false);
+    auto skipAll      = std::make_shared<std::atomic<bool>>(false);
+
+    m_transferManager->setOverwriteCallback(
+        [this, overwriteAll, skipAll](
+            const core::transfer::ConflictInfo &src,
+            const core::transfer::ConflictInfo &dst)
+            -> core::transfer::OverwritePolicy
+        {
+            // Проверяем глобальную политику без вызова диалога
+            if (overwriteAll->load()) return core::transfer::OverwritePolicy::Overwrite;
+            if (skipAll->load())      return core::transfer::OverwritePolicy::Skip;
+
+            core::transfer::OverwritePolicy result = core::transfer::OverwritePolicy::Cancel;
+
+            // BlockingQueuedConnection: блокирует воркер-поток, выполняет лямбду в UI-потоке
+            QMetaObject::invokeMethod(this, [&]() {
+                dialogs::OverwriteDialog::FileInfo srcInfo{src.path, src.size, src.mtime};
+                dialogs::OverwriteDialog::FileInfo dstInfo{dst.path, dst.size, dst.mtime};
+                dialogs::OverwriteDialog dlg(srcInfo, dstInfo, this);
+                dlg.exec();
+
+                switch (dlg.action()) {
+                case dialogs::OverwriteDialog::Action::Overwrite:
+                    result = core::transfer::OverwritePolicy::Overwrite;
+                    break;
+                case dialogs::OverwriteDialog::Action::OverwriteAll:
+                    overwriteAll->store(true);
+                    result = core::transfer::OverwritePolicy::Overwrite;
+                    break;
+                case dialogs::OverwriteDialog::Action::Skip:
+                    result = core::transfer::OverwritePolicy::Skip;
+                    break;
+                case dialogs::OverwriteDialog::Action::SkipAll:
+                    skipAll->store(true);
+                    result = core::transfer::OverwritePolicy::Skip;
+                    break;
+                case dialogs::OverwriteDialog::Action::Rename:
+                    // TODO: реализовать переименование (пока — пропустить)
+                    result = core::transfer::OverwritePolicy::Skip;
+                    break;
+                case dialogs::OverwriteDialog::Action::Cancel:
+                    result = core::transfer::OverwritePolicy::Cancel;
+                    break;
+                }
+            }, Qt::BlockingQueuedConnection);
+
+            return result;
+        });
+
     m_transferManager->start();
 
     m_progressDlg = new dialogs::ProgressDialog(

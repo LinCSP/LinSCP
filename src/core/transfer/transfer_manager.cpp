@@ -53,8 +53,78 @@ void TransferManager::scheduleNext()
     emit overallProgress(m_active.load(), queued);
 }
 
+// ── Разрешение конфликтов ──────────────────────────────────────────────────────
+
+OverwritePolicy TransferManager::checkConflict(const TransferItem &item)
+{
+    // Глобальная политика (OverwriteAll / SkipAll) — не спрашиваем заново
+    const auto global = static_cast<OverwritePolicy>(m_globalPolicy.load());
+    if (global == OverwritePolicy::Overwrite) return OverwritePolicy::Overwrite;
+    if (global == OverwritePolicy::Skip)      return OverwritePolicy::Skip;
+
+    if (item.direction == TransferDirection::Upload) {
+        // Проверяем существует ли файл на сервере
+        const sftp::SftpFileInfo remote = m_sftp->stat(item.remotePath);
+        if (remote.path.isEmpty()) return OverwritePolicy::Overwrite; // не существует
+
+        // Файл существует → спросить (если есть callback)
+        if (!m_overwriteCb) return OverwritePolicy::Overwrite; // нет callback — перезаписать
+
+        const QFileInfo localFi(item.localPath);
+        ConflictInfo src{item.localPath, localFi.size(), localFi.lastModified()};
+        ConflictInfo dst{item.remotePath, remote.size, remote.mtime};
+
+        return m_overwriteCb(src, dst);
+
+    } else {
+        // Download: проверяем существует ли локальный файл
+        const QFileInfo localFi(item.localPath);
+        if (!localFi.exists()) return OverwritePolicy::Overwrite; // не существует
+
+        if (!m_overwriteCb) return OverwritePolicy::Overwrite;
+
+        const sftp::SftpFileInfo remote = m_sftp->stat(item.remotePath);
+        ConflictInfo src{item.remotePath, remote.size, remote.mtime};
+        ConflictInfo dst{item.localPath, localFi.size(), localFi.lastModified()};
+
+        return m_overwriteCb(src, dst);
+    }
+}
+
+// ── Исполнение задания ────────────────────────────────────────────────────────
+
 void TransferManager::runItem(const TransferItem &item)
 {
+    // ── Проверка конфликта ────────────────────────────────────────────────────
+    const OverwritePolicy policy = checkConflict(item);
+
+    if (policy == OverwritePolicy::Skip) {
+        m_queue->setStatus(item.id, TransferStatus::Cancelled);
+        --m_active;
+        QMetaObject::invokeMethod(this, [this, item]() {
+            emit transferFinished(item.id, false);
+            scheduleNext();
+        }, Qt::QueuedConnection);
+        return;
+    }
+
+    if (policy == OverwritePolicy::Cancel) {
+        // Отменить весь оставшийся поток — сбросить всю очередь
+        m_queue->setStatus(item.id, TransferStatus::Cancelled);
+        // Отменяем все Queued задания
+        for (const auto &it : m_queue->items()) {
+            if (it.status == TransferStatus::Queued)
+                m_queue->setStatus(it.id, TransferStatus::Cancelled);
+        }
+        --m_active;
+        QMetaObject::invokeMethod(this, [this, item]() {
+            emit transferFinished(item.id, false);
+            scheduleNext();
+        }, Qt::QueuedConnection);
+        return;
+    }
+
+    // ── Передача файла ────────────────────────────────────────────────────────
     bool ok = false;
     auto progress = [this, &item](const sftp::TransferProgress &p) {
         m_queue->updateProgress(item.id, p.transferred);
@@ -64,7 +134,6 @@ void TransferManager::runItem(const TransferItem &item)
         ok = m_sftp->downloadRecursive(item.remotePath, item.localPath, progress);
     } else {
         if (item.resumeOffset > 0)
-            // Resume работает только для файлов
             ok = m_sftp->uploadResume(item.localPath, item.remotePath,
                                       item.resumeOffset, progress);
         else
