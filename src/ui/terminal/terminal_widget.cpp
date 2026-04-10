@@ -1,5 +1,7 @@
 #include "terminal_widget.h"
 
+#include "core/app_settings.h"
+
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -147,52 +149,67 @@ void TerminalWidget::onProcessFinished()
 
 bool TerminalWidget::buildCommand(QString &program, QStringList &args) const
 {
-    // Базовые аргументы ssh
-    QStringList ssh;
-    ssh << "-p" << QString::number(m_port)
-        << "-o" << "StrictHostKeyChecking=ask";
-    if (!m_keyPath.isEmpty())
-        ssh << "-i" << m_keyPath;
-    ssh << QString("%1@%2").arg(m_username, m_host);
+    using Mode = core::AppSettings::TerminalMode;
+    const Mode mode = core::AppSettings::terminalMode();
 
-    // PuTTY — сам умеет SSH без внешнего ssh
-    const QString putty = QStandardPaths::findExecutable("putty");
-    if (!putty.isEmpty()) {
-        program = putty;
-        args = { "-ssh", "-P", QString::number(m_port), "-l", m_username };
-        if (!m_keyPath.isEmpty()) args << "-i" << m_keyPath;
-        args << m_host;
-        return true;
-    }
-
-    // Функция-помощник: ищет терминал и формирует аргументы
-    struct T { const char *bin; QStringList prefix; };
-    const QList<T> candidates = {
-        { "kitty",          { "ssh" }           },
-        { "xterm",          { "-e", "ssh" }     },
-        { "konsole",        { "-e", "ssh" }     },
-        { "xfce4-terminal", { "-e", "ssh" }     },   // аргументы одной строкой ниже
-        { "gnome-terminal", { "--", "ssh" }     },
-        { "lxterminal",     { "-e", "ssh" }     },
-        { "mate-terminal",  { "-e", "ssh" }     },
-        { "tilix",          { "-e", "ssh" }     },
-        { "alacritty",      { "-e", "ssh" }     },
+    // Базовые ssh-аргументы (используются всеми кроме putty и custom)
+    auto makeSshArgs = [this]() -> QStringList {
+        QStringList a;
+        a << "-p" << QString::number(m_port)
+          << "-o" << "StrictHostKeyChecking=ask";
+        if (!m_keyPath.isEmpty()) a << "-i" << m_keyPath;
+        a << QString("%1@%2").arg(m_username, m_host);
+        return a;
     };
 
-    for (const auto &c : candidates) {
-        const QString bin = QStandardPaths::findExecutable(c.bin);
-        if (bin.isEmpty()) continue;
-        program = bin;
-        if (qstrcmp(c.bin, "xfce4-terminal") == 0) {
-            // xfce4-terminal не поддерживает список аргументов через -e,
-            // принимает строку целиком
-            args = { "-e", "ssh " + ssh.join(' ') };
+    // Сборка команды для конкретного бинарника
+    auto buildFor = [&](const QString &bin) -> bool {
+        const QString path = QStandardPaths::findExecutable(bin);
+        if (path.isEmpty()) return false;
+        program = path;
+        if (bin == "putty") {
+            args = { "-ssh", "-P", QString::number(m_port), "-l", m_username };
+            if (!m_keyPath.isEmpty()) args << "-i" << m_keyPath;
+            args << m_host;
+        } else if (bin == "kitty" || bin == "alacritty") {
+            args = QStringList{ "ssh" } + makeSshArgs();
+        } else if (bin == "xfce4-terminal") {
+            args = { "-e", "ssh " + makeSshArgs().join(' ') };
+        } else if (bin == "gnome-terminal") {
+            args = QStringList{ "--" , "ssh" } + makeSshArgs();
         } else {
-            args = c.prefix + ssh;
+            // xterm, konsole, lxterminal, mate-terminal, tilix…
+            args = QStringList{ "-e", "ssh" } + makeSshArgs();
         }
+        return true;
+    };
+
+    // Custom — путь + шаблон аргументов из настроек
+    if (mode == Mode::Custom) {
+        const QString customPath = core::AppSettings::terminalCustomPath();
+        if (customPath.isEmpty()) return false;
+        program = customPath;
+        QString tmpl = core::AppSettings::terminalCustomArgs();
+        tmpl.replace("%host%", m_host);
+        tmpl.replace("%port%", QString::number(m_port));
+        tmpl.replace("%user%", m_username);
+        tmpl.replace("%key%",  m_keyPath);
+        args = tmpl.split(' ', Qt::SkipEmptyParts);
         return true;
     }
 
+    // Конкретный выбор
+    if (mode != Mode::AutoDetect) {
+        const QString bin = core::AppSettings::terminalBinaryForMode(mode);
+        return buildFor(bin);
+    }
+
+    // AutoDetect — перебираем по приоритету
+    for (const char *bin : { "putty","kitty","xterm","konsole",
+                              "gnome-terminal","xfce4-terminal",
+                              "alacritty","lxterminal","mate-terminal","tilix" }) {
+        if (buildFor(bin)) return true;
+    }
     return false;
 }
 

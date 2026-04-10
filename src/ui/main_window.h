@@ -56,6 +56,7 @@ private slots:
     void onManageKeys();
     void onSync();
     void onToggleTerminal();
+    void onPreferences();
     void onAbout();
 
 private:

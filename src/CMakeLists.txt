@@ -59,6 +59,10 @@ set(LINSCP_SOURCES
     ui/dialogs/properties_dialog.cpp
     ui/dialogs/auth_dialog.cpp
     ui/dialogs/progress_dialog.cpp
+    ui/dialogs/preferences_dialog.cpp
+
+    # core
+    core/app_settings.cpp
 
     # ui/widgets
     ui/widgets/breadcrumb_bar.cpp

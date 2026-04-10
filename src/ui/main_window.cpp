@@ -8,6 +8,7 @@
 #include "panels/local_panel.h"
 #include "panels/remote_panel.h"
 #include "terminal/terminal_widget.h"
+#include "dialogs/preferences_dialog.h"
 
 #include "core/session/session_store.h"
 #include "core/transfer/transfer_queue.h"
@@ -220,6 +221,12 @@ void MainWindow::setupMenuBar()
                 tr("Language change will take effect after restarting LinSCP."));
         });
     }
+
+    // ── Options ───────────────────────────────────────────────────────────────
+    QMenu *optMenu = menuBar()->addMenu(tr("&Options"));
+    optMenu->addAction(QIcon::fromTheme("preferences-system"),
+                       tr("&Preferences…"), QKeySequence("Ctrl+,"),
+                       this, &MainWindow::onPreferences);
 
     // ── Help ──────────────────────────────────────────────────────────────────
     QMenu *helpMenu = menuBar()->addMenu(tr("&Help"));
@@ -486,6 +493,12 @@ void MainWindow::attachTerminalToCurrentTab()
         if (tab->isConnected() && !m_terminalWidget->isShellOpen())
             m_terminalWidget->openShell();
     }
+}
+
+void MainWindow::onPreferences()
+{
+    dialogs::PreferencesDialog dlg(this);
+    dlg.exec();
 }
 
 void MainWindow::onAbout()
