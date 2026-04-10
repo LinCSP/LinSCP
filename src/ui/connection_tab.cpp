@@ -3,6 +3,7 @@
 #include "panels/remote_panel.h"
 #include "dialogs/host_fingerprint_dialog.h"
 #include "dialogs/auth_dialog.h"
+#include "dialogs/progress_dialog.h"
 
 #include "core/session/session_store.h"
 #include "core/session/session_manager.h"
@@ -123,7 +124,8 @@ void ConnectionTab::disconnectSession()
 {
     // SFTP должен закрыться ДО ssh_disconnect: sftp_free() отправляет EOF
     // по SSH-каналу, а ssh_disconnect делает сокет недействительным.
-    delete m_transferManager;  m_transferManager = nullptr;
+    delete m_progressDlg;      m_progressDlg      = nullptr;
+    delete m_transferManager;  m_transferManager  = nullptr;
     delete m_syncEngine;       m_syncEngine       = nullptr;
     delete m_sftp;             m_sftp             = nullptr;
 
@@ -162,6 +164,12 @@ void ConnectionTab::onSshConnected()
     m_transferManager = new core::transfer::TransferManager(
         m_sftp, m_sharedQueue, this);
     m_transferManager->start();
+
+    // Диалог прогресса передачи (non-modal, показывается при первом файле)
+    m_progressDlg = new dialogs::ProgressDialog(
+        m_transferManager, m_sharedQueue, this);
+    connect(m_transferManager, &core::transfer::TransferManager::transferStarted,
+            m_progressDlg, &dialogs::ProgressDialog::trackTransfer);
 
     m_syncEngine = new core::sync::SyncEngine(m_sftp, m_sharedQueue, this);
 

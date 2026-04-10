@@ -16,7 +16,7 @@ namespace linscp::core::ssh     { class SshSession; enum class HostVerifyResult;
 namespace linscp::ui {
 
 namespace panels  { class LocalPanel; class RemotePanel; }
-namespace dialogs { class HostFingerprintDialog; }
+namespace dialogs { class HostFingerprintDialog; class ProgressDialog; }
 
 /// Один таб подключения: LocalPanel (слева) + RemotePanel (справа).
 /// Управляет собственной SSH-сессией независимо от других табов.
@@ -75,9 +75,10 @@ private:
     core::sync::SyncEngine            *m_syncEngine      = nullptr;
 
     // UI
-    QSplitter           *m_splitter   = nullptr;
-    panels::LocalPanel  *m_localPanel = nullptr;
-    panels::RemotePanel *m_remotePanel = nullptr;  ///< nullptr если не подключены
+    QSplitter              *m_splitter      = nullptr;
+    panels::LocalPanel     *m_localPanel    = nullptr;
+    panels::RemotePanel    *m_remotePanel   = nullptr;   ///< nullptr если не подключены
+    dialogs::ProgressDialog *m_progressDlg = nullptr;   ///< показывается при активных передачах
 };
 
 } // namespace linscp::ui
