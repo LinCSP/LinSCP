@@ -20,7 +20,7 @@
 
 namespace linscp::ui {
 
-ConnectionTab::ConnectionTab(core::session::SessionStore  *store,
+ConnectionTab::ConnectionTab(core::session::SessionStore   *store,
                              core::transfer::TransferQueue *sharedQueue,
                              QWidget *parent)
     : QWidget(parent)
@@ -33,8 +33,8 @@ ConnectionTab::ConnectionTab(core::session::SessionStore  *store,
     m_localPanel = new panels::LocalPanel(this);
 
     m_splitter = new QSplitter(Qt::Horizontal, this);
-    m_splitter->addWidget(m_localPanel);
     m_splitter->setHandleWidth(4);
+    m_splitter->addWidget(m_localPanel);
     showPlaceholder();
 
     layout->addWidget(m_splitter);
@@ -42,8 +42,6 @@ ConnectionTab::ConnectionTab(core::session::SessionStore  *store,
 
 ConnectionTab::~ConnectionTab()
 {
-    // Отключаем все исходящие сигналы ДО cleanup, чтобы lambda в MainWindow
-    // не обращалась к уже разрушаемому QTabWidget во время cascade-деструкции.
     QObject::disconnect(this, nullptr, nullptr, nullptr);
     disconnectSession();
 }
@@ -55,8 +53,6 @@ void ConnectionTab::connectToSession(const QUuid &profileId)
     if (isConnected()) disconnectSession();
 
     m_profileId = profileId;
-
-    // Каждый таб создаёт свой SessionManager, привязанный к shared store
     m_sessionManager = std::make_unique<core::session::SessionManager>(m_store, this);
 
     connect(m_sessionManager.get(), &core::session::SessionManager::sessionOpened,
@@ -70,22 +66,17 @@ void ConnectionTab::connectToSession(const QUuid &profileId)
         return;
     }
 
-    // Диалог прогресса подключения — аналог WinSCP TAuthenticateForm
-    // Показываем немодально: закроется сам при connected() или оставит ошибку
     auto *authDlg = new dialogs::AuthDialog(sshSession, this);
     authDlg->setAttribute(Qt::WA_DeleteOnClose);
     authDlg->setModal(true);
     authDlg->show();
 
-    // Верификация fingerprint — закрываем AuthDialog, показываем fingerprint-диалог,
-    // затем после решения пользователя показываем новый AuthDialog для auth-фазы
     connect(sshSession, &core::ssh::SshSession::hostVerificationRequired,
             this, [this, sshSession, authDlg](core::ssh::HostVerifyResult reason,
                                                const QByteArray &fp) {
         authDlg->hide();
         const auto profile = m_store->find(m_profileId);
-        dialogs::HostFingerprintDialog dlg(profile.host, profile.port, fp, reason,
-                                           this);
+        dialogs::HostFingerprintDialog dlg(profile.host, profile.port, fp, reason, this);
         dlg.exec();
         switch (dlg.decision()) {
         case dialogs::HostFingerprintDialog::Decision::Accept:
@@ -111,7 +102,6 @@ void ConnectionTab::connectToSession(const QUuid &profileId)
 
 void ConnectionTab::connectToProfile(const core::session::SessionProfile &profile)
 {
-    // Если профиль не в store — добавляем временно
     const auto existing = m_store->find(profile.id);
     if (!existing.isValid()) {
         m_store->add(profile);
@@ -122,17 +112,14 @@ void ConnectionTab::connectToProfile(const core::session::SessionProfile &profil
 
 void ConnectionTab::disconnectSession()
 {
-    // SFTP должен закрыться ДО ssh_disconnect: sftp_free() отправляет EOF
-    // по SSH-каналу, а ssh_disconnect делает сокет недействительным.
-    delete m_progressDlg;      m_progressDlg      = nullptr;
-    delete m_transferManager;  m_transferManager  = nullptr;
-    delete m_syncEngine;       m_syncEngine       = nullptr;
-    delete m_sftp;             m_sftp             = nullptr;
+    delete m_progressDlg;     m_progressDlg     = nullptr;
+    delete m_transferManager; m_transferManager = nullptr;
+    delete m_syncEngine;      m_syncEngine      = nullptr;
+    delete m_sftp;            m_sftp            = nullptr;
 
     if (m_sessionManager)
         m_sessionManager->closeAll();
 
-    // Удалить временный профиль из store
     if (!m_tempProfileId.isNull()) {
         m_store->remove(m_tempProfileId);
         m_tempProfileId = {};
@@ -156,16 +143,15 @@ void ConnectionTab::disconnectSession()
 
 void ConnectionTab::onSshConnected()
 {
-    auto *sshSession = m_sessionManager->active(m_profileId);
-    if (!sshSession) return;
+    auto *ssh = m_sessionManager->active(m_profileId);
+    if (!ssh) return;
 
-    m_sftp = new core::sftp::SftpClient(sshSession, this);
+    m_sftp = new core::sftp::SftpClient(ssh, this);
 
     m_transferManager = new core::transfer::TransferManager(
         m_sftp, m_sharedQueue, this);
     m_transferManager->start();
 
-    // Диалог прогресса передачи (non-modal, показывается при первом файле)
     m_progressDlg = new dialogs::ProgressDialog(
         m_transferManager, m_sharedQueue, this);
     connect(m_transferManager, &core::transfer::TransferManager::transferStarted,
@@ -173,7 +159,6 @@ void ConnectionTab::onSshConnected()
 
     m_syncEngine = new core::sync::SyncEngine(m_sftp, m_sharedQueue, this);
 
-    // Создать / заменить remote панель
     if (m_remotePanel) {
         m_remotePanel->deleteLater();
         m_remotePanel = nullptr;
@@ -181,7 +166,6 @@ void ConnectionTab::onSshConnected()
     m_remotePanel = new panels::RemotePanel(m_sftp, m_sharedQueue, this);
     replaceRemotePanel(m_remotePanel);
 
-    // Drag & Drop между панелями
     connect(m_localPanel,  &panels::LocalPanel::uploadRequested,
             this, [this](const QStringList &files, const QString &) {
         if (m_remotePanel) m_remotePanel->uploadFiles(files);
@@ -193,7 +177,6 @@ void ConnectionTab::onSshConnected()
     });
 
     const auto profile = m_store->find(m_profileId);
-    // Имя вкладки: имя сессии если задано (как в WinSCP), иначе user@host
     m_title = profile.name.isEmpty()
                   ? tr("%1@%2").arg(profile.username, profile.host)
                   : profile.name;
@@ -217,6 +200,12 @@ void ConnectionTab::onSshError(const QString &msg)
 
 // ── Утилиты ───────────────────────────────────────────────────────────────────
 
+core::ssh::SshSession *ConnectionTab::sshSession() const
+{
+    if (!m_sessionManager || m_profileId.isNull()) return nullptr;
+    return m_sessionManager->active(m_profileId);
+}
+
 void ConnectionTab::showPlaceholder()
 {
     auto *ph = new QLabel(
@@ -234,7 +223,6 @@ void ConnectionTab::showPlaceholder()
 
 void ConnectionTab::replaceRemotePanel(QWidget *w)
 {
-    // splitter имеет два виджета: [0]=LocalPanel, [1]=remote/placeholder
     if (m_splitter->count() == 1) {
         m_splitter->addWidget(w);
     } else {

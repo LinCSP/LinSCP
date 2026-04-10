@@ -1,36 +1,17 @@
 #include "terminal_widget.h"
-#include "core/ssh/ssh_session.h"
-#include "core/ssh/ssh_channel.h"
 
 #include <QVBoxLayout>
-#include <QTimer>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QPushButton>
+#include <QProcess>
+#include <QStandardPaths>
 #include <QFont>
-#include <QFontDatabase>
-
-#ifdef HAVE_QTERMWIDGET
-#  include <qtermwidget5/qtermwidget.h>
-#endif
-
-#ifndef HAVE_QTERMWIDGET
-#  include <QPlainTextEdit>
-#  include <QLineEdit>
-#  include <QLabel>
-#endif
-
-#include <libssh/libssh.h>
 
 namespace linscp::ui::terminal {
 
-using namespace core::ssh;
-
-static constexpr int kReadIntervalMs = 20;
-static constexpr int kReadBufSize    = 4096;
-
-// ─────────────────────────────────────────────────────────────────────────────
-
-TerminalWidget::TerminalWidget(SshSession *session, QWidget *parent)
+TerminalWidget::TerminalWidget(QWidget *parent)
     : QWidget(parent)
-    , m_session(session)
 {
     setupUi();
 }
@@ -40,205 +21,187 @@ TerminalWidget::~TerminalWidget()
     closeShell();
 }
 
-// ── Построение UI ─────────────────────────────────────────────────────────────
-
 void TerminalWidget::setupUi()
 {
-    auto *layout = new QVBoxLayout(this);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(0);
+    setStyleSheet("background:#1e1e1e;");
 
-#ifdef HAVE_QTERMWIDGET
-    m_term = new QTermWidget(0, this);   // 0 = не запускать локальный shell
+    auto *root = new QVBoxLayout(this);
+    root->setAlignment(Qt::AlignCenter);
+    root->setSpacing(14);
 
-    // Шрифт monospace
-    QFont f = QFontDatabase::systemFont(QFontDatabase::FixedFont);
-    f.setPointSize(10);
-    m_term->setTerminalFont(f);
-    m_term->setScrollBarPosition(QTermWidget::ScrollBarRight);
-    m_term->setColorScheme("Linux");
+    auto *ico = new QLabel("⌨", this);
+    ico->setAlignment(Qt::AlignCenter);
+    ico->setStyleSheet("font-size:40px; background:transparent;");
 
-    layout->addWidget(m_term);
+    auto *title = new QLabel(tr("SSH Terminal"), this);
+    title->setAlignment(Qt::AlignCenter);
+    title->setStyleSheet("color:#ccc; font-size:15px; font-weight:bold; background:transparent;");
 
-    // Данные от qtermwidget (пользователь набирает) → SSH-канал
-    connect(m_term, &QTermWidget::sendData, this,
-            [this](const char *data, int len) {
-        if (m_channel && m_channel->isOpen())
-            ssh_channel_write(m_channel->handle(), data, static_cast<uint32_t>(len));
-    });
-#else
-    // Fallback: QPlainTextEdit (только вывод) + QLineEdit (ввод)
-    m_output = new QPlainTextEdit(this);
-    m_output->setReadOnly(true);
-    m_output->setLineWrapMode(QPlainTextEdit::NoWrap);
+    m_statusLbl = new QLabel(tr("Set a connection to enable the terminal."), this);
+    m_statusLbl->setAlignment(Qt::AlignCenter);
+    m_statusLbl->setStyleSheet("color:#777; font-size:11px; background:transparent;");
+    m_statusLbl->setWordWrap(true);
 
-    QFont f = QFontDatabase::systemFont(QFontDatabase::FixedFont);
-    f.setPointSize(10);
-    m_output->setFont(f);
-    m_output->setStyleSheet("background:#1e1e1e; color:#d4d4d4;");
+    m_btnLaunch = new QPushButton(tr("Open Terminal"), this);
+    m_btnLaunch->setEnabled(false);
+    m_btnLaunch->setFixedWidth(180);
+    m_btnLaunch->setStyleSheet(
+        "QPushButton { background:#0e639c; color:#fff; border:none;"
+        "  padding:8px 0; border-radius:4px; font-size:13px; }"
+        "QPushButton:hover    { background:#1177bb; }"
+        "QPushButton:pressed  { background:#0a4f80; }"
+        "QPushButton:disabled { background:#333; color:#555; }");
 
-    m_input = new QLineEdit(this);
-    m_input->setPlaceholderText(tr("Enter command…"));
-    m_input->setFont(f);
+    root->addWidget(ico);
+    root->addWidget(title);
+    root->addWidget(m_statusLbl);
+    root->addSpacing(4);
+    root->addWidget(m_btnLaunch, 0, Qt::AlignHCenter);
 
-    layout->addWidget(m_output, 1);
-    layout->addWidget(new QLabel(tr("⚠ Full terminal requires qtermwidget. "
-                                   "Command-line mode active."), this));
-    layout->addWidget(m_input);
-
-    connect(m_input, &QLineEdit::returnPressed,
-            this, &TerminalWidget::onCommandEntered);
-#endif
-
-    // Таймер опроса SSH-канала
-    m_readTimer = new QTimer(this);
-    m_readTimer->setInterval(kReadIntervalMs);
-    connect(m_readTimer, &QTimer::timeout, this, &TerminalWidget::onReadReady);
+    connect(m_btnLaunch, &QPushButton::clicked, this, &TerminalWidget::onLaunchClicked);
 }
 
-// ── Управление shell ──────────────────────────────────────────────────────────
+// ── Параметры подключения ─────────────────────────────────────────────────────
+
+void TerminalWidget::setConnectionInfo(const QString &host, quint16 port,
+                                        const QString &username,
+                                        const QString &keyPath)
+{
+    m_host     = host;
+    m_port     = port;
+    m_username = username;
+    m_keyPath  = keyPath;
+
+    if (host.isEmpty()) {
+        m_btnLaunch->setEnabled(false);
+        updateStatus(tr("Set a connection to enable the terminal."));
+    } else {
+        QString prog;
+        QStringList dummy;
+        const bool canLaunch = buildCommand(prog, dummy);
+        m_btnLaunch->setEnabled(canLaunch);
+        if (canLaunch)
+            updateStatus(tr("Ready: %1@%2:%3  ·  via %4")
+                             .arg(username, host).arg(port).arg(prog));
+        else
+            updateStatus(tr("No terminal emulator found.\n"
+                            "Install putty, kitty, xterm, konsole or gnome-terminal."),
+                         true);
+    }
+}
+
+// ── Управление процессом ──────────────────────────────────────────────────────
 
 void TerminalWidget::openShell()
 {
-    if (m_channel && m_channel->isOpen()) return;
-    if (!m_session || m_session->state() != core::ssh::SessionState::Connected) return;
-
-    m_channel = m_session->openChannel(core::ssh::ChannelType::Shell);
-    if (!m_channel) return;
-
-    ssh_channel ch = m_channel->handle();
-
-    // Запросить pseudo-terminal (pty)
-#ifdef HAVE_QTERMWIDGET
-    const QSize sz = m_term->terminalSizeHint();
-    ssh_channel_request_pty_size(ch, "xterm-256color", sz.width(), sz.height());
-#else
-    ssh_channel_request_pty_size(ch, "xterm", 80, 24);
-#endif
-
-    if (ssh_channel_request_shell(ch) != SSH_OK) {
-        m_channel->close();
-        m_channel = nullptr;
-        return;
-    }
-
-#ifdef HAVE_QTERMWIDGET
-    // Передать управление размером в qtermwidget → SSH resize
-    connect(m_term, &QTermWidget::termGetFocus, this, [this]() {
-        if (!m_channel || !m_channel->isOpen()) return;
-        const QSize sz = m_term->terminalSizeHint();
-        ssh_channel_change_pty_size(m_channel->handle(), sz.width(), sz.height());
-    });
-#endif
-
-    connect(m_channel, &SshChannel::closed, this, [this]() {
-        m_readTimer->stop();
-        emit shellClosed();
-    });
-
-    m_readTimer->start();
-    emit shellOpened();
+    if (m_host.isEmpty() || isShellOpen()) return;
+    onLaunchClicked();
 }
 
 void TerminalWidget::closeShell()
 {
-    m_readTimer->stop();
-    if (m_channel) {
-        m_channel->close();
-        m_channel = nullptr;
+    if (m_process && m_process->state() != QProcess::NotRunning) {
+        m_process->terminate();
+        m_process->waitForFinished(1000);
     }
 }
 
 bool TerminalWidget::isShellOpen() const
 {
-    return m_channel && m_channel->isOpen();
+    return m_process && m_process->state() == QProcess::Running;
 }
 
-// ── Чтение данных из SSH-канала ───────────────────────────────────────────────
-
-void TerminalWidget::onReadReady()
+void TerminalWidget::onLaunchClicked()
 {
-    if (!m_channel || !m_channel->isOpen()) {
-        m_readTimer->stop();
+    if (m_host.isEmpty()) return;
+
+    QString prog;
+    QStringList args;
+    if (!buildCommand(prog, args)) {
+        updateStatus(tr("No terminal emulator found.\n"
+                        "Install putty, kitty, xterm, konsole or gnome-terminal."), true);
         return;
     }
 
-    ssh_channel ch = m_channel->handle();
+    delete m_process;
+    m_process = new QProcess(this);
+    connect(m_process, &QProcess::started, this, [this, prog]() {
+        updateStatus(tr("Running in %1…  (close the terminal window to stop)").arg(prog));
+        m_btnLaunch->setEnabled(false);
+        emit shellOpened();
+    });
+    connect(m_process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished),
+            this, &TerminalWidget::onProcessFinished);
 
-    // Проверяем EOF
-    if (ssh_channel_is_eof(ch)) {
-        m_readTimer->stop();
-        emit shellClosed();
-        return;
+    m_process->start(prog, args);
+}
+
+void TerminalWidget::onProcessFinished()
+{
+    m_btnLaunch->setEnabled(!m_host.isEmpty());
+    updateStatus(tr("Ready: %1@%2:%3").arg(m_username, m_host).arg(m_port));
+    emit shellClosed();
+}
+
+// ── Поиск терминала ───────────────────────────────────────────────────────────
+
+bool TerminalWidget::buildCommand(QString &program, QStringList &args) const
+{
+    // Базовые аргументы ssh
+    QStringList ssh;
+    ssh << "-p" << QString::number(m_port)
+        << "-o" << "StrictHostKeyChecking=ask";
+    if (!m_keyPath.isEmpty())
+        ssh << "-i" << m_keyPath;
+    ssh << QString("%1@%2").arg(m_username, m_host);
+
+    // PuTTY — сам умеет SSH без внешнего ssh
+    const QString putty = QStandardPaths::findExecutable("putty");
+    if (!putty.isEmpty()) {
+        program = putty;
+        args = { "-ssh", "-P", QString::number(m_port), "-l", m_username };
+        if (!m_keyPath.isEmpty()) args << "-i" << m_keyPath;
+        args << m_host;
+        return true;
     }
 
-    char buf[kReadBufSize];
-    int  n = ssh_channel_read_nonblocking(ch, buf, sizeof(buf), 0);
-    if (n > 0) {
-        const QByteArray data(buf, n);
-#ifdef HAVE_QTERMWIDGET
-        m_term->receiveData(data.constData(), data.size());
-#else
-        // Fallback: просто вставляем текст (без VT-интерпретации)
-        m_output->moveCursor(QTextCursor::End);
-        m_output->insertPlainText(QString::fromLocal8Bit(data));
-        m_output->ensureCursorVisible();
-#endif
+    // Функция-помощник: ищет терминал и формирует аргументы
+    struct T { const char *bin; QStringList prefix; };
+    const QList<T> candidates = {
+        { "kitty",          { "ssh" }           },
+        { "xterm",          { "-e", "ssh" }     },
+        { "konsole",        { "-e", "ssh" }     },
+        { "xfce4-terminal", { "-e", "ssh" }     },   // аргументы одной строкой ниже
+        { "gnome-terminal", { "--", "ssh" }     },
+        { "lxterminal",     { "-e", "ssh" }     },
+        { "mate-terminal",  { "-e", "ssh" }     },
+        { "tilix",          { "-e", "ssh" }     },
+        { "alacritty",      { "-e", "ssh" }     },
+    };
+
+    for (const auto &c : candidates) {
+        const QString bin = QStandardPaths::findExecutable(c.bin);
+        if (bin.isEmpty()) continue;
+        program = bin;
+        if (qstrcmp(c.bin, "xfce4-terminal") == 0) {
+            // xfce4-terminal не поддерживает список аргументов через -e,
+            // принимает строку целиком
+            args = { "-e", "ssh " + ssh.join(' ') };
+        } else {
+            args = c.prefix + ssh;
+        }
+        return true;
     }
 
-    // Также stderr
-    n = ssh_channel_read_nonblocking(ch, buf, sizeof(buf), 1 /* is_stderr */);
-    if (n > 0) {
-        const QByteArray err(buf, n);
-#ifdef HAVE_QTERMWIDGET
-        m_term->receiveData(err.constData(), err.size());
-#else
-        m_output->moveCursor(QTextCursor::End);
-        m_output->insertPlainText(QString::fromLocal8Bit(err));
-        m_output->ensureCursorVisible();
-#endif
-    }
+    return false;
 }
 
-// ── Внешний вид ───────────────────────────────────────────────────────────────
-
-void TerminalWidget::setTerminalFont(const QFont &font)
+void TerminalWidget::updateStatus(const QString &text, bool isError)
 {
-#ifdef HAVE_QTERMWIDGET
-    m_term->setTerminalFont(font);
-#else
-    m_output->setFont(font);
-    if (m_input) m_input->setFont(font);
-#endif
+    m_statusLbl->setText(text);
+    m_statusLbl->setStyleSheet(
+        isError ? "color:#f44; font-size:11px; background:transparent;"
+                : "color:#777; font-size:11px; background:transparent;");
 }
-
-void TerminalWidget::setColorScheme(const QString &name)
-{
-#ifdef HAVE_QTERMWIDGET
-    m_term->setColorScheme(name);
-#else
-    Q_UNUSED(name)
-#endif
-}
-
-// ── Fallback: ввод команды ────────────────────────────────────────────────────
-
-#ifndef HAVE_QTERMWIDGET
-void TerminalWidget::onCommandEntered()
-{
-    if (!m_channel || !m_channel->isOpen()) return;
-
-    const QByteArray cmd = m_input->text().toLocal8Bit() + '\n';
-    ssh_channel_write(m_channel->handle(), cmd.constData(),
-                      static_cast<uint32_t>(cmd.size()));
-
-    // Эхо в output
-    m_output->moveCursor(QTextCursor::End);
-    m_output->insertPlainText(m_input->text() + '\n');
-    m_output->ensureCursorVisible();
-
-    m_input->clear();
-}
-#endif
 
 } // namespace linscp::ui::terminal

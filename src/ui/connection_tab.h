@@ -23,28 +23,28 @@ namespace dialogs { class HostFingerprintDialog; class ProgressDialog; }
 class ConnectionTab : public QWidget {
     Q_OBJECT
 public:
-    explicit ConnectionTab(core::session::SessionStore  *store,
+    explicit ConnectionTab(core::session::SessionStore   *store,
                            core::transfer::TransferQueue *sharedQueue,
                            QWidget *parent = nullptr);
     ~ConnectionTab() override;
 
     // ── Подключение ──────────────────────────────────────────────────────────
     void connectToSession(const QUuid &profileId);
-    /// Подключиться по профилю напрямую (не обязательно сохранённому в store).
-    /// Если профиль ещё не в store — добавляется временно до отключения.
     void connectToProfile(const core::session::SessionProfile &profile);
     void disconnectSession();
 
-    bool      isConnected()  const { return m_sftp != nullptr; }
-    QUuid     profileId()    const { return m_profileId; }
-    QString   title()        const { return m_title; }
+    bool      isConnected() const { return m_sftp != nullptr; }
+    QUuid     profileId()   const { return m_profileId; }
+    QString   title()       const { return m_title; }
 
     // ── Доступ к компонентам ─────────────────────────────────────────────────
-    panels::LocalPanel    *localPanel()  const { return m_localPanel; }
-    panels::RemotePanel   *remotePanel() const { return m_remotePanel; }
-    core::sync::SyncEngine *syncEngine() const { return m_syncEngine; }
+    panels::LocalPanel     *localPanel()  const { return m_localPanel; }
+    panels::RemotePanel    *remotePanel() const { return m_remotePanel; }
+    core::sync::SyncEngine *syncEngine()  const { return m_syncEngine; }
 
-    /// Сохранить/восстановить позицию разделителя
+    /// Активная SSH-сессия (nullptr если не подключены)
+    core::ssh::SshSession  *sshSession()  const;
+
     QByteArray splitterState() const;
     void       restoreSplitterState(const QByteArray &state);
 
@@ -65,20 +65,18 @@ private:
     core::session::SessionStore   *m_store;
     core::transfer::TransferQueue *m_sharedQueue;
 
-    // Runtime (живут пока подключены)
-    QUuid                              m_profileId;
-    QUuid                              m_tempProfileId;  ///< временный профиль (удаляется при disconnect)
-    QString                            m_title = tr("Not connected");
+    QUuid   m_profileId;
+    QUuid   m_tempProfileId;
+    QString m_title = tr("Not connected");
     std::unique_ptr<core::session::SessionManager> m_sessionManager;
-    core::sftp::SftpClient            *m_sftp            = nullptr;
-    core::transfer::TransferManager   *m_transferManager = nullptr;
-    core::sync::SyncEngine            *m_syncEngine      = nullptr;
+    core::sftp::SftpClient           *m_sftp            = nullptr;
+    core::transfer::TransferManager  *m_transferManager = nullptr;
+    core::sync::SyncEngine           *m_syncEngine      = nullptr;
 
-    // UI
-    QSplitter              *m_splitter      = nullptr;
-    panels::LocalPanel     *m_localPanel    = nullptr;
-    panels::RemotePanel    *m_remotePanel   = nullptr;   ///< nullptr если не подключены
-    dialogs::ProgressDialog *m_progressDlg = nullptr;   ///< показывается при активных передачах
+    QSplitter              *m_splitter    = nullptr;
+    panels::LocalPanel     *m_localPanel  = nullptr;
+    panels::RemotePanel    *m_remotePanel = nullptr;
+    dialogs::ProgressDialog *m_progressDlg = nullptr;
 };
 
 } // namespace linscp::ui

@@ -1,78 +1,58 @@
 #pragma once
 #include <QWidget>
-#include <memory>
 
-class QTimer;
-class QFont;
-
-namespace linscp::core::ssh {
-class SshSession;
-class SshChannel;
-}
-
-#ifdef HAVE_QTERMWIDGET
-class QTermWidget;
-#else
-class QPlainTextEdit;
-class QLineEdit;
-#endif
+class QLabel;
+class QPushButton;
+class QProcess;
 
 namespace linscp::ui::terminal {
 
-/// Виджет встроенного терминала.
+/// Виджет терминала — запускает системный SSH-терминал (PuTTY, kitty, xterm…)
+/// в отдельном окне с параметрами текущего подключения.
 ///
-/// Открывает Shell-канал поверх уже подключённой SshSession и эмулирует
-/// терминал VT100/xterm-256color. При наличии qtermwidget использует его,
-/// иначе — простой fallback (QPlainTextEdit + поле ввода команд).
-///
-/// Использование:
-///   auto *term = new TerminalWidget(session, this);
-///   term->openShell();   // запрашивает pty + shell
+/// Показывает плейсхолдер с кнопкой «Открыть терминал»;
+/// при openShell() — ищет доступный эмулятор и запускает его автоматически.
 class TerminalWidget : public QWidget {
     Q_OBJECT
 public:
-    explicit TerminalWidget(core::ssh::SshSession *session,
-                            QWidget *parent = nullptr);
+    explicit TerminalWidget(QWidget *parent = nullptr);
     ~TerminalWidget() override;
 
-    /// Открыть shell-канал. Вызвать после того, как SshSession::connected().
+    /// Передать параметры подключения (вызвать перед openShell)
+    void setConnectionInfo(const QString &host, quint16 port,
+                           const QString &username,
+                           const QString &keyPath = {});
+
+    /// Запустить внешний терминал. Безопасно вызывать повторно.
     void openShell();
 
-    /// Закрыть канал (не сессию).
     void closeShell();
-
     bool isShellOpen() const;
 
-    // ── Внешний вид ──────────────────────────────────────────────────────────
-    void setTerminalFont(const QFont &font);
-    void setColorScheme(const QString &name);   ///< напр. "Linux", "Solarized"
+    void setTerminalFont(const QFont &) {}
+    void setColorScheme(const QString &) {}
 
 signals:
     void shellOpened();
     void shellClosed();
-    void titleChanged(const QString &title);    ///< от escape-последовательности
 
 private slots:
-    void onReadReady();     ///< QTimer poll — читать данные из ssh_channel
-
-#ifndef HAVE_QTERMWIDGET
-    void onCommandEntered(); ///< fallback: пользователь нажал Enter в строке ввода
-#endif
+    void onLaunchClicked();
+    void onProcessFinished();
 
 private:
     void setupUi();
+    bool buildCommand(QString &program, QStringList &args) const;
+    void updateStatus(const QString &text, bool isError = false);
 
-    core::ssh::SshSession *m_session;
-    core::ssh::SshChannel *m_channel = nullptr;
+    QString  m_host;
+    quint16  m_port     = 22;
+    QString  m_username;
+    QString  m_keyPath;
 
-    QTimer *m_readTimer = nullptr;  ///< 20 мс — опрос ssh_channel_read_nonblocking
-
-#ifdef HAVE_QTERMWIDGET
-    QTermWidget *m_term = nullptr;
-#else
-    QPlainTextEdit *m_output = nullptr;
-    QLineEdit      *m_input  = nullptr;
-#endif
+    QPushButton *m_btnLaunch  = nullptr;
+    QLabel      *m_statusLbl  = nullptr;
+    QProcess    *m_process    = nullptr;
 };
 
 } // namespace linscp::ui::terminal

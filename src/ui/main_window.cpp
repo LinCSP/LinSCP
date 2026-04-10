@@ -7,6 +7,7 @@
 #include "dialogs/sync_dialog.h"
 #include "panels/local_panel.h"
 #include "panels/remote_panel.h"
+#include "terminal/terminal_widget.h"
 
 #include "core/session/session_store.h"
 #include "core/transfer/transfer_queue.h"
@@ -22,6 +23,7 @@
 #include <QToolBar>
 #include <QStatusBar>
 #include <QSplitter>
+#include <QDockWidget>
 #include <QComboBox>
 #include <QLabel>
 #include <QToolButton>
@@ -100,6 +102,27 @@ void MainWindow::setupUi()
     m_vertSplitter->setStretchFactor(1, 1);
 
     setCentralWidget(m_vertSplitter);
+
+    // ── Terminal Dock ─────────────────────────────────────────────────────────
+    // QDockWidget: по умолчанию снизу, пользователь может оторвать drag'ом
+    m_terminalWidget = new terminal::TerminalWidget(this);
+
+    m_terminalDock = new QDockWidget(tr("Terminal"), this);
+    m_terminalDock->setObjectName("TerminalDock");   // для saveState/restoreState
+    m_terminalDock->setWidget(m_terminalWidget);
+    m_terminalDock->setAllowedAreas(Qt::BottomDockWidgetArea | Qt::TopDockWidgetArea);
+    // Разрешить float (отрыв в отдельное окно) и закрытие
+    m_terminalDock->setFeatures(QDockWidget::DockWidgetMovable   |
+                                QDockWidget::DockWidgetFloatable |
+                                QDockWidget::DockWidgetClosable);
+    addDockWidget(Qt::BottomDockWidgetArea, m_terminalDock);
+    m_terminalDock->hide();   // скрыт по умолчанию
+
+    // Синхронизировать checkable-кнопку с состоянием дока
+    connect(m_terminalDock, &QDockWidget::visibilityChanged, this, [this](bool visible) {
+        if (m_terminalAction) m_terminalAction->setChecked(visible);
+        if (visible) attachTerminalToCurrentTab();
+    });
 }
 
 void MainWindow::setupMenuBar()
@@ -135,6 +158,12 @@ void MainWindow::setupMenuBar()
         if (auto *tab = currentTab(); tab && tab->remotePanel())
             tab->remotePanel()->refresh();
     });
+    sessionMenu->addSeparator();
+    m_terminalAction = sessionMenu->addAction(
+        QIcon::fromTheme("utilities-terminal"),
+        tr("Open &Terminal"), QKeySequence(Qt::Key_F9),
+        this, &MainWindow::onToggleTerminal);
+    m_terminalAction->setCheckable(true);
 
     // ── Commands ──────────────────────────────────────────────────────────────
     QMenu *cmdMenu = menuBar()->addMenu(tr("&Commands"));
@@ -225,6 +254,8 @@ void MainWindow::setupToolBar()
     tb->addAction(QIcon::fromTheme("folder-sync"), tr("Sync"),
                   this, &MainWindow::onSync);
     tb->addSeparator();
+    tb->addAction(m_terminalAction);
+    tb->addSeparator();
     tb->addAction(QIcon::fromTheme("tab-new"), tr("New Tab"),
                   this, &MainWindow::onNewTab);
 }
@@ -295,9 +326,15 @@ ConnectionTab *MainWindow::addConnectionTab(const QString &title)
     });
     connect(tab, &ConnectionTab::connectionEstablished, this, [this]() {
         updateToolbarState();
+        // Если терминал виден — открыть shell на новой сессии
+        if (m_terminalDock && m_terminalDock->isVisible())
+            attachTerminalToCurrentTab();
     });
     connect(tab, &ConnectionTab::connectionLost, this, [this]() {
         updateToolbarState();
+        // Отвязать терминал от закрытой сессии
+        if (m_terminalWidget)
+            m_terminalWidget->setConnectionInfo({}, 22, {});
     });
 
     return tab;
@@ -352,6 +389,9 @@ void MainWindow::onCloseTab(int index)
 void MainWindow::onTabChanged(int /*index*/)
 {
     updateToolbarState();
+    // Если терминал виден — переключить на сессию нового таба
+    if (m_terminalDock && m_terminalDock->isVisible())
+        attachTerminalToCurrentTab();
 }
 
 void MainWindow::onConnect()
@@ -415,6 +455,37 @@ void MainWindow::onSync()
                              tab->localPanel()->currentPath(),
                              remotePath, this);
     dlg.exec();
+}
+
+void MainWindow::onToggleTerminal()
+{
+    if (!m_terminalDock) return;
+    if (m_terminalDock->isVisible()) {
+        m_terminalDock->hide();
+    } else {
+        m_terminalDock->show();
+        m_terminalWidget->setFocus();
+    }
+}
+
+void MainWindow::attachTerminalToCurrentTab()
+{
+    if (!m_terminalWidget) return;
+    auto *tab = currentTab();
+
+    if (!tab || tab->profileId().isNull()) {
+        m_terminalWidget->setConnectionInfo({}, 22, {});
+        return;
+    }
+
+    const auto profile = m_sessionStore->find(tab->profileId());
+    if (profile.isValid()) {
+        m_terminalWidget->setConnectionInfo(
+            profile.host, profile.port, profile.username, profile.privateKeyPath);
+        // Авто-запуск если dok только что открыт и сессия уже подключена
+        if (tab->isConnected() && !m_terminalWidget->isShellOpen())
+            m_terminalWidget->openShell();
+    }
 }
 
 void MainWindow::onAbout()
