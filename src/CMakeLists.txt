@@ -64,6 +64,7 @@ set(LINSCP_SOURCES
     ui/dialogs/auth_dialog.cpp
     ui/dialogs/progress_dialog.cpp
     ui/dialogs/preferences_dialog.cpp
+    ui/dialogs/remote_editor_dialog.cpp
 
     # core
     core/app_settings.cpp

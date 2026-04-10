@@ -7,6 +7,7 @@
 #include "ui/widgets/file_list_view.h"
 #include "ui/dialogs/copy_dialog.h"
 #include "ui/dialogs/properties_dialog.h"
+#include "ui/dialogs/remote_editor_dialog.h"
 #include "utils/file_utils.h"
 #include <QHeaderView>
 #include <QMenu>
@@ -51,6 +52,19 @@ RemotePanel::RemotePanel(core::sftp::SftpClient *sftp,
             this, &RemotePanel::onLoadingStarted);
     connect(m_model, &models::RemoteFsModel::loadingFinished,
             this, &RemotePanel::onLoadingFinished);
+
+    // Сортировка по клику на заголовок — in-memory, без SFTP-запроса
+    connect(hdr, &QHeaderView::sectionClicked, this, [this, hdr](int logicalIndex) {
+        const auto col = static_cast<models::RemoteFsModel::Column>(logicalIndex);
+        Qt::SortOrder order = Qt::AscendingOrder;
+        if (hdr->sortIndicatorSection() == logicalIndex
+            && hdr->sortIndicatorOrder() == Qt::AscendingOrder)
+            order = Qt::DescendingOrder;
+        hdr->setSortIndicator(logicalIndex, order);
+        m_model->setSortColumn(col, order);
+    });
+    hdr->setSortIndicatorShown(true);
+    hdr->setSortIndicator(models::RemoteFsModel::ColName, Qt::AscendingOrder);
 }
 
 // ── Навигация ─────────────────────────────────────────────────────────────────
@@ -208,9 +222,13 @@ void RemotePanel::actionRename()
 void RemotePanel::onItemActivated(const QModelIndex &index)
 {
     if (!index.isValid()) return;
-    if (m_model->isDir(index))
+    if (m_model->isDir(index)) {
         navigateTo(m_model->filePath(index));
-    // TODO: открыть файл во встроенном редакторе
+    } else {
+        // Открыть файл во встроенном редакторе
+        dialogs::RemoteEditorDialog dlg(m_sftp, m_model->filePath(index), this);
+        dlg.exec();
+    }
 }
 
 // ── Контекстное меню (WinSCP-style) ──────────────────────────────────────────
@@ -219,11 +237,20 @@ void RemotePanel::populateContextMenu(QMenu *menu, const QModelIndex &index)
 {
     const bool hasSelection = index.isValid();
 
-    // ── Открыть ───────────────────────────────────────────────────────────────
-    if (hasSelection && m_model->isDir(index)) {
-        menu->addAction(QIcon::fromTheme("folder-open"), tr("Open"), [this, index]() {
-            navigateTo(m_model->filePath(index));
-        });
+    // ── Открыть / Редактировать ───────────────────────────────────────────────
+    if (hasSelection) {
+        if (m_model->isDir(index)) {
+            menu->addAction(QIcon::fromTheme("folder-open"), tr("Open"), [this, index]() {
+                navigateTo(m_model->filePath(index));
+            });
+        } else {
+            menu->addAction(QIcon::fromTheme("document-edit"),
+                            tr("Edit"),
+                            [this, index]() {
+                dialogs::RemoteEditorDialog dlg(m_sftp, m_model->filePath(index), this);
+                dlg.exec();
+            });
+        }
         menu->addSeparator();
     }
 

@@ -1,5 +1,7 @@
 #pragma once
 #include <QAbstractItemModel>
+#include <QDateTime>
+#include <QMimeDatabase>
 #include <QThreadPool>
 #include <QFuture>
 #include <memory>
@@ -33,7 +35,12 @@ public:
     void setShowHidden(bool show);
     bool showHidden() const { return m_showHidden; }
 
+    /// Сортировка в памяти — без нового SFTP-запроса.
     void setSortColumn(Column col, Qt::SortOrder order);
+
+    /// TTL кэша листингов в секундах (0 = бесконечно).
+    void setCacheTtl(int seconds) { m_cacheTtlSecs = seconds; }
+    int  cacheTtl() const         { return m_cacheTtlSecs; }
 
     /// Принудительно перечитать директорию
     void refresh(const QModelIndex &index = {});
@@ -62,7 +69,8 @@ signals:
 
 private:
     struct Node;
-    void loadDirectory(Node *node);
+    void  loadDirectory(Node *node);
+    void  applySortToNode(Node *node);
     Node *nodeForIndex(const QModelIndex &index) const;
 
     core::sftp::SftpClient *m_sftp;
@@ -70,10 +78,13 @@ private:
     bool                    m_showHidden = false;
     Column                  m_sortCol    = ColName;
     Qt::SortOrder           m_sortOrder  = Qt::AscendingOrder;
+    int                     m_cacheTtlSecs = 60; ///< TTL кэша (сек); 0 = ∞
 
     std::unique_ptr<Node>   m_root;
     QThreadPool             m_pool;
     int                     m_generation = 0; // инкрементируется при каждом reset
+
+    mutable QMimeDatabase   m_mimeDb;
 };
 
 } // namespace linscp::models

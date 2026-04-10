@@ -1,5 +1,6 @@
 #include "remote_fs_model.h"
 #include <QIcon>
+#include <QMimeType>
 #include <algorithm>
 
 namespace linscp::models {
@@ -12,12 +13,19 @@ struct RemoteFsModel::Node {
     std::vector<std::unique_ptr<Node>>       children;
     bool                                     loaded    = false;
     bool                                     loading   = false;
+    QDateTime                                loadedAt;  ///< время последней загрузки (TTL)
 
     int row() const {
         if (!parent) return 0;
         for (int i = 0; i < (int)parent->children.size(); ++i)
             if (parent->children[i].get() == this) return i;
         return 0;
+    }
+
+    bool isCacheExpired(int ttlSecs) const {
+        if (!loaded) return true;
+        if (ttlSecs == 0) return false;
+        return loadedAt.secsTo(QDateTime::currentDateTime()) > ttlSecs;
     }
 };
 
@@ -59,15 +67,66 @@ void RemoteFsModel::refresh(const QModelIndex &index)
     ++m_generation;
     Node *node = index.isValid() ? nodeForIndex(index) : m_root.get();
     if (!node) return;
-    node->loaded = false;
+    node->loaded  = false;
+    node->loading = false;
     node->children.clear();
     emit dataChanged(index, index);
     loadDirectory(node);
 }
 
+// ── Сортировка в памяти ───────────────────────────────────────────────────────
+
+void RemoteFsModel::setSortColumn(Column col, Qt::SortOrder order)
+{
+    if (m_sortCol == col && m_sortOrder == order) return;
+    m_sortCol   = col;
+    m_sortOrder = order;
+
+    if (!m_root->loaded) return; // нечего сортировать
+
+    emit layoutAboutToBeChanged();
+    applySortToNode(m_root.get());
+    emit layoutChanged();
+}
+
+void RemoteFsModel::applySortToNode(Node *node)
+{
+    if (node->children.empty()) return;
+
+    const bool asc = (m_sortOrder == Qt::AscendingOrder);
+
+    std::stable_sort(node->children.begin(), node->children.end(),
+        [&](const std::unique_ptr<Node> &a, const std::unique_ptr<Node> &b) {
+            // Директории всегда первые, независимо от порядка
+            if (a->info.isDir != b->info.isDir)
+                return a->info.isDir > b->info.isDir;
+
+            bool less = false;
+            switch (m_sortCol) {
+            case ColName:        less = a->info.name  < b->info.name;  break;
+            case ColSize:        less = a->info.size  < b->info.size;  break;
+            case ColMtime:       less = a->info.mtime < b->info.mtime; break;
+            case ColPermissions: less = a->info.permissions < b->info.permissions; break;
+            case ColOwner:       less = a->info.owner < b->info.owner; break;
+            default:             less = a->info.name  < b->info.name;  break;
+            }
+            return asc ? less : !less;
+        });
+
+    // Рекурсивно для поддиректорий
+    for (auto &child : node->children)
+        if (child->info.isDir && child->loaded)
+            applySortToNode(child.get());
+}
+
+// ── Загрузка директории ───────────────────────────────────────────────────────
+
 void RemoteFsModel::loadDirectory(Node *node)
 {
-    if (node->loading || node->loaded) return;
+    if (node->loading) return;
+    // Пропустить если кэш ещё свежий
+    if (node->loaded && !node->isCacheExpired(m_cacheTtlSecs)) return;
+
     node->loading = true;
     const QString path = node->info.path;
     emit loadingStarted(path);
@@ -77,10 +136,9 @@ void RemoteFsModel::loadDirectory(Node *node)
         auto dir = m_sftp->listDirectory(path);
 
         QMetaObject::invokeMethod(this, [this, node, dir = std::move(dir), gen]() mutable {
-            // Если модель сбросилась пока шла загрузка — узел может быть удалён
             if (gen != m_generation) return;
 
-            beginResetModel(); // простой способ; для больших деревьев — insertRows
+            beginResetModel();
 
             node->children.clear();
             auto entries = dir.entries;
@@ -91,19 +149,22 @@ void RemoteFsModel::loadDirectory(Node *node)
                     return f.isHidden();
                 });
 
-            // Сортировка: сначала директории, потом файлы
+            // Сортировка
+            const bool asc = (m_sortOrder == Qt::AscendingOrder);
             std::stable_sort(entries.begin(), entries.end(),
-                             [this](const core::sftp::SftpFileInfo &a,
-                                    const core::sftp::SftpFileInfo &b) {
-                if (a.isDir != b.isDir) return a.isDir > b.isDir;
-                switch (m_sortCol) {
-                case ColName:        return a.name  < b.name;
-                case ColSize:        return a.size  < b.size;
-                case ColMtime:       return a.mtime < b.mtime;
-                case ColPermissions: return a.permissions < b.permissions;
-                default: return a.name < b.name;
-                }
-            });
+                [&](const core::sftp::SftpFileInfo &a, const core::sftp::SftpFileInfo &b) {
+                    if (a.isDir != b.isDir) return a.isDir > b.isDir;
+                    bool less = false;
+                    switch (m_sortCol) {
+                    case ColName:        less = a.name  < b.name;  break;
+                    case ColSize:        less = a.size  < b.size;  break;
+                    case ColMtime:       less = a.mtime < b.mtime; break;
+                    case ColPermissions: less = a.permissions < b.permissions; break;
+                    case ColOwner:       less = a.owner < b.owner; break;
+                    default:             less = a.name  < b.name;  break;
+                    }
+                    return asc ? less : !less;
+                });
 
             for (auto &e : entries) {
                 auto child = std::make_unique<Node>();
@@ -112,13 +173,16 @@ void RemoteFsModel::loadDirectory(Node *node)
                 node->children.push_back(std::move(child));
             }
 
-            node->loaded  = true;
-            node->loading = false;
+            node->loaded   = true;
+            node->loading  = false;
+            node->loadedAt = QDateTime::currentDateTime();
             endResetModel();
             emit loadingFinished(dir.path);
         }, Qt::QueuedConnection);
     });
 }
+
+// ── QAbstractItemModel ────────────────────────────────────────────────────────
 
 RemoteFsModel::Node *RemoteFsModel::nodeForIndex(const QModelIndex &index) const
 {
@@ -145,10 +209,11 @@ QModelIndex RemoteFsModel::parent(const QModelIndex &index) const
 int RemoteFsModel::rowCount(const QModelIndex &parent) const
 {
     Node *node = nodeForIndex(parent);
-    // Автозагрузка только для корня — дочерние узлы загружаются через navigateTo.
-    // Иначе QTreeView вызывает rowCount(child) для expand-стрелок и создаёт
-    // dangling-pointer UAF при смене директории.
+    // Автозагрузка только для корня
     if (node == m_root.get() && !node->loaded && !node->loading) {
+        const_cast<RemoteFsModel *>(this)->loadDirectory(node);
+    } else if (node == m_root.get() && node->isCacheExpired(m_cacheTtlSecs)) {
+        // Кэш устарел — перезагрузить в фоне (без сброса текущих данных)
         const_cast<RemoteFsModel *>(this)->loadDirectory(node);
     }
     return static_cast<int>(node->children.size());
@@ -174,15 +239,47 @@ QVariant RemoteFsModel::data(const QModelIndex &index, int role) const
             return tr("%1 GB").arg(info.size / GB);
         }
         case ColMtime:       return info.mtime.toString("dd.MM.yyyy HH:mm");
-        case ColPermissions: return info.permissionsString();
-        case ColOwner:       return info.owner + ':' + info.group;
+        case ColPermissions: return QString("%1  %2")
+                                 .arg(info.permissionsString())
+                                 .arg(info.permissions & 07777, 4, 8, QChar('0'));
+        case ColOwner:       return info.owner.isEmpty()
+                                 ? info.group
+                                 : info.owner + ':' + info.group;
         }
     }
+
     if (role == Qt::TextAlignmentRole && index.column() == ColSize)
         return int(Qt::AlignRight | Qt::AlignVCenter);
+
     if (role == Qt::DecorationRole && index.column() == ColName) {
-        return QIcon::fromTheme(info.isDir ? "folder" : "text-x-generic");
+        if (info.isDir)
+            return QIcon::fromTheme("folder");
+        if (info.isSymLink)
+            return QIcon::fromTheme("emblem-symbolic-link",
+                                    QIcon::fromTheme("text-x-generic"));
+        // MIME-based иконка по расширению имени файла
+        const QMimeType mime = m_mimeDb.mimeTypeForFile(
+            info.name, QMimeDatabase::MatchExtension);
+        QIcon icon = QIcon::fromTheme(mime.iconName());
+        if (icon.isNull())
+            icon = QIcon::fromTheme(mime.genericIconName());
+        if (icon.isNull())
+            icon = QIcon::fromTheme("text-x-generic");
+        return icon;
     }
+
+    if (role == Qt::ToolTipRole) {
+        if (index.column() == ColPermissions) {
+            // Подробный tooltip: символьная + octal
+            return QString("%1\noctal: %2")
+                .arg(info.permissionsString())
+                .arg(info.permissions & 07777, 4, 8, QChar('0'));
+        }
+        if (index.column() == ColName && info.isSymLink) {
+            return tr("Symlink → %1").arg(info.linkTarget);
+        }
+    }
+
     return {};
 }
 
