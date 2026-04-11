@@ -5,6 +5,7 @@ on:
     branches: [main, develop]
   pull_request:
     branches: [main]
+  workflow_dispatch:  # allow manual trigger from GitHub UI
 
 env:
   LIBSSH_VERSION: "0.10.6"
