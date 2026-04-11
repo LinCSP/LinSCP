@@ -25,6 +25,7 @@ jobs:
           sudo apt-get install -y \
             cmake ninja-build pkg-config g++ python3-pip \
             libssl-dev librsvg2-bin patchelf \
+            libgl1-mesa-dev libglu1-mesa-dev \
             libxcb-xinerama0 libxcb-cursor0 libxkbcommon-x11-0 \
             libxcb-xinerama0-dev libxcb-cursor-dev libxkbcommon-x11-dev
 
