@@ -56,13 +56,19 @@ jobs:
       - name: Create AppImage
         env:
           VERSION: ${{ github.ref_name }}
-          # Docker containers don't expose FUSE — extract and run directly
+          # plugin-qt is also an AppImage — needs extract-and-run in Docker
           APPIMAGE_EXTRACT_AND_RUN: "1"
-          # linuxdeploy's bundled strip is too old for Arch's RELR ELF sections
-          STRIP: /bin/true
         run: |
+          # Extract linuxdeploy and neutralize its bundled strip.
+          # The bundled strip (circa 2019) doesn't understand RELR ELF sections
+          # used by modern Arch libraries — replacing with /bin/true skips stripping.
+          ./linuxdeploy-x86_64.AppImage --appimage-extract
+          ln -sf /bin/true squashfs-root/usr/bin/strip
+
+          # Add cwd to PATH so linuxdeploy finds linuxdeploy-plugin-qt-x86_64.AppImage
+          export PATH="$(pwd):$PATH"
           export QMAKE=/usr/bin/qmake6
-          ./linuxdeploy-x86_64.AppImage \
+          ./squashfs-root/AppRun \
             --appdir AppDir \
             --plugin qt \
             --desktop-file packaging/appimage/linscp.desktop \
