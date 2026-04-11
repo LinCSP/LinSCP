@@ -243,7 +243,14 @@ jobs:
           done
           echo "Uploading: ${FILES[*]}"
 
+          # Mark as prerelease if tag contains a/b/rc (e.g. v0.1.0a1, v1.0.0rc2)
+          PRERELEASE_FLAG=""
+          if echo "$TAG" | grep -qE '[0-9](a|b|rc)[0-9]'; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+
           gh release create "$TAG" \
             --title "LinSCP $TAG" \
             --generate-notes \
+            $PRERELEASE_FLAG \
             "${FILES[@]}"

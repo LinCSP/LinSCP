@@ -15,3 +15,9 @@ set logging off
 git tag -d v0.1.0a1 && git push origin :v0.1.0a1
 
 git tag v0.1.0a1 && git push origin v0.1.0a1
+
+# Создать тег с аннотацией
+
+git tag -a v0.1.0a1 -m "Alpha 1"
+
+git push origin v0.1.0a1
