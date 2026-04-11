@@ -11,9 +11,9 @@ env:
   QT_VERSION: "6.7.3"
 
 jobs:
-  appimage:
-    name: AppImage (x86_64)
-    # ubuntu-22.04 → glibc 2.35 → widest distro compatibility
+  # ─── AppImage + .deb (ubuntu-22.04, Qt bundled via linuxdeploy) ──────────────
+  appimage-deb:
+    name: AppImage + .deb (x86_64)
     runs-on: ubuntu-22.04
 
     steps:
@@ -23,13 +23,13 @@ jobs:
         run: |
           sudo apt-get update -q
           sudo apt-get install -y \
-            cmake ninja-build pkg-config g++ python3-pip \
+            cmake ninja-build pkg-config g++ python3-pip ruby-dev \
             libssl-dev librsvg2-bin patchelf \
             libgl1-mesa-dev libglu1-mesa-dev \
             libxcb-xinerama0 libxcb-cursor0 libxkbcommon-x11-0 \
             libxcb-xinerama0-dev libxcb-cursor-dev libxkbcommon-x11-dev
 
-      # ── libssh 0.10 (shared cache with CI job) ───────────────────────────────
+      # ── libssh 0.10 ──────────────────────────────────────────────────────────
       - name: Cache libssh ${{ env.LIBSSH_VERSION }}
         id: cache-libssh
         uses: actions/cache@v4
@@ -65,16 +65,17 @@ jobs:
             -O "${{ runner.temp }}/Qt"
 
       # ── Build ────────────────────────────────────────────────────────────────
-      - name: Configure (Release)
+      - name: Configure
         run: |
           QT_PREFIX=$(find "${{ runner.temp }}/Qt" -name "Qt6Config.cmake" 2>/dev/null \
             | head -1 | sed 's|/lib/cmake/Qt6/Qt6Config.cmake||')
           echo "Qt prefix: ${QT_PREFIX}"
           echo "QT_PREFIX=${QT_PREFIX}" >> "$GITHUB_ENV"
-          export PKG_CONFIG_PATH="${{ runner.temp }}/libssh-install/lib/pkgconfig:${{ runner.temp }}/libssh-install/lib64/pkgconfig"
+          LIBSSH_DIR="${{ runner.temp }}/libssh-install"
+          export PKG_CONFIG_PATH="${LIBSSH_DIR}/lib/pkgconfig:${LIBSSH_DIR}/lib64/pkgconfig"
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="${QT_PREFIX};${{ runner.temp }}/libssh-install"
+            -DCMAKE_PREFIX_PATH="${QT_PREFIX};${LIBSSH_DIR}"
 
       - name: Build
         run: cmake --build build -j$(nproc)
@@ -84,25 +85,22 @@ jobs:
         run: |
           mkdir -p AppDir/usr/bin
           cp build/bin/linscp AppDir/usr/bin/
-
-          # Convert SVG icon → PNG 256×256 (rsvg-convert avoids ImageMagick policy issues)
           rsvg-convert -w 256 -h 256 \
             packaging/appimage/linscp.svg \
             -o packaging/appimage/linscp.png
 
-      # ── linuxdeploy ──────────────────────────────────────────────────────────
       - name: Download linuxdeploy + Qt plugin
         run: |
           wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage
 
+      # linuxdeploy bundles Qt into AppDir and creates AppImage
       - name: Create AppImage
         env:
           VERSION: ${{ github.ref_name }}
           LIBSSH_DIR: ${{ runner.temp }}/libssh-install
         run: |
-          # QT_PREFIX was set by the Configure step via GITHUB_ENV
           export QMAKE="${QT_PREFIX}/bin/qmake"
           export LD_LIBRARY_PATH="${QT_PREFIX}/lib:${LIBSSH_DIR}/lib:${LIBSSH_DIR}/lib64"
           ./linuxdeploy-x86_64.AppImage \
@@ -111,21 +109,128 @@ jobs:
             --desktop-file packaging/appimage/linscp.desktop \
             --icon-file packaging/appimage/linscp.png \
             --output appimage
+          # AppDir now contains bundled Qt — reuse it for .deb
 
-      # ── Release ──────────────────────────────────────────────────────────────
-      - name: Upload AppImage as artifact
+      # ── .deb via fpm (bundled Qt in /opt/linscp, wrapper in /usr/bin) ────────
+      - name: Create .deb
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          gem install --no-document fpm
+
+          DEB_VERSION="${VERSION#v}"
+
+          mkdir -p deb-root/opt/linscp \
+                   deb-root/usr/bin \
+                   deb-root/usr/share/applications \
+                   deb-root/usr/share/icons/hicolor/scalable/apps
+
+          # Copy bundled Qt + binary (AppDir/usr → /opt/linscp)
+          rsync -a AppDir/usr/ deb-root/opt/linscp/
+
+          # Wrapper: sets Qt paths, launches binary
+          cat > deb-root/usr/bin/linscp << 'WRAPPER'
+          #!/bin/sh
+          export QT_PLUGIN_PATH=/opt/linscp/plugins
+          export LD_LIBRARY_PATH=/opt/linscp/lib
+          exec /opt/linscp/bin/linscp "$@"
+          WRAPPER
+          chmod +x deb-root/usr/bin/linscp
+
+          cp packaging/appimage/linscp.desktop \
+             deb-root/usr/share/applications/
+          cp packaging/appimage/linscp.svg \
+             deb-root/usr/share/icons/hicolor/scalable/apps/
+
+          fpm -s dir -t deb \
+            -n linscp \
+            -v "${DEB_VERSION}" \
+            -C deb-root \
+            --description "SSH/SFTP file manager — Linux analog of WinSCP" \
+            --license "GPL-2.0" \
+            --url "https://github.com/LinCSP/LinSCP" \
+            --maintainer "LinSCP <https://github.com/LinCSP/LinSCP>" \
+            --category "net" \
+            --depends "libxcb-xinerama0" \
+            --depends "libxkbcommon-x11-0" \
+            .
+
+      - name: Upload AppImage artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LinSCP-${{ github.ref_name }}-x86_64
+          name: appimage
           path: LinSCP-*.AppImage
           if-no-files-found: error
 
-      - name: Publish GitHub Release
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb
+          path: linscp_*.deb
+          if-no-files-found: error
+
+  # ─── .rpm (Fedora 39, system Qt 6.6) ─────────────────────────────────────────
+  rpm:
+    name: RPM (Fedora 39)
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:39
+      options: --user root
+
+    steps:
+      - name: Install dependencies
+        run: |
+          dnf install -y \
+            cmake ninja-build pkg-config gcc-c++ git \
+            qt6-qtbase-devel qt6-qttools-devel \
+            libssh-devel openssl-devel \
+            rpm-build
+
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr
+
+      - name: Build
+        run: cmake --build build -j$(nproc)
+
+      - name: Package RPM
+        run: cpack -G RPM --config build/CPackConfig.cmake -B build/packages
+
+      - name: Upload .rpm artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm
+          path: build/packages/*.rpm
+          if-no-files-found: error
+
+  # ─── Publish GitHub Release ───────────────────────────────────────────────────
+  publish:
+    name: Publish Release
+    needs: [appimage-deb, rpm]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          APPIMAGE=$(ls LinSCP-*.AppImage | head -1)
           gh release create "${{ github.ref_name }}" \
             --title "LinSCP ${{ github.ref_name }}" \
             --generate-release-notes \
-            "$APPIMAGE"
+            dist/*.AppImage \
+            dist/*.deb \
+            dist/*.rpm

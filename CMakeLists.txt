@@ -37,3 +37,27 @@ add_subdirectory(src)
 
 enable_testing()
 add_subdirectory(tests)
+
+# ── Install rules (used by CPack and cmake --install) ─────────────────────────
+include(GNUInstallDirs)
+install(TARGETS linscp RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(FILES packaging/appimage/linscp.desktop
+        DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/applications)
+install(FILES packaging/appimage/linscp.svg
+        DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/scalable/apps/linscp.svg)
+
+# ── CPack ─────────────────────────────────────────────────────────────────────
+set(CPACK_PACKAGE_NAME             "linscp")
+set(CPACK_PACKAGE_VENDOR           "LinSCP")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "SSH/SFTP file manager — Linux analog of WinSCP")
+set(CPACK_PACKAGE_HOMEPAGE_URL     "https://github.com/LinCSP/LinSCP")
+set(CPACK_RESOURCE_FILE_LICENSE    "${CMAKE_SOURCE_DIR}/LICENSE")
+set(CPACK_STRIP_FILES              TRUE)
+
+# RPM (Fedora / RHEL / openSUSE)
+set(CPACK_RPM_FILE_NAME            RPM-DEFAULT)
+set(CPACK_RPM_PACKAGE_LICENSE      "GPL-2.0-only")
+set(CPACK_RPM_PACKAGE_GROUP        "Applications/Internet")
+set(CPACK_RPM_PACKAGE_AUTOREQ      ON)   # rpmbuild auto-detects deps from binary
+
+include(CPack)
