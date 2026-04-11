@@ -55,13 +55,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/Qt
-          key: qt-${{ env.QT_VERSION }}-linux-gcc_64-v1
+          key: qt-${{ env.QT_VERSION }}-linux-gcc_64-v2
 
       - name: Install Qt ${{ env.QT_VERSION }}
         if: steps.cache-qt.outputs.cache-hit != 'true'
         run: |
           pip install aqtinstall
-          aqt install-qt linux desktop "${{ env.QT_VERSION }}" gcc_64 \
+          # aqt 3.x: Linux Desktop arch is "linux_gcc_64" (not "gcc_64")
+          aqt install-qt linux desktop "${{ env.QT_VERSION }}" linux_gcc_64 \
             -O "${{ runner.temp }}/Qt"
 
       # ── Configure & Build ────────────────────────────────────────────────────
@@ -70,7 +71,7 @@ jobs:
           export PKG_CONFIG_PATH="${{ runner.temp }}/libssh-install/lib/pkgconfig:${{ runner.temp }}/libssh-install/lib64/pkgconfig"
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="${{ runner.temp }}/Qt/${{ env.QT_VERSION }}/gcc_64;${{ runner.temp }}/libssh-install" \
+            -DCMAKE_PREFIX_PATH="${{ runner.temp }}/Qt/${{ env.QT_VERSION }}/linux_gcc_64;${{ runner.temp }}/libssh-install" \
             -DWITH_TERMINAL=OFF
 
       - name: Build
@@ -95,7 +96,7 @@ jobs:
         run: |
           dnf install -y \
             cmake ninja-build pkg-config gcc-c++ git \
-            qt6-qtbase-devel qt6-qtconcurrent-devel qt6-qttools-devel \
+            qt6-qtbase-devel qt6-qttools-devel \
             libssh-devel openssl-devel
 
       - uses: actions/checkout@v4
