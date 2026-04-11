@@ -59,16 +59,26 @@ jobs:
           # plugin-qt is also an AppImage — needs extract-and-run in Docker
           APPIMAGE_EXTRACT_AND_RUN: "1"
         run: |
-          # Extract linuxdeploy and neutralize its bundled strip.
-          # The bundled strip (circa 2019) doesn't understand RELR ELF sections
-          # used by modern Arch libraries — replacing with /bin/true skips stripping.
-          ./linuxdeploy-x86_64.AppImage --appimage-extract
-          ln -sf /bin/true squashfs-root/usr/bin/strip
+          # Both linuxdeploy and linuxdeploy-plugin-qt bundle an old strip that
+          # doesn't understand RELR ELF sections used by modern Arch libraries.
+          # Solution: extract both AppImages, patch their bundled strip, run extracted.
 
-          # Add cwd to PATH so linuxdeploy finds linuxdeploy-plugin-qt-x86_64.AppImage
+          ./linuxdeploy-x86_64.AppImage --appimage-extract
+          mv squashfs-root linuxdeploy-extracted
+          ln -sf /bin/true linuxdeploy-extracted/usr/bin/strip
+
+          ./linuxdeploy-plugin-qt-x86_64.AppImage --appimage-extract
+          mv squashfs-root plugin-qt-extracted
+          ln -sf /bin/true plugin-qt-extracted/usr/bin/strip
+
+          # Replace plugin AppImage with a wrapper that runs the patched extraction
+          printf '#!/bin/sh\nexec "%s/plugin-qt-extracted/AppRun" "$@"\n' "$(pwd)" \
+            > linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x linuxdeploy-plugin-qt-x86_64.AppImage
+
           export PATH="$(pwd):$PATH"
           export QMAKE=/usr/bin/qmake6
-          ./squashfs-root/AppRun \
+          ./linuxdeploy-extracted/AppRun \
             --appdir AppDir \
             --plugin qt \
             --desktop-file packaging/appimage/linscp.desktop \
