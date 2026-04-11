@@ -61,14 +61,15 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/Qt
-          key: qt-${{ env.QT_VERSION }}-linux-v3
+          key: qt-${{ env.QT_VERSION }}-linux-v5
 
       - name: Install Qt ${{ env.QT_VERSION }}
         if: steps.cache-qt.outputs.cache-hit != 'true'
         run: |
           pip install aqtinstall
           aqt install-qt linux desktop "${{ env.QT_VERSION }}" linux_gcc_64 \
-            -O "${{ runner.temp }}/Qt"
+            -O "${{ runner.temp }}/Qt" \
+            -m qtwayland
 
       # ── Build ────────────────────────────────────────────────────────────────
       - name: Configure
