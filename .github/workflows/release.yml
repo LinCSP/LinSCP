@@ -32,7 +32,8 @@ jobs:
             libxcb-randr0 libxcb-render-util0 libxcb-render0 \
             libxcb-shape0 libxcb-sync1 libxcb-xfixes0 libxcb-xkb1 \
             libwayland-dev libwayland-client0 libwayland-cursor0 \
-            libwayland-egl1 libegl1-mesa-dev libxkbcommon-dev
+            libwayland-egl1 libegl1-mesa-dev libxkbcommon-dev \
+            libfuse2
 
       # ── libssh 0.10 ──────────────────────────────────────────────────────────
       - name: Cache libssh ${{ env.LIBSSH_VERSION }}
@@ -110,6 +111,8 @@ jobs:
           LIBSSH_DIR: ${{ runner.temp }}/libssh-install
           # Force inclusion of wayland platform plugin (needed for Wayland sessions)
           EXTRA_QT_PLUGINS: "wayland"
+          # Fallback for FUSE: extract-and-run instead of mounting AppImage
+          APPIMAGE_EXTRACT_AND_RUN: "1"
         run: |
           export QMAKE="${QT_PREFIX}/bin/qmake"
           export LD_LIBRARY_PATH="${QT_PREFIX}/lib:${LIBSSH_DIR}/lib:${LIBSSH_DIR}/lib64"

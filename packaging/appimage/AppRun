@@ -3,8 +3,9 @@
 
 APPDIR="$(dirname "$(readlink -f "$0")")"
 
-# Qt plugin path
+# Qt plugin paths — set both so Qt 6 finds platform plugins unconditionally
 export QT_PLUGIN_PATH="${APPDIR}/usr/plugins${QT_PLUGIN_PATH:+:$QT_PLUGIN_PATH}"
+export QT_QPA_PLATFORM_PLUGIN_PATH="${APPDIR}/usr/plugins/platforms"
 
 # QML imports (not used yet, but harmless)
 export QML2_IMPORT_PATH="${APPDIR}/usr/qml${QML2_IMPORT_PATH:+:$QML2_IMPORT_PATH}"
