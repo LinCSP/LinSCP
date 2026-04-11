@@ -7,6 +7,8 @@
 #include <QMenu>
 #include <QAction>
 #include <QTimer>
+#include <QStyle>
+#include <QApplication>
 
 namespace linscp::ui::panels {
 
@@ -57,21 +59,26 @@ void FilePanel::setupUi()
 
 void FilePanel::setupToolbar()
 {
-    m_toolbar->addAction(QIcon::fromTheme("go-up"),
+    auto si = [this](const char *name, QStyle::StandardPixmap sp) -> QIcon {
+        QIcon icon = QIcon::fromTheme(QLatin1String(name));
+        return icon.isNull() ? style()->standardIcon(sp) : icon;
+    };
+
+    m_toolbar->addAction(si("go-up", QStyle::SP_FileDialogToParent),
                          tr("Up"),
                          [this]() { navigateTo(currentPath() + "/.."); });
 
-    m_toolbar->addAction(QIcon::fromTheme("view-refresh"),
+    m_toolbar->addAction(si("view-refresh", QStyle::SP_BrowserReload),
                          tr("Refresh"),
                          [this]() { refresh(); });
 
     m_toolbar->addSeparator();
 
-    m_toolbar->addAction(QIcon::fromTheme("folder-new"),
+    m_toolbar->addAction(si("folder-new", QStyle::SP_FileDialogNewFolder),
                          tr("New folder"),
                          [this]() { actionMkdir(); });
 
-    m_toolbar->addAction(QIcon::fromTheme("edit-delete"),
+    m_toolbar->addAction(si("edit-delete", QStyle::SP_TrashIcon),
                          tr("Delete"),
                          [this]() { actionDelete(); });
 }

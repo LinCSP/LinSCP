@@ -5,6 +5,9 @@
 #include <QLocale>
 #include <QLibraryInfo>
 #include <QSettings>
+#include <QStyle>
+#include <QStyleFactory>
+#include <QPalette>
 #include "ui/main_window.h"
 
 /// Загрузить переводчик LinSCP для заданного кода языка (например "ru").
@@ -29,7 +32,17 @@ int main(int argc, char *argv[])
     app.setApplicationVersion("0.1.0");
     app.setOrganizationName("LinSCP");
     app.setOrganizationDomain("linscp.app");
-    app.setWindowIcon(QIcon::fromTheme("network-server"));
+    app.setWindowIcon(QIcon::fromTheme("network-server",
+                      app.style()->standardIcon(QStyle::SP_DriveNetIcon)));
+
+    // Fusion — чистый, современный стиль без зависимости от темы рабочего стола
+    app.setStyle(QStyleFactory::create("Fusion"));
+
+    // Акцентный цвет — тёмно-синий
+    QPalette pal = app.palette();
+    pal.setColor(QPalette::Highlight,       QColor(0x0D6EFD));
+    pal.setColor(QPalette::HighlightedText, Qt::white);
+    app.setPalette(pal);
 
     // ── Переводы ──────────────────────────────────────────────────────────────
 

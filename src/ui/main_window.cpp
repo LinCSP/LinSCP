@@ -136,23 +136,29 @@ void MainWindow::setupUi()
 
 void MainWindow::setupMenuBar()
 {
+    // Иконка с фолбэком на QStyle стандартные иконки (работает без темы рабочего стола)
+    auto si = [this](const char *name, QStyle::StandardPixmap sp) -> QIcon {
+        QIcon icon = QIcon::fromTheme(QLatin1String(name));
+        return icon.isNull() ? style()->standardIcon(sp) : icon;
+    };
+
     // ── File ─────────────────────────────────────────────────────────────────
     QMenu *fileMenu = menuBar()->addMenu(tr("&File"));
-    fileMenu->addAction(QIcon::fromTheme("tab-new"),
+    fileMenu->addAction(si("document-new", QStyle::SP_FileDialogNewFolder),
                         tr("&New Tab"), QKeySequence("Ctrl+T"),
                         this, &MainWindow::onNewTab);
     fileMenu->addSeparator();
-    fileMenu->addAction(QIcon::fromTheme("network-connect"),
+    fileMenu->addAction(si("network-connect", QStyle::SP_DriveNetIcon),
                         tr("&New Session…"), QKeySequence("Ctrl+N"),
                         this, &MainWindow::onNewSession);
     fileMenu->addAction(tr("&Manage Sessions…"),
                         this, &MainWindow::onManageSessions);
     fileMenu->addSeparator();
     m_connectAction = fileMenu->addAction(
-        QIcon::fromTheme("network-connect"), tr("&Connect"),
+        si("network-connect", QStyle::SP_DriveNetIcon), tr("&Connect"),
         QKeySequence("Ctrl+Return"), this, &MainWindow::onConnect);
     m_disconnectAction = fileMenu->addAction(
-        QIcon::fromTheme("network-disconnect"), tr("&Disconnect"),
+        si("network-disconnect", QStyle::SP_DialogCloseButton), tr("&Disconnect"),
         this, &MainWindow::onDisconnect);
     m_disconnectAction->setEnabled(false);
     fileMenu->addSeparator();
@@ -161,7 +167,7 @@ void MainWindow::setupMenuBar()
 
     // ── Session ───────────────────────────────────────────────────────────────
     QMenu *sessionMenu = menuBar()->addMenu(tr("&Session"));
-    sessionMenu->addAction(QIcon::fromTheme("view-refresh"),
+    sessionMenu->addAction(si("view-refresh", QStyle::SP_BrowserReload),
                            tr("&Refresh Remote"), QKeySequence("Ctrl+R"),
                            this, [this]() {
         if (auto *tab = currentTab(); tab && tab->remotePanel())
@@ -169,14 +175,14 @@ void MainWindow::setupMenuBar()
     });
     sessionMenu->addSeparator();
     m_terminalAction = sessionMenu->addAction(
-        QIcon::fromTheme("utilities-terminal"),
+        si("utilities-terminal", QStyle::SP_ComputerIcon),
         tr("Open &Terminal"), QKeySequence(Qt::Key_F9),
         this, &MainWindow::onToggleTerminal);
     m_terminalAction->setCheckable(true);
 
     // ── Commands ──────────────────────────────────────────────────────────────
     QMenu *cmdMenu = menuBar()->addMenu(tr("&Commands"));
-    cmdMenu->addAction(QIcon::fromTheme("folder-sync"),
+    cmdMenu->addAction(si("folder-sync", QStyle::SP_DriveHDIcon),
                        tr("&Synchronize…"), QKeySequence("Ctrl+Shift+S"),
                        this, &MainWindow::onSync);
     cmdMenu->addAction(tr("&SSH Key Manager…"),
@@ -232,7 +238,8 @@ void MainWindow::setupMenuBar()
 
     // ── Options ───────────────────────────────────────────────────────────────
     QMenu *optMenu = menuBar()->addMenu(tr("&Options"));
-    optMenu->addAction(QIcon::fromTheme("preferences-system"),
+    optMenu->addAction(QIcon::fromTheme("preferences-system",
+                           style()->standardIcon(QStyle::SP_ComputerIcon)),
                        tr("&Preferences…"), QKeySequence("Ctrl+,"),
                        this, &MainWindow::onPreferences);
 
@@ -266,13 +273,15 @@ void MainWindow::setupToolBar()
     tb->addAction(m_connectAction);
     tb->addAction(m_disconnectAction);
     tb->addSeparator();
-    tb->addAction(QIcon::fromTheme("folder-sync"), tr("Sync"),
-                  this, &MainWindow::onSync);
+    tb->addAction(QIcon::fromTheme("folder-sync",
+                      style()->standardIcon(QStyle::SP_DriveHDIcon)),
+                  tr("Sync"), this, &MainWindow::onSync);
     tb->addSeparator();
     tb->addAction(m_terminalAction);
     tb->addSeparator();
-    tb->addAction(QIcon::fromTheme("tab-new"), tr("New Tab"),
-                  this, &MainWindow::onNewTab);
+    tb->addAction(QIcon::fromTheme("document-new",
+                      style()->standardIcon(QStyle::SP_FileDialogNewFolder)),
+                  tr("New Tab"), this, &MainWindow::onNewTab);
 }
 
 void MainWindow::setupStatusBar()
