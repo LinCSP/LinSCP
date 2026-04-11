@@ -23,6 +23,15 @@
         <file alias="terminal.svg">icons/terminal.svg</file>
         <file alias="trash.svg">icons/trash.svg</file>
         <file alias="triangle-exclamation.svg">icons/triangle-exclamation.svg</file>
+        <file alias="file.svg">icons/file.svg</file>
+        <file alias="file-audio.svg">icons/file-audio.svg</file>
+        <file alias="file-code.svg">icons/file-code.svg</file>
+        <file alias="file-image.svg">icons/file-image.svg</file>
+        <file alias="file-lines.svg">icons/file-lines.svg</file>
+        <file alias="file-pdf.svg">icons/file-pdf.svg</file>
+        <file alias="file-video.svg">icons/file-video.svg</file>
+        <file alias="file-zipper.svg">icons/file-zipper.svg</file>
+        <file alias="link.svg">icons/link.svg</file>
         <file alias="upload.svg">icons/upload.svg</file>
         <file alias="xmark.svg">icons/xmark.svg</file>
     </qresource>

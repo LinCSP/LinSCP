@@ -82,6 +82,7 @@ set(LINSCP_SOURCES
 
     # ui/utils
     ui/utils/svg_icon.cpp
+    ui/utils/file_icon_provider.cpp
 )
 
 if(WITH_TERMINAL)

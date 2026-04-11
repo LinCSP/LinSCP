@@ -1,5 +1,7 @@
 #pragma once
+#include "ui/utils/file_icon_provider.h"
 #include <QFileSystemModel>
+#include <memory>
 
 namespace linscp::models {
 
@@ -16,6 +18,9 @@ public:
     };
 
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
+
+private:
+    std::unique_ptr<linscp::FileIconProvider> m_iconProvider;
 };
 
 } // namespace linscp::models

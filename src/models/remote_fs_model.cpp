@@ -1,5 +1,5 @@
 #include "remote_fs_model.h"
-#include <QIcon>
+#include "ui/utils/file_icon_provider.h"
 #include <QMimeType>
 #include <algorithm>
 
@@ -283,19 +283,12 @@ QVariant RemoteFsModel::data(const QModelIndex &index, int role) const
 
     if (role == Qt::DecorationRole && index.column() == ColName) {
         if (info.isDir)
-            return QIcon::fromTheme("folder");
+            return svgIcon(QStringLiteral("folder"));
         if (info.isSymLink)
-            return QIcon::fromTheme("emblem-symbolic-link",
-                                    QIcon::fromTheme("text-x-generic"));
-        // MIME-based иконка по расширению имени файла
+            return svgIcon(QStringLiteral("link"));
         const QMimeType mime = m_mimeDb.mimeTypeForFile(
             info.name, QMimeDatabase::MatchExtension);
-        QIcon icon = QIcon::fromTheme(mime.iconName());
-        if (icon.isNull())
-            icon = QIcon::fromTheme(mime.genericIconName());
-        if (icon.isNull())
-            icon = QIcon::fromTheme("text-x-generic");
-        return icon;
+        return linscp::iconForMime(mime);
     }
 
     if (role == Qt::ToolTipRole) {
