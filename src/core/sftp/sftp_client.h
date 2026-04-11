@@ -42,9 +42,13 @@ public:
 
     // ── Файловые операции ─────────────────────────────────────────────────────
 
-    /// Скачать файл (remote → local)
+    /// Скачать файл (remote → local), последовательное чтение
     bool download(const QString &remotePath, const QString &localPath,
                   ProgressCallback progress = {});
+
+    /// Скачать файл с параллельными async-запросами SFTP (быстрее на высоком latency)
+    bool downloadAsync(const QString &remotePath, const QString &localPath,
+                       ProgressCallback progress = {});
 
     /// Загрузить файл (local → remote)
     bool upload(const QString &localPath, const QString &remotePath,
@@ -70,6 +74,12 @@ public:
     bool removeRecursive(const QString &remotePath);
     bool chmod(const QString &remotePath, uint mode);
 
+    /// Прочитать цель симлинка (remote → target string)
+    QString readlink(const QString &remotePath);
+
+    /// Создать симлинк на сервере (target ← linkPath)
+    bool symlink(const QString &target, const QString &linkPath);
+
     QString lastError() const { return m_lastError; }
 
 signals:
@@ -82,7 +92,8 @@ private:
     sftp_session     m_sftp    = nullptr;
     QString          m_lastError;
 
-    static constexpr qint64 kChunkSize = 32768; ///< байт за одну операцию чтения/записи
+    static constexpr qint64 kChunkSize    = 32768; ///< байт за одну операцию чтения/записи
+    static constexpr int    kAsyncWindow  = 8;     ///< число параллельных async-запросов
 };
 
 } // namespace linscp::core::sftp

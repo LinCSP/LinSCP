@@ -2,10 +2,11 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QQueue>
+#include <QDirIterator>
 #include <libssh/sftp.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <QDirIterator>
 
 namespace linscp::core::sftp {
 
@@ -95,6 +96,75 @@ SftpFileInfo SftpClient::stat(const QString &remotePath)
     info.permissions = attr->permissions;
     sftp_attributes_free(attr);
     return info;
+}
+
+bool SftpClient::downloadAsync(const QString &remotePath, const QString &localPath,
+                               ProgressCallback progress)
+{
+    sftp_file remote = sftp_open(m_sftp, remotePath.toUtf8().constData(), O_RDONLY, 0);
+    if (!remote) {
+        m_lastError = tr("Cannot open remote file: %1").arg(remotePath);
+        emit errorOccurred(m_lastError);
+        return false;
+    }
+
+    QFile local(localPath);
+    if (!local.open(QIODevice::WriteOnly)) {
+        sftp_close(remote);
+        m_lastError = tr("Cannot create local file: %1").arg(localPath);
+        emit errorOccurred(m_lastError);
+        return false;
+    }
+
+    // Включаем async-режим: без блокировки на read
+    sftp_file_set_nonblocking(remote);
+
+    const qint64 total = stat(remotePath).size;
+    TransferProgress tp; tp.total = total;
+
+    // Конвейер: kAsyncWindow параллельных запросов → собираем по очереди.
+    // sftp_async_read_begin/sftp_async_read помечены deprecated в libssh >= 0.10,
+    // но новый sftp_aio API появился только в 0.11; используем старый со
+    // явным подавлением предупреждений.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
+    struct Req { int id = -1; QByteArray buf; };
+    QQueue<Req> pipeline;
+
+    bool eof = false;
+    auto issueRead = [&]() {
+        if (eof) return;
+        Req r;
+        r.buf.resize(kChunkSize);
+        r.id = sftp_async_read_begin(remote, static_cast<uint32_t>(kChunkSize));
+        if (r.id < 0) { eof = true; return; }
+        pipeline.enqueue(std::move(r));
+    };
+
+    // Заполняем конвейер начальными запросами
+    for (int i = 0; i < kAsyncWindow; ++i) issueRead();
+
+    bool ok = true;
+    while (!pipeline.isEmpty()) {
+        Req r = pipeline.dequeue();
+        ssize_t nread = sftp_async_read(remote, r.buf.data(),
+                                        static_cast<uint32_t>(kChunkSize),
+                                        static_cast<uint32_t>(r.id));
+        if (nread < 0) { ok = false; break; }
+        if (nread > 0) {
+            local.write(r.buf.constData(), nread);
+            tp.transferred += nread;
+            if (progress) progress(tp);
+            issueRead(); // выдаём следующий запрос
+        }
+        // nread == 0 → EOF для этого слота, конвейер естественно опустеет
+    }
+
+#pragma GCC diagnostic pop
+
+    sftp_close(remote);
+    return ok;
 }
 
 bool SftpClient::download(const QString &remotePath, const QString &localPath,
@@ -275,6 +345,22 @@ bool SftpClient::removeRecursive(const QString &remotePath)
 bool SftpClient::chmod(const QString &remotePath, uint mode)
 {
     return sftp_chmod(m_sftp, remotePath.toUtf8().constData(), mode) == SSH_OK;
+}
+
+QString SftpClient::readlink(const QString &remotePath)
+{
+    char *target = sftp_readlink(m_sftp, remotePath.toUtf8().constData());
+    if (!target) return {};
+    QString result = QString::fromUtf8(target);
+    ssh_string_free_char(target);
+    return result;
+}
+
+bool SftpClient::symlink(const QString &target, const QString &linkPath)
+{
+    return sftp_symlink(m_sftp,
+                        target.toUtf8().constData(),
+                        linkPath.toUtf8().constData()) == SSH_OK;
 }
 
 } // namespace linscp::core::sftp

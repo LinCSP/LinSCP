@@ -41,6 +41,14 @@ public:
 
     void disconnect();
 
+    /// Включить пересылку SSH-агента (запрашивается для Shell-каналов)
+    void setAgentForwarding(bool enabled) { m_agentForwarding = enabled; }
+    bool agentForwarding() const { return m_agentForwarding; }
+
+    /// Настроить ProxyJump (jump host): пустой host — отключить
+    void setProxyJump(const QString &proxyHost, quint16 proxyPort = 22,
+                      const QString &proxyUser = {});
+
     SessionState state() const { return m_state; }
     QString lastError() const  { return m_lastError; }
 
@@ -105,6 +113,11 @@ private:
     QByteArray   m_fingerprint;
 
     std::unique_ptr<KnownHosts> m_knownHosts;
+
+    bool    m_agentForwarding = false;
+    QString m_proxyJumpHost;
+    quint16 m_proxyJumpPort   = 22;
+    QString m_proxyJumpUser;
 
     // Управление воркер-потоком: безопасное завершение при удалении объекта
     std::atomic<bool> m_aborting{false};

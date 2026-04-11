@@ -16,6 +16,7 @@ void KeyManager::clearCache()
 {
     for (auto &k : m_cache) ssh_key_free(k);
     m_cache.clear();
+    m_passphraseCache.clear();
 }
 
 SshKeyInfo KeyManager::inspect(const QString &keyPath) const
@@ -68,13 +69,22 @@ ssh_key KeyManager::loadPrivateKey(const QString &keyPath, const QString &passph
 {
     if (m_cache.contains(keyPath)) return m_cache[keyPath];
 
+    // Используем сохранённый passphrase, если вызывающий не передал новый
+    const QString effectivePass = passphrase.isEmpty()
+                                  ? m_passphraseCache.value(keyPath)
+                                  : passphrase;
+
     ssh_key key = nullptr;
-    const char *pass = passphrase.isEmpty() ? nullptr : passphrase.toUtf8().constData();
+    const char *pass = effectivePass.isEmpty()
+                       ? nullptr
+                       : effectivePass.toUtf8().constData();
     if (ssh_pki_import_privkey_file(keyPath.toUtf8().constData(),
                                     pass, nullptr, nullptr, &key) != SSH_OK)
         return nullptr;
 
     m_cache[keyPath] = key;
+    if (!effectivePass.isEmpty())
+        m_passphraseCache[keyPath] = effectivePass;  // кэшируем passphrase на сессию
     return key;
 }
 

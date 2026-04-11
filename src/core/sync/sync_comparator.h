@@ -14,11 +14,13 @@ namespace linscp::core::ssh  { class SshSession; }
 namespace linscp::core::sync {
 
 enum class SyncAction {
-    Upload,     ///< local → remote
-    Download,   ///< remote → local
+    Upload,       ///< local → remote
+    Download,     ///< remote → local
     DeleteRemote,
     DeleteLocal,
-    Conflict,   ///< оба изменились
+    ChmodRemote,  ///< только синхронизировать права (файлы идентичны, права нет)
+    SymlinkCreate,///< создать симлинк на цели
+    Conflict,     ///< оба изменились
     Skip,
 };
 
@@ -31,6 +33,15 @@ struct SyncDiffEntry {
     QDateTime  remoteMtime;
     qint64     localSize  = 0;
     qint64     remoteSize = 0;
+
+    // Права (для syncPermissions)
+    bool       permissionMismatch = false;
+    uint       localPermissions   = 0;
+    uint       remotePermissions  = 0;
+
+    // Симлинки (для syncSymlinks)
+    bool       isSymlink          = false;
+    QString    symlinkTarget;     ///< цель симлинка (для SymlinkCreate)
 
     bool isConflict() const { return action == SyncAction::Conflict; }
 };
@@ -56,7 +67,8 @@ private:
     void scanLocal(const QString &baseLocal, const QString &relPath,
                    const SyncProfile &profile,
                    QHash<QString, QDateTime> &localMap,
-                   QHash<QString, qint64>    &localSizes);
+                   QHash<QString, qint64>    &localSizes,
+                   QHash<QString, uint>      &localPerms);
 
     bool matchesExclude(const QString &name, const SyncProfile &profile) const;
 };

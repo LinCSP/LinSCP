@@ -49,6 +49,11 @@ add_unit_test(test_sync_comparator
     ${CMAKE_SOURCE_DIR}/src/core/sync/sync_profile.cpp
 )
 
+add_unit_test(test_transfer_resume
+    ${CMAKE_SOURCE_DIR}/src/core/transfer/transfer_item.cpp
+    ${CMAKE_SOURCE_DIR}/src/core/transfer/transfer_queue.cpp
+)
+
 # ── Integration tests (с SSH-сервером в Docker) ──────────────────────────────
 # Запускаются только при наличии переменной LINSCP_TEST_HOST
 if(DEFINED ENV{LINSCP_TEST_HOST})

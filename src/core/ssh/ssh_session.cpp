@@ -50,6 +50,14 @@ void SshSession::connectToHost(const QString &host, quint16 port,
     m_workerFuture = QtConcurrent::run([this]() { doConnect(); });
 }
 
+void SshSession::setProxyJump(const QString &proxyHost, quint16 proxyPort,
+                              const QString &proxyUser)
+{
+    m_proxyJumpHost = proxyHost;
+    m_proxyJumpPort = proxyPort;
+    m_proxyJumpUser = proxyUser;
+}
+
 void SshSession::doConnect()
 {
     if (m_aborting) return;
@@ -58,6 +66,18 @@ void SshSession::doConnect()
     ssh_options_set(m_session, SSH_OPTIONS_HOST, m_host.toUtf8().constData());
     ssh_options_set(m_session, SSH_OPTIONS_PORT, &m_port);
     ssh_options_set(m_session, SSH_OPTIONS_USER, m_username.toUtf8().constData());
+
+    // Jump Host (ProxyJump): ssh -W target:port [-p proxyPort] [user@]proxyHost
+    if (!m_proxyJumpHost.isEmpty()) {
+        const QString userAt = m_proxyJumpUser.isEmpty()
+                               ? m_proxyJumpHost
+                               : m_proxyJumpUser + "@" + m_proxyJumpHost;
+        const QString cmd = QString("ssh -W %1:%2 -p %3 -o StrictHostKeyChecking=accept-new %4")
+                                .arg(m_host).arg(m_port).arg(m_proxyJumpPort).arg(userAt);
+        const QByteArray cmdBa = cmd.toUtf8();
+        ssh_options_set(m_session, SSH_OPTIONS_PROXYCOMMAND, cmdBa.constData());
+        emit logMessage(tr("Using jump host %1:%2…").arg(m_proxyJumpHost).arg(m_proxyJumpPort));
+    }
 
     emit connectProgress(10);
     emit logMessage(tr("Connecting to %1:%2…").arg(m_host).arg(m_port));
@@ -207,6 +227,12 @@ SshChannel *SshSession::openChannel(ChannelType type)
     if (ssh_channel_open_session(ch) != SSH_OK) {
         ssh_channel_free(ch);
         return nullptr;
+    }
+
+    // Пересылка SSH-агента для Shell-каналов (терминал → можно ssh дальше)
+    if (type == ChannelType::Shell && m_agentForwarding) {
+        if (ssh_channel_request_auth_agent(ch) != SSH_OK)
+            emit logMessage(tr("Warning: agent forwarding request failed."));
     }
 
     return new SshChannel(ch, type, this);

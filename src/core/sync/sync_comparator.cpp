@@ -4,6 +4,7 @@
 #include "utils/checksum.h"
 #include <QDirIterator>
 #include <QRegularExpression>
+#include <sys/stat.h>
 
 namespace linscp::core::sync {
 
@@ -16,11 +17,13 @@ QList<SyncDiffEntry> SyncComparator::compare(const SyncProfile &profile,
     // 1. Сканируем локаль
     QHash<QString, QDateTime> localMtimes;
     QHash<QString, qint64>    localSizes;
-    scanLocal(profile.localPath, QString{}, profile, localMtimes, localSizes);
+    QHash<QString, uint>      localPerms;
+    scanLocal(profile.localPath, QString{}, profile, localMtimes, localSizes, localPerms);
     emit scanProgress(40);
 
     // 2. Сканируем удалённый (рекурсивно через SFTP листинг)
     QHash<QString, sftp::SftpFileInfo> remoteMap;
+    QHash<QString, sftp::SftpFileInfo> remoteSymlinks; // rel → symlink entry
     std::function<void(const QString &)> scanRemote = [&](const QString &rPath) {
         const auto dir = sftp->listDirectory(rPath);
         for (const auto &entry : dir.entries) {
@@ -29,10 +32,13 @@ QList<SyncDiffEntry> SyncComparator::compare(const SyncProfile &profile,
             if (profile.excludeHidden && entry.isHidden()) continue;
 
             const QString rel = entry.path.mid(profile.remotePath.length() + 1);
-            if (entry.isDir)
+            if (entry.isDir) {
                 scanRemote(entry.path);
-            else
+            } else if (entry.isSymLink && profile.syncSymlinks) {
+                remoteSymlinks[rel] = entry;
+            } else {
                 remoteMap[rel] = entry;
+            }
         }
     };
     scanRemote(profile.remotePath);
@@ -88,6 +94,19 @@ QList<SyncDiffEntry> SyncComparator::compare(const SyncProfile &profile,
                                : SyncAction::Upload;
         }
 
+        // Права: если файл совпадает (Skip/Upload уже определён) и syncPermissions включён
+        if (profile.syncPermissions && remoteMap.contains(rel)) {
+            const uint lp = localPerms.value(rel, 0);
+            const uint rp = remoteMap[rel].permissions & 0777u;
+            if (lp != 0 && rp != 0 && lp != rp) {
+                entry.permissionMismatch  = true;
+                entry.localPermissions    = lp;
+                entry.remotePermissions   = rp;
+                if (entry.action == SyncAction::Skip)
+                    entry.action = SyncAction::ChmodRemote; // только chmod
+            }
+        }
+
         if (entry.action != SyncAction::Skip)
             result.append(entry);
     }
@@ -105,6 +124,21 @@ QList<SyncDiffEntry> SyncComparator::compare(const SyncProfile &profile,
         result.append(entry);
     }
 
+    // Симлинки только на удалённом → создать локально (SymlinkCreate при Download/Bidirectional)
+    if (profile.syncSymlinks) {
+        for (auto it = remoteSymlinks.begin(); it != remoteSymlinks.end(); ++it) {
+            if (localMtimes.contains(it.key())) continue;
+            if (profile.direction == SyncDirection::LocalToRemote) continue;
+            SyncDiffEntry entry;
+            entry.remotePath   = profile.remotePath + '/' + it.key();
+            entry.localPath    = profile.localPath  + '/' + it.key();
+            entry.isSymlink    = true;
+            entry.symlinkTarget = sftp->readlink(entry.remotePath);
+            entry.action       = SyncAction::SymlinkCreate;
+            result.append(entry);
+        }
+    }
+
     emit scanProgress(100);
     return result;
 }
@@ -112,7 +146,8 @@ QList<SyncDiffEntry> SyncComparator::compare(const SyncProfile &profile,
 void SyncComparator::scanLocal(const QString &baseLocal, const QString &relPath,
                                const SyncProfile &profile,
                                QHash<QString, QDateTime> &localMap,
-                               QHash<QString, qint64> &localSizes)
+                               QHash<QString, qint64>    &localSizes,
+                               QHash<QString, uint>      &localPerms)
 {
     const QString absPath = relPath.isEmpty() ? baseLocal
                                               : baseLocal + '/' + relPath;
@@ -125,11 +160,17 @@ void SyncComparator::scanLocal(const QString &baseLocal, const QString &relPath,
 
         const QString rel = relPath.isEmpty() ? fi.fileName()
                                               : relPath + '/' + fi.fileName();
-        if (fi.isDir())
-            scanLocal(baseLocal, rel, profile, localMap, localSizes);
-        else {
+        if (fi.isDir()) {
+            scanLocal(baseLocal, rel, profile, localMap, localSizes, localPerms);
+        } else {
             localMap[rel]   = fi.lastModified();
             localSizes[rel] = fi.size();
+            // Права в Unix-стиле (rwxrwxrwx)
+            if (profile.syncPermissions) {
+                struct stat st{};
+                if (::stat(fi.absoluteFilePath().toLocal8Bit().constData(), &st) == 0)
+                    localPerms[rel] = static_cast<uint>(st.st_mode & 0777u);
+            }
         }
     }
 }

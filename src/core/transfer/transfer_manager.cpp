@@ -1,5 +1,7 @@
 #include "transfer_manager.h"
+#include <QElapsedTimer>
 #include <QFileInfo>
+#include <QThread>
 
 namespace linscp::core::transfer {
 
@@ -126,7 +128,31 @@ void TransferManager::runItem(const TransferItem &item)
 
     // ── Передача файла ────────────────────────────────────────────────────────
     bool ok = false;
-    auto progress = [this, &item](const sftp::TransferProgress &p) {
+
+    // Callback с поддержкой паузы и троттлинга
+    auto progress = [this, &item,
+                     prevBytes   = qint64{0},
+                     chunkTimer  = QElapsedTimer()](const sftp::TransferProgress &p) mutable
+    {
+        // Пауза: ждём снятия флага, проверяем отмену
+        while (m_paused.load() && m_running) {
+            if (m_queue->item(item.id).status == TransferStatus::Cancelled) return;
+            QThread::msleep(50);
+        }
+        m_queue->setStatus(item.id, TransferStatus::InProgress);
+
+        // Троттлинг: если чанк прилетел быстрее, чем разрешено — спим
+        const int kbps = m_throttleKBps.load();
+        if (kbps > 0 && prevBytes > 0) {
+            const qint64 chunkBytes = p.transferred - prevBytes;
+            const qint64 elapsedMs  = chunkTimer.elapsed();
+            const qint64 targetMs   = chunkBytes * 1000 / (static_cast<qint64>(kbps) * 1024);
+            if (elapsedMs < targetMs && (targetMs - elapsedMs) < 10000)
+                QThread::msleep(static_cast<unsigned long>(targetMs - elapsedMs));
+        }
+        prevBytes = p.transferred;
+        chunkTimer.restart();
+
         m_queue->updateProgress(item.id, p.transferred);
     };
 

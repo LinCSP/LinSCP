@@ -31,7 +31,7 @@ public:
     /// Загрузить приватный ключ в память (passphrase кэшируется на сессию)
     ssh_key loadPrivateKey(const QString &keyPath, const QString &passphrase);
 
-    /// Освободить все кэшированные ключи (при disconnect)
+    /// Освободить все кэшированные ключи и passphrase (при disconnect)
     void clearCache();
 
     /// Список ключей из ~/.ssh/
@@ -41,7 +41,8 @@ signals:
     void passphraseRequired(const QString &keyPath);  ///< UI показывает диалог
 
 private:
-    QHash<QString, ssh_key> m_cache;   ///< path → loaded key
+    QHash<QString, ssh_key>  m_cache;            ///< path → loaded ssh_key
+    QHash<QString, QString>  m_passphraseCache;  ///< path → passphrase (на время сессии)
 };
 
 } // namespace linscp::core::keys

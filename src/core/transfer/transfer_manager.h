@@ -37,6 +37,14 @@ public:
     void start();   ///< начать обработку очереди
     void stop();    ///< остановить (текущие задания завершат текущий chunk)
 
+    /// Ограничение скорости, КБ/с. 0 — без ограничений (по умолчанию)
+    void setThrottleKBps(int kbps) { m_throttleKBps.store(kbps); }
+    int  throttleKBps() const      { return m_throttleKBps.load(); }
+
+    /// Поставить все активные передачи на паузу / снять с паузы
+    void pause()  { m_paused.store(true);  }
+    void resume() { m_paused.store(false); }
+
 signals:
     void transferStarted(const QUuid &id);
     void transferFinished(const QUuid &id, bool success);
@@ -62,6 +70,8 @@ private:
     OverwriteCallback             m_overwriteCb;
     std::atomic<int>              m_globalPolicy{
         static_cast<int>(OverwritePolicy::Ask)}; ///< глобальная политика (OverwriteAll/SkipAll)
+    std::atomic<int>              m_throttleKBps{0};   ///< 0 = без ограничений
+    std::atomic<bool>             m_paused{false};     ///< пауза всех передач
 };
 
 } // namespace linscp::core::transfer

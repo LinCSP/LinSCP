@@ -11,7 +11,8 @@ set(LINSCP_SOURCES
     core/sftp/sftp_file.cpp
     core/sftp/sftp_directory.cpp
 
-    # core/scp  (заглушка — файл создаётся ниже)
+    # core/scp
+    core/scp/scp_client.cpp
 
     # core/transfer
     core/transfer/transfer_item.cpp

@@ -41,6 +41,16 @@ ssh::SshSession *SessionManager::open(const QUuid &profileId)
     }
 
     ssh::SshSession *raw = session.get();
+
+    // Agent forwarding
+    raw->setAgentForwarding(profile.useAgent);
+
+    // Jump Host (tunnel)
+    if (profile.tunnel.enabled && !profile.tunnel.host.isEmpty()) {
+        raw->setProxyJump(profile.tunnel.host, profile.tunnel.port,
+                          profile.tunnel.username);
+    }
+
     m_sessions[profileId] = std::move(session);
 
     raw->connectToHost(profile.host, profile.port, profile.username, auth);

@@ -1,6 +1,7 @@
 #include "sync_engine.h"
 #include "core/transfer/transfer_item.h"
 #include <QFile>
+#include <QFileInfo>
 
 namespace linscp::core::sync {
 
@@ -17,7 +18,7 @@ QList<SyncDiffEntry> SyncEngine::preview(const SyncProfile &profile)
     return m_comparator.compare(profile, m_sftp);
 }
 
-void SyncEngine::apply(const SyncProfile & /*profile*/, const QList<SyncDiffEntry> &diff)
+void SyncEngine::apply(const SyncProfile &profile, const QList<SyncDiffEntry> &diff)
 {
     int total = diff.size();
     int done  = 0;
@@ -50,8 +51,31 @@ void SyncEngine::apply(const SyncProfile & /*profile*/, const QList<SyncDiffEntr
         case SyncAction::DeleteLocal:
             QFile::remove(entry.localPath);
             break;
+        case SyncAction::ChmodRemote:
+            // Синхронизация прав: применяем локальные права на сервер
+            m_sftp->chmod(entry.remotePath, entry.localPermissions);
+            break;
+        case SyncAction::SymlinkCreate:
+            // Создаём локальный симлинк (remote → local при Download/Bidirectional)
+            if (!entry.symlinkTarget.isEmpty()) {
+                QFile::remove(entry.localPath); // на случай если уже есть
+                QFile::link(entry.symlinkTarget, entry.localPath);
+            }
+            break;
         default:
             break;
+        }
+
+        // После передачи применяем chmod если нужно и запись была upload/download
+        if (profile.syncPermissions && entry.permissionMismatch &&
+            (entry.action == SyncAction::Upload || entry.action == SyncAction::Download)) {
+            if (entry.action == SyncAction::Upload)
+                m_sftp->chmod(entry.remotePath, entry.localPermissions);
+            // для Download: меняем права локального файла
+            if (entry.action == SyncAction::Download && !entry.localPath.isEmpty())
+                QFile::setPermissions(
+                    entry.localPath,
+                    static_cast<QFile::Permissions>(entry.remotePermissions));
         }
 
         ++done;
