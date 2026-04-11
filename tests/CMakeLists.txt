@@ -18,6 +18,10 @@ function(add_unit_test name)
         ${LIBSSH_LIBRARIES}
         ${OPENSSL_LIBRARIES}
     )
+    target_link_directories(${name} PRIVATE
+        ${LIBSSH_LIBRARY_DIRS}
+        ${OPENSSL_LIBRARY_DIRS}
+    )
     add_test(NAME ${name} COMMAND ${name})
 endfunction()
 
