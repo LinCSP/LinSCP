@@ -30,7 +30,9 @@ jobs:
             libxcb-xinerama0-dev libxcb-cursor-dev libxkbcommon-x11-dev \
             libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
             libxcb-randr0 libxcb-render-util0 libxcb-render0 \
-            libxcb-shape0 libxcb-sync1 libxcb-xfixes0 libxcb-xkb1
+            libxcb-shape0 libxcb-sync1 libxcb-xfixes0 libxcb-xkb1 \
+            libwayland-dev libwayland-client0 libwayland-cursor0 \
+            libwayland-egl1 libegl1-mesa-dev libxkbcommon-dev
 
       # ── libssh 0.10 ──────────────────────────────────────────────────────────
       - name: Cache libssh ${{ env.LIBSSH_VERSION }}
@@ -88,6 +90,9 @@ jobs:
         run: |
           mkdir -p AppDir/usr/bin
           cp build/bin/linscp AppDir/usr/bin/
+          # Use our custom AppRun so Qt paths are set correctly at runtime
+          cp packaging/appimage/AppRun AppDir/AppRun
+          chmod +x AppDir/AppRun
           rsvg-convert -w 256 -h 256 \
             packaging/appimage/linscp.svg \
             -o packaging/appimage/linscp.png
@@ -103,6 +108,8 @@ jobs:
         env:
           VERSION: ${{ github.ref_name }}
           LIBSSH_DIR: ${{ runner.temp }}/libssh-install
+          # Force inclusion of wayland platform plugin (needed for Wayland sessions)
+          EXTRA_QT_PLUGINS: "wayland"
         run: |
           export QMAKE="${QT_PREFIX}/bin/qmake"
           export LD_LIBRARY_PATH="${QT_PREFIX}/lib:${LIBSSH_DIR}/lib:${LIBSSH_DIR}/lib64"
