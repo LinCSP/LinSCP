@@ -245,5 +245,5 @@ jobs:
 
           gh release create "$TAG" \
             --title "LinSCP $TAG" \
-            --generate-release-notes \
+            --generate-notes \
             "${FILES[@]}"
