@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=LinSCP
+GenericName=SFTP File Manager
+GenericName[ru]=SFTP файловый менеджер
+Comment=SSH/SFTP file manager — Linux analog of WinSCP
+Comment[ru]=SSH/SFTP файловый менеджер — аналог WinSCP для Linux
+Exec=linscp %U
+Icon=linscp
+Categories=Network;FileTransfer;FileManager;
+Keywords=sftp;ssh;scp;ftp;file;transfer;remote;
+MimeType=x-scheme-handler/sftp;x-scheme-handler/ssh;
+StartupNotify=true
+StartupWMClass=linscp

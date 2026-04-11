@@ -1,0 +1,15 @@
+#!/bin/bash
+# AppRun — entry point for LinSCP AppImage
+
+APPDIR="$(dirname "$(readlink -f "$0")")"
+
+# Qt plugin path
+export QT_PLUGIN_PATH="${APPDIR}/usr/plugins${QT_PLUGIN_PATH:+:$QT_PLUGIN_PATH}"
+
+# QML imports (not used yet, but harmless)
+export QML2_IMPORT_PATH="${APPDIR}/usr/qml${QML2_IMPORT_PATH:+:$QML2_IMPORT_PATH}"
+
+# Ensure shared libs from AppDir are found
+export LD_LIBRARY_PATH="${APPDIR}/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+exec "${APPDIR}/usr/bin/linscp" "$@"

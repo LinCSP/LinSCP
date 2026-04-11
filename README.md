@@ -60,7 +60,7 @@ sudo apt install qt6-base-dev cmake libssh-dev libssl-dev ninja-build
 sudo dnf install qt6-qtbase-devel cmake libssh-devel openssl-devel ninja-build
 
 # Clone and build
-git clone https://github.com/YOUR_USERNAME/linscp.git
+git clone https://github.com/LinCSP/LinSCP.git
 cd linscp
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
