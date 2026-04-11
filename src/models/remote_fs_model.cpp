@@ -283,7 +283,7 @@ QVariant RemoteFsModel::data(const QModelIndex &index, int role) const
 
     if (role == Qt::DecorationRole && index.column() == ColName) {
         if (info.isDir)
-            return svgIcon(QStringLiteral("folder"));
+            return svgFolderIcon();
         if (info.isSymLink)
             return svgIcon(QStringLiteral("link"));
         const QMimeType mime = m_mimeDb.mimeTypeForFile(

@@ -74,7 +74,7 @@ QIcon iconForMime(const QMimeType &mime)
 QIcon FileIconProvider::icon(const QFileInfo &info) const
 {
     if (info.isDir())
-        return svgIcon(QStringLiteral("folder"));
+        return svgFolderIcon();
     if (info.isSymLink())
         return svgIcon(QStringLiteral("link"));
 
@@ -85,7 +85,7 @@ QIcon FileIconProvider::icon(const QFileInfo &info) const
 QIcon FileIconProvider::icon(IconType type) const
 {
     switch (type) {
-    case Folder:    return svgIcon(QStringLiteral("folder"));
+    case Folder:    return svgFolderIcon();
     case File:      return svgIcon(QStringLiteral("file"));
     default:        return {};
     }

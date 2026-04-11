@@ -10,7 +10,7 @@
 
 namespace linscp {
 
-QIcon svgIcon(const QString &qrcName)
+QIcon svgIcon(const QString &qrcName, const QByteArray &customFill)
 {
     QFile f(QStringLiteral(":/icons/") + qrcName + QStringLiteral(".svg"));
     if (!f.open(QIODevice::ReadOnly))
@@ -24,12 +24,17 @@ QIcon svgIcon(const QString &qrcName)
         data.remove(a, b - a + 3);
     }
 
-    // Pick icon colour based on button background brightness
-    const QPalette pal = QApplication::palette();
-    const int lum = pal.color(QPalette::Active, QPalette::Button).lightness();
-    const QByteArray fill = (lum < 128)
-        ? QByteArrayLiteral("fill=\"#c0c4cc\"")
-        : QByteArrayLiteral("fill=\"#6c757d\"");
+    QByteArray fill;
+    if (!customFill.isEmpty()) {
+        fill = QByteArrayLiteral("fill=\"") + customFill + QByteArrayLiteral("\"");
+    } else {
+        // Pick icon colour based on button background brightness
+        const QPalette pal = QApplication::palette();
+        const int lum = pal.color(QPalette::Active, QPalette::Button).lightness();
+        fill = (lum < 128)
+            ? QByteArrayLiteral("fill=\"#c0c4cc\"")
+            : QByteArrayLiteral("fill=\"#6c757d\"");
+    }
 
     data.replace(QByteArrayLiteral("<path "), QByteArrayLiteral("<path ") + fill + ' ');
 
@@ -57,6 +62,16 @@ QIcon svgIcon(const QString &qrcName)
         icon.addPixmap(pmDis, QIcon::Disabled);
     }
     return icon;
+}
+
+QIcon svgFolderIcon(const QString &qrcName)
+{
+    const QPalette pal = QApplication::palette();
+    const int lum = pal.color(QPalette::Active, QPalette::Button).lightness();
+    const QByteArray fill = (lum < 128)
+        ? QByteArrayLiteral("#dde1ea")
+        : QByteArrayLiteral("#9aa3b0");
+    return svgIcon(qrcName, fill);
 }
 
 } // namespace linscp

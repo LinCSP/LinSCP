@@ -13,6 +13,13 @@ namespace linscp {
 //
 // qrcName  — bare icon name without prefix or extension, e.g. "trash".
 //            The path ":/icons/<name>.svg" is used internally.
-QIcon svgIcon(const QString &qrcName);
+// qrcName     — bare icon name without prefix or extension, e.g. "trash".
+// customFill  — optional explicit CSS colour string (e.g. "#e0c060").
+//               When empty the palette-derived colour is used.
+QIcon svgIcon(const QString &qrcName, const QByteArray &customFill = {});
+
+// Like svgIcon("folder") but rendered slightly lighter to distinguish folders
+// from regular files at a glance.
+QIcon svgFolderIcon(const QString &qrcName = QStringLiteral("folder"));
 
 } // namespace linscp
