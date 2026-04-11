@@ -11,9 +11,72 @@ env:
   QT_VERSION: "6.7.3"
 
 jobs:
-  # ─── AppImage + .deb (ubuntu-22.04, Qt bundled via linuxdeploy) ──────────────
-  appimage-deb:
-    name: AppImage + .deb (x86_64)
+  # ─── AppImage (Arch Linux — system Qt6 with XCB + Wayland out of the box) ─────
+  appimage:
+    name: AppImage (x86_64, Arch Linux)
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+      options: --user root
+
+    steps:
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm \
+            git cmake ninja pkg-config gcc \
+            qt6-base qt6-wayland qt6-tools \
+            libssh openssl \
+            librsvg patchelf wget fuse2
+
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j$(nproc)
+
+      - name: Download linuxdeploy + Qt plugin
+        run: |
+          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage
+
+      - name: Assemble AppDir
+        run: |
+          mkdir -p AppDir/usr/bin
+          cp build/bin/linscp AppDir/usr/bin/
+          cp packaging/appimage/AppRun AppDir/AppRun
+          chmod +x AppDir/AppRun
+          rsvg-convert -w 256 -h 256 \
+            packaging/appimage/linscp.svg \
+            -o packaging/appimage/linscp.png
+
+      - name: Create AppImage
+        env:
+          VERSION: ${{ github.ref_name }}
+          # Docker containers don't expose FUSE — extract and run directly
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          export QMAKE=/usr/bin/qmake6
+          ./linuxdeploy-x86_64.AppImage \
+            --appdir AppDir \
+            --plugin qt \
+            --desktop-file packaging/appimage/linscp.desktop \
+            --icon-file packaging/appimage/linscp.png \
+            --output appimage
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: appimage
+          path: LinSCP-*.AppImage
+          if-no-files-found: error
+
+  # ─── .deb (ubuntu-22.04, Qt bundled via linuxdeploy) ─────────────────────────
+  deb:
+    name: .deb (x86_64, ubuntu-22.04)
     runs-on: ubuntu-22.04
 
     steps:
@@ -31,8 +94,6 @@ jobs:
             libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
             libxcb-randr0 libxcb-render-util0 libxcb-render0 \
             libxcb-shape0 libxcb-sync1 libxcb-xfixes0 libxcb-xkb1 \
-            libwayland-dev libwayland-client0 libwayland-cursor0 \
-            libwayland-egl1 libegl1-mesa-dev libxkbcommon-dev \
             libfuse2
 
       # ── libssh 0.10 ──────────────────────────────────────────────────────────
@@ -61,15 +122,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/Qt
-          key: qt-${{ env.QT_VERSION }}-linux-v5
+          key: qt-${{ env.QT_VERSION }}-linux-v3
 
       - name: Install Qt ${{ env.QT_VERSION }}
         if: steps.cache-qt.outputs.cache-hit != 'true'
         run: |
           pip install aqtinstall
           aqt install-qt linux desktop "${{ env.QT_VERSION }}" linux_gcc_64 \
-            -O "${{ runner.temp }}/Qt" \
-            -m qtwayland
+            -O "${{ runner.temp }}/Qt"
 
       # ── Build ────────────────────────────────────────────────────────────────
       - name: Configure
@@ -87,14 +147,11 @@ jobs:
       - name: Build
         run: cmake --build build -j$(nproc)
 
-      # ── AppDir ───────────────────────────────────────────────────────────────
+      # ── Bundle Qt into AppDir (reused for .deb) ──────────────────────────────
       - name: Assemble AppDir
         run: |
           mkdir -p AppDir/usr/bin
           cp build/bin/linscp AppDir/usr/bin/
-          # Use our custom AppRun so Qt paths are set correctly at runtime
-          cp packaging/appimage/AppRun AppDir/AppRun
-          chmod +x AppDir/AppRun
           rsvg-convert -w 256 -h 256 \
             packaging/appimage/linscp.svg \
             -o packaging/appimage/linscp.png
@@ -105,14 +162,9 @@ jobs:
           wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage linuxdeploy-plugin-qt-x86_64.AppImage
 
-      # linuxdeploy bundles Qt into AppDir and creates AppImage
-      - name: Create AppImage
+      - name: Bundle Qt into AppDir
         env:
-          VERSION: ${{ github.ref_name }}
           LIBSSH_DIR: ${{ runner.temp }}/libssh-install
-          # Force inclusion of wayland platform plugin (needed for Wayland sessions)
-          EXTRA_QT_PLUGINS: "wayland"
-          # Fallback for FUSE: extract-and-run instead of mounting AppImage
           APPIMAGE_EXTRACT_AND_RUN: "1"
         run: |
           export QMAKE="${QT_PREFIX}/bin/qmake"
@@ -121,9 +173,7 @@ jobs:
             --appdir AppDir \
             --plugin qt \
             --desktop-file packaging/appimage/linscp.desktop \
-            --icon-file packaging/appimage/linscp.png \
-            --output appimage
-          # AppDir now contains bundled Qt — reuse it for .deb
+            --icon-file packaging/appimage/linscp.png
 
       # ── .deb via fpm (bundled Qt in /opt/linscp, wrapper in /usr/bin) ────────
       - name: Create .deb
@@ -168,13 +218,6 @@ jobs:
             --depends "libxcb-xinerama0" \
             --depends "libxkbcommon-x11-0" \
             .
-
-      - name: Upload AppImage artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: appimage
-          path: LinSCP-*.AppImage
-          if-no-files-found: error
 
       - name: Upload .deb artifact
         uses: actions/upload-artifact@v4
@@ -224,7 +267,7 @@ jobs:
   # ─── Publish GitHub Release ───────────────────────────────────────────────────
   publish:
     name: Publish Release
-    needs: [appimage-deb, rpm]
+    needs: [appimage, deb, rpm]
     runs-on: ubuntu-latest
     permissions:
       contents: write
