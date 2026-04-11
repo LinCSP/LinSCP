@@ -229,6 +229,20 @@ Contributions are welcome! Please open an issue before starting work on a large 
 4. Add tests for new functionality
 5. Open a pull request
 
+## Support the Project
+
+LinSCP is a free, open-source tool developed in spare time with no corporate backing.
+If it saves you time or makes your workflow a little better — consider buying me a coffee.
+Every contribution, no matter how small, helps keep the project alive and motivates further development.
+
+| Currency | Network | Address |
+|----------|---------|---------|
+| **USDT** | TRON (TRC20) | `TRttXvwBiJfLcZoBLxjD6US4optkw5y8op` |
+| **ETH** | Ethereum (ERC20) | `0xfb4a697fc94f938777a29b3777ba4cb432228886` |
+| **BTC** | Bitcoin | `1Gp9xpx8fBJuSdQMtsV66aveDDeEz9AGVR` |
+
+Thank you — it really does matter.
+
 ## License
 
 LinSCP is licensed under the **GNU General Public License v2.0** — see [LICENSE](LICENSE) for details.
