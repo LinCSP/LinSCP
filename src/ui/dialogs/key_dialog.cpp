@@ -1,4 +1,5 @@
 #include "key_dialog.h"
+#include "ui/utils/svg_icon.h"
 #include "core/keys/key_manager.h"
 #include "core/keys/key_generator.h"
 #include "core/keys/ppk_converter.h"
@@ -46,10 +47,10 @@ void KeyDialog::setupUi()
     detailLayout->addRow(tr("Fingerprint:"), m_fingerprintLabel);
 
     // Кнопки управления
-    m_addBtn     = new QPushButton(QIcon::fromTheme("list-add"),    tr("Add…"),     this);
-    m_genBtn     = new QPushButton(QIcon::fromTheme("emblem-new"),  tr("Generate…"),this);
+    m_addBtn     = new QPushButton(svgIcon(QStringLiteral("circle-plus")),    tr("Add…"),     this);
+    m_genBtn     = new QPushButton(svgIcon(QStringLiteral("key")),  tr("Generate…"),this);
     m_convertBtn = new QPushButton(tr("Convert PPK…"), this);
-    m_removeBtn  = new QPushButton(QIcon::fromTheme("list-remove"), tr("Remove"),   this);
+    m_removeBtn  = new QPushButton(svgIcon(QStringLiteral("circle-minus")), tr("Remove"),   this);
     m_removeBtn->setEnabled(false);
 
     connect(m_addBtn,     &QPushButton::clicked, this, &KeyDialog::onAddKey);
@@ -87,9 +88,9 @@ void KeyDialog::refreshList()
         item->setData(Qt::UserRole, info.fingerprint);
         item->setData(Qt::UserRole + 1, static_cast<int>(info.type));
         if (info.hasPassphrase)
-            item->setIcon(QIcon::fromTheme("dialog-password"));
+            item->setIcon(svgIcon(QStringLiteral("lock")));
         else
-            item->setIcon(QIcon::fromTheme("security-high"));
+            item->setIcon(svgIcon(QStringLiteral("shield-halved")));
     }
 
     m_list->setCurrentRow(prev);
@@ -123,7 +124,7 @@ void KeyDialog::onAddKey()
     if (path.isEmpty()) return;
     // KeyManager уже обращается к defaultKeys(); достаточно показать путь.
     auto *item = new QListWidgetItem(path, m_list);
-    item->setIcon(QIcon::fromTheme("security-high"));
+    item->setIcon(svgIcon(QStringLiteral("shield-halved")));
 }
 
 void KeyDialog::onGenerateKey()

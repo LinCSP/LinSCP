@@ -79,11 +79,16 @@ set(LINSCP_SOURCES
     utils/checksum.cpp
     utils/file_utils.cpp
     utils/crypto_utils.cpp
+
+    # ui/utils
+    ui/utils/svg_icon.cpp
 )
 
 if(WITH_TERMINAL)
     list(APPEND LINSCP_SOURCES ui/terminal/terminal_widget.cpp)
 endif()
+
+qt_add_resources(LINSCP_SOURCES resources/icons.qrc)
 
 add_executable(linscp ${LINSCP_SOURCES})
 
@@ -102,6 +107,7 @@ target_link_libraries(linscp PRIVATE
     Qt6::Widgets
     Qt6::Network
     Qt6::Concurrent
+    Qt6::Svg
     ${LIBSSH_LIBRARIES}
     ${OPENSSL_LIBRARIES}
 )

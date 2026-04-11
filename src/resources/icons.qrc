@@ -1,0 +1,29 @@
+<RCC>
+    <qresource prefix="/icons">
+        <file alias="arrow-up.svg">icons/arrow-up.svg</file>
+        <file alias="arrows-rotate.svg">icons/arrows-rotate.svg</file>
+        <file alias="circle-info.svg">icons/circle-info.svg</file>
+        <file alias="circle-minus.svg">icons/circle-minus.svg</file>
+        <file alias="circle-plus.svg">icons/circle-plus.svg</file>
+        <file alias="download.svg">icons/download.svg</file>
+        <file alias="file-circle-plus.svg">icons/file-circle-plus.svg</file>
+        <file alias="folder.svg">icons/folder.svg</file>
+        <file alias="folder-open.svg">icons/folder-open.svg</file>
+        <file alias="folder-plus.svg">icons/folder-plus.svg</file>
+        <file alias="gear.svg">icons/gear.svg</file>
+        <file alias="key.svg">icons/key.svg</file>
+        <file alias="lock.svg">icons/lock.svg</file>
+        <file alias="pen.svg">icons/pen.svg</file>
+        <file alias="pen-to-square.svg">icons/pen-to-square.svg</file>
+        <file alias="plug.svg">icons/plug.svg</file>
+        <file alias="plug-circle-xmark.svg">icons/plug-circle-xmark.svg</file>
+        <file alias="rotate.svg">icons/rotate.svg</file>
+        <file alias="server.svg">icons/server.svg</file>
+        <file alias="shield-halved.svg">icons/shield-halved.svg</file>
+        <file alias="terminal.svg">icons/terminal.svg</file>
+        <file alias="trash.svg">icons/trash.svg</file>
+        <file alias="triangle-exclamation.svg">icons/triangle-exclamation.svg</file>
+        <file alias="upload.svg">icons/upload.svg</file>
+        <file alias="xmark.svg">icons/xmark.svg</file>
+    </qresource>
+</RCC>

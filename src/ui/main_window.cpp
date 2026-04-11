@@ -17,6 +17,8 @@
 #include "core/keys/key_generator.h"
 #include "core/sync/sync_profile_store.h"
 
+#include "utils/svg_icon.h"
+
 #include <QApplication>
 #include <QMenuBar>
 #include <QMenu>
@@ -42,7 +44,7 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     setWindowTitle("LinSCP");
-    setWindowIcon(QIcon::fromTheme("network-server"));
+    setWindowIcon(svgIcon(QStringLiteral("server")));
     setMinimumSize(900, 600);
 
     QDir().mkpath(QDir::homePath() + "/.config/linscp");
@@ -81,7 +83,7 @@ MainWindow::~MainWindow()
 void MainWindow::setupUi()
 {
     m_tabWidget = new QTabWidget(this);
-    m_tabWidget->setTabsClosable(true);
+    m_tabWidget->setTabsClosable(false); // кастомные кнопки добавляем вручную
     m_tabWidget->setMovable(true);
     m_tabWidget->setDocumentMode(true);
 
@@ -136,29 +138,23 @@ void MainWindow::setupUi()
 
 void MainWindow::setupMenuBar()
 {
-    // Иконка с фолбэком на QStyle стандартные иконки (работает без темы рабочего стола)
-    auto si = [this](const char *name, QStyle::StandardPixmap sp) -> QIcon {
-        QIcon icon = QIcon::fromTheme(QLatin1String(name));
-        return icon.isNull() ? style()->standardIcon(sp) : icon;
-    };
-
     // ── File ─────────────────────────────────────────────────────────────────
     QMenu *fileMenu = menuBar()->addMenu(tr("&File"));
-    fileMenu->addAction(si("document-new", QStyle::SP_FileDialogNewFolder),
+    fileMenu->addAction(svgIcon(QStringLiteral("file-circle-plus")),
                         tr("&New Tab"), QKeySequence("Ctrl+T"),
                         this, &MainWindow::onNewTab);
     fileMenu->addSeparator();
-    fileMenu->addAction(si("network-connect", QStyle::SP_DriveNetIcon),
+    fileMenu->addAction(svgIcon(QStringLiteral("plug")),
                         tr("&New Session…"), QKeySequence("Ctrl+N"),
                         this, &MainWindow::onNewSession);
     fileMenu->addAction(tr("&Manage Sessions…"),
                         this, &MainWindow::onManageSessions);
     fileMenu->addSeparator();
     m_connectAction = fileMenu->addAction(
-        si("network-connect", QStyle::SP_DriveNetIcon), tr("&Connect"),
+        svgIcon(QStringLiteral("plug")), tr("&Connect"),
         QKeySequence("Ctrl+Return"), this, &MainWindow::onConnect);
     m_disconnectAction = fileMenu->addAction(
-        si("network-disconnect", QStyle::SP_DialogCloseButton), tr("&Disconnect"),
+        svgIcon(QStringLiteral("plug-circle-xmark")), tr("&Disconnect"),
         this, &MainWindow::onDisconnect);
     m_disconnectAction->setEnabled(false);
     fileMenu->addSeparator();
@@ -167,7 +163,7 @@ void MainWindow::setupMenuBar()
 
     // ── Session ───────────────────────────────────────────────────────────────
     QMenu *sessionMenu = menuBar()->addMenu(tr("&Session"));
-    sessionMenu->addAction(si("view-refresh", QStyle::SP_BrowserReload),
+    sessionMenu->addAction(svgIcon(QStringLiteral("rotate")),
                            tr("&Refresh Remote"), QKeySequence("Ctrl+R"),
                            this, [this]() {
         if (auto *tab = currentTab(); tab && tab->remotePanel())
@@ -175,14 +171,14 @@ void MainWindow::setupMenuBar()
     });
     sessionMenu->addSeparator();
     m_terminalAction = sessionMenu->addAction(
-        si("utilities-terminal", QStyle::SP_ComputerIcon),
+        svgIcon(QStringLiteral("terminal")),
         tr("Open &Terminal"), QKeySequence(Qt::Key_F9),
         this, &MainWindow::onToggleTerminal);
     m_terminalAction->setCheckable(true);
 
     // ── Commands ──────────────────────────────────────────────────────────────
     QMenu *cmdMenu = menuBar()->addMenu(tr("&Commands"));
-    cmdMenu->addAction(si("folder-sync", QStyle::SP_DriveHDIcon),
+    cmdMenu->addAction(svgIcon(QStringLiteral("arrows-rotate")),
                        tr("&Synchronize…"), QKeySequence("Ctrl+Shift+S"),
                        this, &MainWindow::onSync);
     cmdMenu->addAction(tr("&SSH Key Manager…"),
@@ -238,8 +234,7 @@ void MainWindow::setupMenuBar()
 
     // ── Options ───────────────────────────────────────────────────────────────
     QMenu *optMenu = menuBar()->addMenu(tr("&Options"));
-    optMenu->addAction(QIcon::fromTheme("preferences-system",
-                           style()->standardIcon(QStyle::SP_ComputerIcon)),
+    optMenu->addAction(svgIcon(QStringLiteral("gear")),
                        tr("&Preferences…"), QKeySequence("Ctrl+,"),
                        this, &MainWindow::onPreferences);
 
@@ -253,7 +248,7 @@ void MainWindow::setupToolBar()
 {
     QToolBar *tb = addToolBar(tr("Main Toolbar"));
     tb->setMovable(false);
-    tb->setIconSize(QSize(20, 20));
+    tb->setIconSize(QSize(18, 18));
 
     // Комбо-бокс сессий
     m_sessionCombo = new QComboBox(tb);
@@ -273,14 +268,12 @@ void MainWindow::setupToolBar()
     tb->addAction(m_connectAction);
     tb->addAction(m_disconnectAction);
     tb->addSeparator();
-    tb->addAction(QIcon::fromTheme("folder-sync",
-                      style()->standardIcon(QStyle::SP_DriveHDIcon)),
+    tb->addAction(svgIcon(QStringLiteral("arrows-rotate")),
                   tr("Sync"), this, &MainWindow::onSync);
     tb->addSeparator();
     tb->addAction(m_terminalAction);
     tb->addSeparator();
-    tb->addAction(QIcon::fromTheme("document-new",
-                      style()->standardIcon(QStyle::SP_FileDialogNewFolder)),
+    tb->addAction(svgIcon(QStringLiteral("file-circle-plus")),
                   tr("New Tab"), this, &MainWindow::onNewTab);
 }
 
@@ -356,6 +349,18 @@ ConnectionTab *MainWindow::addConnectionTab(const QString &title)
     const QString tabTitle = title.isEmpty() ? tr("New connection") : title;
     const int idx = m_tabWidget->addTab(tab, tabTitle);
     m_tabWidget->setCurrentIndex(idx);
+
+    // Кастомная кнопка закрытия таба с FA-иконкой
+    auto *closeBtn = new QToolButton(m_tabWidget);
+    closeBtn->setIcon(svgIcon(QStringLiteral("xmark")));
+    closeBtn->setIconSize(QSize(10, 10));
+    closeBtn->setFixedSize(QSize(16, 16));
+    closeBtn->setAutoRaise(true);
+    closeBtn->setToolTip(tr("Close tab"));
+    connect(closeBtn, &QToolButton::clicked, this, [this, tab]() {
+        onCloseTab(m_tabWidget->indexOf(tab));
+    });
+    m_tabWidget->tabBar()->setTabButton(idx, QTabBar::RightSide, closeBtn);
 
     // Применяем текущее состояние «показывать скрытые» к новому табу
     if (m_showHiddenAction && m_showHiddenAction->isChecked()) {

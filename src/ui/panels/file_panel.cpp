@@ -1,14 +1,13 @@
 #include "file_panel.h"
 #include "ui/widgets/breadcrumb_bar.h"
 #include "ui/widgets/file_list_view.h"
+#include "ui/utils/svg_icon.h"
 #include <QVBoxLayout>
 #include <QToolBar>
 #include <QLabel>
 #include <QMenu>
 #include <QAction>
 #include <QTimer>
-#include <QStyle>
-#include <QApplication>
 
 namespace linscp::ui::panels {
 
@@ -59,26 +58,21 @@ void FilePanel::setupUi()
 
 void FilePanel::setupToolbar()
 {
-    auto si = [this](const char *name, QStyle::StandardPixmap sp) -> QIcon {
-        QIcon icon = QIcon::fromTheme(QLatin1String(name));
-        return icon.isNull() ? style()->standardIcon(sp) : icon;
-    };
-
-    m_toolbar->addAction(si("go-up", QStyle::SP_FileDialogToParent),
+    m_toolbar->addAction(svgIcon(QStringLiteral("arrow-up")),
                          tr("Up"),
                          [this]() { navigateTo(currentPath() + "/.."); });
 
-    m_toolbar->addAction(si("view-refresh", QStyle::SP_BrowserReload),
+    m_toolbar->addAction(svgIcon(QStringLiteral("rotate")),
                          tr("Refresh"),
                          [this]() { refresh(); });
 
     m_toolbar->addSeparator();
 
-    m_toolbar->addAction(si("folder-new", QStyle::SP_FileDialogNewFolder),
+    m_toolbar->addAction(svgIcon(QStringLiteral("folder-plus")),
                          tr("New folder"),
                          [this]() { actionMkdir(); });
 
-    m_toolbar->addAction(si("edit-delete", QStyle::SP_TrashIcon),
+    m_toolbar->addAction(svgIcon(QStringLiteral("trash")),
                          tr("Delete"),
                          [this]() { actionDelete(); });
 }

@@ -57,6 +57,7 @@ void TransferPanel::setupUi()
     connect(m_clearBtn,  &QPushButton::clicked, this, &TransferPanel::onClearCompleted);
 
     auto *btnRow = new QHBoxLayout;
+    btnRow->setContentsMargins(6, 4, 6, 4);
     btnRow->addWidget(m_pauseBtn);
     btnRow->addWidget(m_resumeBtn);
     btnRow->addWidget(m_cancelBtn);
@@ -66,6 +67,7 @@ void TransferPanel::setupUi()
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(0);
     layout->addWidget(m_table, 1);
     layout->addLayout(btnRow);
 }

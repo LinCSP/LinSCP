@@ -3,6 +3,7 @@
 #include "models/local_fs_model.h"
 #include "ui/widgets/breadcrumb_bar.h"
 #include "ui/widgets/file_list_view.h"
+#include "ui/utils/svg_icon.h"
 #include <QHeaderView>
 #include <QDir>
 #include <QFile>
@@ -224,7 +225,7 @@ void LocalPanel::populateContextMenu(QMenu *menu, const QModelIndex &index)
 
     // Открыть
     if (isDir) {
-        menu->addAction(QIcon::fromTheme("folder-open"), tr("Open"), [this, path]() {
+        menu->addAction(svgIcon(QStringLiteral("folder-open")), tr("Open"), [this, path]() {
             navigateTo(path);
         });
         menu->addSeparator();
@@ -233,12 +234,12 @@ void LocalPanel::populateContextMenu(QMenu *menu, const QModelIndex &index)
     // ── Передача на remote ───────────────────────────────────────────────────
     if (hasSelection) {
         auto *copyAct = menu->addAction(
-            QIcon::fromTheme("go-up"), tr("Upload…\tF5"),
+            svgIcon(QStringLiteral("upload")), tr("Upload…\tF5"),
             [this]() { actionCopy(); });
         copyAct->setEnabled(true);
 
         auto *moveAct = menu->addAction(
-            QIcon::fromTheme("go-up"), tr("Move to Remote…\tF6"),
+            svgIcon(QStringLiteral("upload")), tr("Move to Remote…\tF6"),
             [this]() { actionMove(); });
         moveAct->setEnabled(true);
 
@@ -247,21 +248,21 @@ void LocalPanel::populateContextMenu(QMenu *menu, const QModelIndex &index)
 
     // ── Правка ───────────────────────────────────────────────────────────────
     if (hasSelection) {
-        menu->addAction(QIcon::fromTheme("edit-rename"), tr("Rename…\tF2"),
+        menu->addAction(svgIcon(QStringLiteral("pen")), tr("Rename…\tF2"),
                         [this]() { actionRename(); });
 
-        menu->addAction(QIcon::fromTheme("edit-delete"), tr("Delete\tDel"),
+        menu->addAction(svgIcon(QStringLiteral("trash")), tr("Delete\tDel"),
                         [this]() { actionDelete(); });
 
         menu->addSeparator();
     }
 
     // ── Новая папка ───────────────────────────────────────────────────────────
-    menu->addAction(QIcon::fromTheme("folder-new"), tr("New Folder…\tF7"),
+    menu->addAction(svgIcon(QStringLiteral("folder-plus")), tr("New Folder…\tF7"),
                     [this]() { actionMkdir(); });
 
     // ── Открыть в терминале ───────────────────────────────────────────────────
-    menu->addAction(QIcon::fromTheme("utilities-terminal"),
+    menu->addAction(svgIcon(QStringLiteral("terminal")),
                     tr("Open in Terminal"),
                     [path]() {
         const QString dir = QFileInfo(path).isDir() ? path : QFileInfo(path).dir().absolutePath();
@@ -271,7 +272,7 @@ void LocalPanel::populateContextMenu(QMenu *menu, const QModelIndex &index)
     // ── Свойства ──────────────────────────────────────────────────────────────
     if (hasSelection) {
         menu->addSeparator();
-        menu->addAction(QIcon::fromTheme("document-properties"), tr("Properties"),
+        menu->addAction(svgIcon(QStringLiteral("circle-info")), tr("Properties"),
                         [path]() {
             QDesktopServices::openUrl(QUrl::fromLocalFile(path));
         });

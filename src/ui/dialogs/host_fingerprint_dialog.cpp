@@ -1,10 +1,10 @@
 #include "host_fingerprint_dialog.h"
+#include "ui/utils/svg_icon.h"
 
 #include <QDialogButtonBox>
 #include <QLabel>
 #include <QPushButton>
 #include <QVBoxLayout>
-#include <QIcon>
 
 namespace linscp::ui::dialogs {
 
@@ -63,7 +63,7 @@ HostFingerprintDialog::HostFingerprintDialog(const QString &host, int port,
     auto *rejectBtn = buttons->addButton(tr("Reject"), QDialogButtonBox::RejectRole);
 
     if (isChanged) {
-        acceptBtn->setIcon(QIcon::fromTheme("dialog-warning"));
+        acceptBtn->setIcon(svgIcon(QStringLiteral("triangle-exclamation")));
         rejectBtn->setDefault(true);
     } else {
         acceptBtn->setDefault(true);

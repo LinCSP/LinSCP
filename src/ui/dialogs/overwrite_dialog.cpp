@@ -1,4 +1,5 @@
 #include "overwrite_dialog.h"
+#include "ui/utils/svg_icon.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
@@ -6,7 +7,6 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QGroupBox>
-#include <QIcon>
 #include <QFileInfo>
 #include <QInputDialog>
 #include <QLocale>
@@ -24,7 +24,7 @@ OverwriteDialog::OverwriteDialog(const FileInfo &source,
 void OverwriteDialog::setupUi(const FileInfo &source, const FileInfo &target)
 {
     setWindowTitle(tr("File Conflict"));
-    setWindowIcon(QIcon::fromTheme("dialog-warning"));
+    setWindowIcon(svgIcon(QStringLiteral("triangle-exclamation")));
     setMinimumWidth(500);
 
     auto *layout = new QVBoxLayout(this);
@@ -33,7 +33,7 @@ void OverwriteDialog::setupUi(const FileInfo &source, const FileInfo &target)
     // Иконка + описание
     auto *topRow = new QHBoxLayout;
     auto *iconLabel = new QLabel(this);
-    iconLabel->setPixmap(QIcon::fromTheme("dialog-warning")
+    iconLabel->setPixmap(svgIcon(QStringLiteral("triangle-exclamation"))
                              .pixmap(QSize(48, 48)));
     topRow->addWidget(iconLabel, 0, Qt::AlignTop);
 

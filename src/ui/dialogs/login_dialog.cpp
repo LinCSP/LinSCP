@@ -1,4 +1,5 @@
 #include "login_dialog.h"
+#include "ui/utils/svg_icon.h"
 #include "advanced_session_dialog.h"
 #include "core/session/winscp_importer.h"
 
@@ -233,7 +234,7 @@ void LoginDialog::buildTree()
     // "Новое подключение"
     auto *newItem = new QTreeWidgetItem(m_tree, QStringList{tr("New connection")});
     newItem->setData(0, RoleType, QStringLiteral("new"));
-    newItem->setIcon(0, QIcon::fromTheme("list-add"));
+    newItem->setIcon(0, svgIcon(QStringLiteral("circle-plus")));
 
     // Папки из хранилища (явно сохранённые — сохраняются даже пустыми)
     for (const QString &folderPath : m_store->folders())
@@ -248,7 +249,7 @@ void LoginDialog::buildTree()
 
         sessionItem->setData(0, RoleType, QStringLiteral("session"));
         sessionItem->setData(0, RoleUuid, profile.id.toString());
-        sessionItem->setIcon(0, QIcon::fromTheme("network-server"));
+        sessionItem->setIcon(0, svgIcon(QStringLiteral("server")));
     }
 
     m_tree->blockSignals(false);
@@ -299,7 +300,7 @@ QTreeWidgetItem *LoginDialog::ensureFolder(const QString &groupPath)
                 : new QTreeWidgetItem(m_tree, QStringList{part});
             found->setData(0, RoleType, QStringLiteral("folder"));
             found->setData(0, Qt::UserRole + 2, builtPath);
-            found->setIcon(0, QIcon::fromTheme("folder"));
+            found->setIcon(0, svgIcon(QStringLiteral("folder")));
             found->setExpanded(true);
         }
         current = found;
@@ -528,7 +529,7 @@ void LoginDialog::onNewFolder()
         : new QTreeWidgetItem(m_tree,       QStringList{name});
     folderItem->setData(0, RoleType,        QStringLiteral("folder"));
     folderItem->setData(0, Qt::UserRole + 2, newPath);
-    folderItem->setIcon(0, QIcon::fromTheme("folder"));
+    folderItem->setIcon(0, svgIcon(QStringLiteral("folder")));
     folderItem->setExpanded(true);
     if (parentFolder) parentFolder->setExpanded(true);
     m_tree->setCurrentItem(folderItem);

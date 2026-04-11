@@ -1,4 +1,5 @@
 #include "remote_panel.h"
+#include "ui/utils/svg_icon.h"
 #include "models/remote_fs_model.h"
 #include "core/ssh/ssh_session.h"
 #include "core/transfer/transfer_item.h"
@@ -240,11 +241,11 @@ void RemotePanel::populateContextMenu(QMenu *menu, const QModelIndex &index)
     // ── Открыть / Редактировать ───────────────────────────────────────────────
     if (hasSelection) {
         if (m_model->isDir(index)) {
-            menu->addAction(QIcon::fromTheme("folder-open"), tr("Open"), [this, index]() {
+            menu->addAction(svgIcon(QStringLiteral("folder-open")), tr("Open"), [this, index]() {
                 navigateTo(m_model->filePath(index));
             });
         } else {
-            menu->addAction(QIcon::fromTheme("document-edit"),
+            menu->addAction(svgIcon(QStringLiteral("pen-to-square")),
                             tr("Edit"),
                             [this, index]() {
                 dialogs::RemoteEditorDialog dlg(m_sftp, m_model->filePath(index), this);
@@ -256,16 +257,16 @@ void RemotePanel::populateContextMenu(QMenu *menu, const QModelIndex &index)
 
     // ── Скачать / Переместить ─────────────────────────────────────────────────
     if (hasSelection) {
-        menu->addAction(QIcon::fromTheme("folder-download"),
+        menu->addAction(svgIcon(QStringLiteral("download")),
                         tr("Download…\tF5"),
                         [this]() { actionCopy(); });
 
-        menu->addAction(QIcon::fromTheme("folder-download"),
+        menu->addAction(svgIcon(QStringLiteral("download")),
                         tr("Download and Delete…\tF6"),
                         [this]() { actionMove(); });
 
         // Скачать в фоне (добавить в очередь без диалога)
-        menu->addAction(QIcon::fromTheme("folder-download"),
+        menu->addAction(svgIcon(QStringLiteral("download")),
                         tr("Download to Queue"),
                         [this]() {
             const QStringList paths = selectedPaths();
@@ -283,11 +284,11 @@ void RemotePanel::populateContextMenu(QMenu *menu, const QModelIndex &index)
 
     // ── Правка ────────────────────────────────────────────────────────────────
     if (hasSelection) {
-        menu->addAction(QIcon::fromTheme("edit-rename"),
+        menu->addAction(svgIcon(QStringLiteral("pen")),
                         tr("Rename…\tF2"),
                         [this]() { actionRename(); });
 
-        menu->addAction(QIcon::fromTheme("edit-delete"),
+        menu->addAction(svgIcon(QStringLiteral("trash")),
                         tr("Delete\tDel"),
                         [this]() { actionDelete(); });
 
@@ -295,14 +296,14 @@ void RemotePanel::populateContextMenu(QMenu *menu, const QModelIndex &index)
     }
 
     // ── Создать папку ─────────────────────────────────────────────────────────
-    menu->addAction(QIcon::fromTheme("folder-new"),
+    menu->addAction(svgIcon(QStringLiteral("folder-plus")),
                     tr("New Folder…\tF7"),
                     [this]() { actionMkdir(); });
 
     // ── Свойства ──────────────────────────────────────────────────────────────
     if (hasSelection) {
         menu->addSeparator();
-        menu->addAction(QIcon::fromTheme("document-properties"),
+        menu->addAction(svgIcon(QStringLiteral("circle-info")),
                         tr("Properties…"),
                         [this, index]() {
             const core::sftp::SftpFileInfo info = m_model->fileInfo(index);
