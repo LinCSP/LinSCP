@@ -56,24 +56,26 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ runner.temp }}/Qt
-          key: qt-${{ env.QT_VERSION }}-linux-gcc_64-v2
+          key: qt-${{ env.QT_VERSION }}-linux-v3
 
       - name: Install Qt ${{ env.QT_VERSION }}
         if: steps.cache-qt.outputs.cache-hit != 'true'
         run: |
           pip install aqtinstall
-          # aqt 3.x: Linux Desktop arch is "linux_gcc_64" (not "gcc_64")
           aqt install-qt linux desktop "${{ env.QT_VERSION }}" linux_gcc_64 \
             -O "${{ runner.temp }}/Qt"
 
       # ── Configure & Build ────────────────────────────────────────────────────
       - name: Configure
         run: |
+          # Find Qt prefix dynamically — aqt subdirectory name varies by version
+          QT_PREFIX=$(find "${{ runner.temp }}/Qt" -name "Qt6Config.cmake" 2>/dev/null \
+            | head -1 | sed 's|/lib/cmake/Qt6/Qt6Config.cmake||')
+          echo "Qt prefix: ${QT_PREFIX}"
           export PKG_CONFIG_PATH="${{ runner.temp }}/libssh-install/lib/pkgconfig:${{ runner.temp }}/libssh-install/lib64/pkgconfig"
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_PREFIX_PATH="${{ runner.temp }}/Qt/${{ env.QT_VERSION }}/linux_gcc_64;${{ runner.temp }}/libssh-install" \
-            -DWITH_TERMINAL=OFF
+            -DCMAKE_PREFIX_PATH="${QT_PREFIX};${{ runner.temp }}/libssh-install"
 
       - name: Build
         run: cmake --build build -j$(nproc)
@@ -105,8 +107,7 @@ jobs:
       - name: Configure
         run: |
           cmake -B build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DWITH_TERMINAL=OFF
+            -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build -j$(nproc)
