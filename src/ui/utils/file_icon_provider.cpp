@@ -1,5 +1,4 @@
 #include "file_icon_provider.h"
-#include "svg_icon.h"
 
 #include <QFileInfo>
 #include <QMimeDatabase>
@@ -7,88 +6,89 @@
 
 namespace linscp {
 
-static QMimeDatabase s_mimeDb;
+// All svgIcon() calls happen here — in the GUI thread at construction time.
+FileIconProvider::FileIconProvider()
+    : m_folder   (svgFolderIcon())
+    , m_file     (svgIcon(QStringLiteral("file")))
+    , m_fileZip  (svgIcon(QStringLiteral("file-zipper")))
+    , m_filePdf  (svgIcon(QStringLiteral("file-pdf")))
+    , m_fileImage(svgIcon(QStringLiteral("file-image")))
+    , m_fileAudio(svgIcon(QStringLiteral("file-audio")))
+    , m_fileVideo(svgIcon(QStringLiteral("file-video")))
+    , m_fileCode (svgIcon(QStringLiteral("file-code")))
+    , m_fileText (svgIcon(QStringLiteral("file-lines")))
+    , m_link     (svgIcon(QStringLiteral("link")))
+{}
 
-QIcon iconForMime(const QMimeType &mime)
+const QIcon &FileIconProvider::iconForMimeType(const QString &name) const
 {
-    const QString name = mime.name();
-    const QString generic = mime.genericIconName(); // e.g. "text-x-generic"
-
-    // Archives
-    if (name == QLatin1String("application/zip")         ||
-        name == QLatin1String("application/x-tar")       ||
-        name == QLatin1String("application/x-bzip2")     ||
-        name == QLatin1String("application/x-xz")        ||
-        name == QLatin1String("application/x-7z-compressed") ||
-        name == QLatin1String("application/gzip")        ||
-        name == QLatin1String("application/zstd")        ||
+    if (name == QLatin1String("application/zip")              ||
+        name == QLatin1String("application/x-tar")            ||
+        name == QLatin1String("application/x-bzip2")          ||
+        name == QLatin1String("application/x-xz")             ||
+        name == QLatin1String("application/x-7z-compressed")  ||
+        name == QLatin1String("application/gzip")             ||
+        name == QLatin1String("application/zstd")             ||
         name.startsWith(QLatin1String("application/vnd.debian")) ||
         name.startsWith(QLatin1String("application/vnd.rpm")))
-        return svgIcon(QStringLiteral("file-zipper"));
+        return m_fileZip;
 
-    // PDF
     if (name == QLatin1String("application/pdf"))
-        return svgIcon(QStringLiteral("file-pdf"));
+        return m_filePdf;
 
-    // Images
     if (name.startsWith(QLatin1String("image/")))
-        return svgIcon(QStringLiteral("file-image"));
+        return m_fileImage;
 
-    // Audio
     if (name.startsWith(QLatin1String("audio/")))
-        return svgIcon(QStringLiteral("file-audio"));
+        return m_fileAudio;
 
-    // Video
     if (name.startsWith(QLatin1String("video/")))
-        return svgIcon(QStringLiteral("file-video"));
+        return m_fileVideo;
 
-    // Source code / scripts
-    if (name == QLatin1String("text/x-python")        ||
-        name == QLatin1String("text/x-csrc")          ||
-        name == QLatin1String("text/x-c++src")        ||
-        name == QLatin1String("text/x-chdr")          ||
-        name == QLatin1String("text/x-c++hdr")        ||
-        name == QLatin1String("text/x-java")          ||
-        name == QLatin1String("text/x-script.python") ||
-        name == QLatin1String("text/javascript")      ||
+    if (name == QLatin1String("text/x-python")         ||
+        name == QLatin1String("text/x-csrc")           ||
+        name == QLatin1String("text/x-c++src")         ||
+        name == QLatin1String("text/x-chdr")           ||
+        name == QLatin1String("text/x-c++hdr")         ||
+        name == QLatin1String("text/x-java")           ||
+        name == QLatin1String("text/x-script.python")  ||
+        name == QLatin1String("text/javascript")       ||
         name == QLatin1String("application/javascript")||
-        name == QLatin1String("application/json")     ||
-        name == QLatin1String("application/xml")      ||
-        name == QLatin1String("text/html")            ||
-        name == QLatin1String("text/css")             ||
+        name == QLatin1String("application/json")      ||
+        name == QLatin1String("application/xml")       ||
+        name == QLatin1String("text/html")             ||
+        name == QLatin1String("text/css")              ||
         name == QLatin1String("application/x-shellscript") ||
-        name == QLatin1String("text/x-shellscript")   ||
-        generic == QLatin1String("text-x-script"))
-        return svgIcon(QStringLiteral("file-code"));
+        name == QLatin1String("text/x-shellscript"))
+        return m_fileCode;
 
-    // Plain text / documents / markdown / yaml / config
     if (name.startsWith(QLatin1String("text/")))
-        return svgIcon(QStringLiteral("file-lines"));
+        return m_fileText;
 
-    // Fallback — generic file
-    return svgIcon(QStringLiteral("file"));
+    return m_file;
 }
-
-// ── FileIconProvider ─────────────────────────────────────────────────────────
 
 QIcon FileIconProvider::icon(const QFileInfo &info) const
 {
-    if (info.isDir())
-        return svgFolderIcon();
-    if (info.isSymLink())
-        return svgIcon(QStringLiteral("link"));
+    if (info.isDir())     return m_folder;
+    if (info.isSymLink()) return m_link;
 
-    const QMimeType mime = s_mimeDb.mimeTypeForFile(info, QMimeDatabase::MatchExtension);
-    return iconForMime(mime);
+    static QMimeDatabase mimeDb;
+    const QMimeType mime = mimeDb.mimeTypeForFile(info, QMimeDatabase::MatchExtension);
+    return iconForMimeType(mime.name());
 }
 
 QIcon FileIconProvider::icon(IconType type) const
 {
-    switch (type) {
-    case Folder:    return svgFolderIcon();
-    case File:      return svgIcon(QStringLiteral("file"));
-    default:        return {};
-    }
+    return (type == Folder) ? m_folder : m_file;
+}
+
+// Free function for use by RemoteFsModel (called from GUI thread only).
+QIcon iconForMime(const QMimeType &mime)
+{
+    // Reuse a temporary provider — safe because we're in the GUI thread.
+    static FileIconProvider s_provider;
+    return s_provider.iconForMimeType(mime.name());
 }
 
 } // namespace linscp

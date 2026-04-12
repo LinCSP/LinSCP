@@ -20,6 +20,9 @@ public:
     QIcon icon(const QFileInfo &info) const override;
     QIcon icon(IconType type)         const override;
 
+    // Used by iconForMime() free function (GUI thread only).
+    const QIcon &iconForMimeType(const QString &mimeType) const;
+
 private:
     // Pre-built icons (created once in GUI thread)
     QIcon m_folder;
@@ -32,8 +35,6 @@ private:
     QIcon m_fileCode;
     QIcon m_fileText;
     QIcon m_link;
-
-    const QIcon &iconForMimeType(const QString &mimeType) const;
 };
 
 } // namespace linscp
