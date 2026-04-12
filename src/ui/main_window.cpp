@@ -18,6 +18,7 @@
 #include "core/sync/sync_profile_store.h"
 
 #include "utils/svg_icon.h"
+#include "startup_log.h"
 
 #include <QApplication>
 #include <QMenuBar>
@@ -43,15 +44,18 @@ namespace linscp::ui {
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
+    slog("[MW] constructor start");
     setWindowTitle("LinSCP");
     setWindowIcon(svgIcon(QStringLiteral("server")));
     setMinimumSize(900, 600);
+    slog("[MW] setWindowIcon done");
 
     QDir().mkpath(QDir::homePath() + "/.config/linscp");
 
     m_sessionStore  = std::make_unique<core::session::SessionStore>(
         QDir::homePath() + "/.config/linscp/sessions.json");
     m_sessionStore->load();
+    slog("[MW] sessionStore loaded");
 
     m_pathStateStore = std::make_unique<core::session::PathStateStore>(
         QDir::homePath() + "/.config/linscp/path_state.json", this);
@@ -62,13 +66,18 @@ MainWindow::MainWindow(QWidget *parent)
     m_syncProfileStore  = std::make_unique<core::sync::SyncProfileStore>(
         QDir::homePath() + "/.config/linscp/sync_profiles.json", this);
     m_syncProfileStore->load();
+    slog("[MW] all stores ready");
 
     setupUi();
+    slog("[MW] setupUi done");
     setupMenuBar();
+    slog("[MW] setupMenuBar done");
     setupToolBar();
+    slog("[MW] setupToolBar done");
     setupStatusBar();
     setupHotkeys();
     restoreWindowState();
+    slog("[MW] constructor done");
 }
 
 MainWindow::~MainWindow()

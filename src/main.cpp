@@ -9,6 +9,7 @@
 #include <QStyleFactory>
 #include <QPalette>
 #include "ui/main_window.h"
+#include "startup_log.h"
 
 /// Загрузить переводчик LinSCP для заданного кода языка (например "ru").
 /// Пустая строка — английский (нет файла перевода, используются source-строки).
@@ -25,43 +26,30 @@ static bool loadAppTranslator(QTranslator &t, const QString &langCode)
     return false;
 }
 
-// Startup log — enabled only in LINSCP_STARTLOG builds (debug workflow).
-// Writes to a file so it works regardless of subsystem or NDEBUG.
-#ifdef LINSCP_STARTLOG
-#include <cstdio>
-static FILE *g_log = nullptr;
-static void slog(const char *msg)
-{
-    if (!g_log) g_log = fopen("linscp_startup.log", "w");
-    if (!g_log) return;
-    fputs(msg, g_log);
-    fputc('\n', g_log);
-    fflush(g_log);
-}
-#else
-static inline void slog(const char *) {}
-#endif
-
 int main(int argc, char *argv[])
 {
     slog("[linscp] main() entered");
     QApplication app(argc, argv);
     slog("[linscp] QApplication created");
+
     app.setApplicationName("LinSCP");
     app.setApplicationVersion("0.1.0");
     app.setOrganizationName("LinSCP");
     app.setOrganizationDomain("linscp.app");
     app.setWindowIcon(QIcon::fromTheme("network-server",
                       app.style()->standardIcon(QStyle::SP_DriveNetIcon)));
+    slog("[linscp] app metadata + icon set");
 
     // Fusion — чистый, современный стиль без зависимости от темы рабочего стола
     app.setStyle(QStyleFactory::create("Fusion"));
+    slog("[linscp] Fusion style set");
 
     // Акцентный цвет — тёмно-синий
     QPalette pal = app.palette();
     pal.setColor(QPalette::Highlight,       QColor(0x0D6EFD));
     pal.setColor(QPalette::HighlightedText, Qt::white);
     app.setPalette(pal);
+    slog("[linscp] palette set");
 
     // ── Переводы ──────────────────────────────────────────────────────────────
 
@@ -79,11 +67,8 @@ int main(int argc, char *argv[])
 
     bool loaded = false;
     if (userChoseLang) {
-        // Пользователь явно выбрал язык — уважаем выбор, не делаем автодетект.
-        // "en" или "" означает English: переводчик не нужен.
         loaded = loadAppTranslator(appTranslator, saved);
     } else {
-        // Язык не задан — автодетект по системному locale
         for (const QString &lang : QLocale::system().uiLanguages()) {
             const QString code = QLocale(lang).name().section('_', 0, 0); // "ru_RU" → "ru"
             if (loadAppTranslator(appTranslator, code)) { loaded = true; break; }
@@ -91,13 +76,16 @@ int main(int argc, char *argv[])
     }
     if (loaded)
         app.installTranslator(&appTranslator);
+    slog("[linscp] translators done");
 
     // Создать конфиг-директорию при первом запуске
     QDir().mkpath(QDir::homePath() + "/.config/linscp");
+    slog("[linscp] config dir ready, constructing MainWindow...");
 
     linscp::ui::MainWindow w;
     slog("[linscp] MainWindow created, calling show()");
     w.show();
+    slog("[linscp] show() called, entering event loop");
 
     return app.exec();
 }
