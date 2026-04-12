@@ -374,15 +374,11 @@ jobs:
           Write-Host "deploy\ contents ($((Get-ChildItem deploy\).Count) files):"
           Get-ChildItem deploy\ | ForEach-Object { Write-Host "  $($_.Name)" }
 
-      # ── NSIS installer ───────────────────────────────────────────────────────
-      - name: Install NSIS
-        run: choco install nsis -y
-
+      # ── Inno Setup installer (ISCC.exe pre-installed on windows-latest) ────────
       - name: Create installer
-        run: >
-          & "C:\Program Files (x86)\NSIS\makensis.exe"
-          /DVERSION=${{ github.ref_name }}
-          packaging\nsis\linscp.nsi
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          ISCC.exe /O. /DMyAppVersion=$version packaging\inno\linscp.iss
 
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
