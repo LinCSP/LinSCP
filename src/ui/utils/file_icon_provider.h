@@ -9,6 +9,9 @@
 
 namespace linscp {
 
+// Free function for RemoteFsModel — safe to call from GUI thread only.
+QIcon iconForMime(const QMimeType &mime);
+
 // QAbstractFileIconProvider implementation for QFileSystemModel.
 // All QIcon objects are pre-built in the constructor (GUI thread).
 // icon() only returns cached values — safe to call from any thread.
