@@ -91,10 +91,12 @@ MainWindow::~MainWindow()
 
 void MainWindow::setupUi()
 {
+    slog("[setupUi] start");
     m_tabWidget = new QTabWidget(this);
     m_tabWidget->setTabsClosable(false); // кастомные кнопки добавляем вручную
     m_tabWidget->setMovable(true);
     m_tabWidget->setDocumentMode(true);
+    slog("[setupUi] tabWidget created");
 
     // Кнопка "+" для нового таба
     auto *newTabBtn = new QToolButton(m_tabWidget);
@@ -107,12 +109,16 @@ void MainWindow::setupUi()
     connect(m_tabWidget, &QTabWidget::tabCloseRequested, this, &MainWindow::onCloseTab);
     connect(m_tabWidget, &QTabWidget::currentChanged,    this, &MainWindow::onTabChanged);
 
+    slog("[setupUi] before addConnectionTab");
     // Добавить первый пустой таб
     addConnectionTab();
+    slog("[setupUi] addConnectionTab done");
 
     // Панель передач (общая для всех табов)
+    slog("[setupUi] before TransferPanel");
     m_transferPanel = new dialogs::TransferPanel(m_transferQueue.get(), this);
     m_transferPanel->setMaximumHeight(180);
+    slog("[setupUi] TransferPanel done");
 
     // Вертикальный сплиттер: [tabWidget] | [transferPanel]
     m_vertSplitter = new QSplitter(Qt::Vertical, this);
@@ -122,10 +128,12 @@ void MainWindow::setupUi()
     m_vertSplitter->setStretchFactor(1, 1);
 
     setCentralWidget(m_vertSplitter);
+    slog("[setupUi] centralWidget set");
 
     // ── Terminal Dock ─────────────────────────────────────────────────────────
-    // QDockWidget: по умолчанию снизу, пользователь может оторвать drag'ом
+    slog("[setupUi] before TerminalWidget");
     m_terminalWidget = new terminal::TerminalWidget(this);
+    slog("[setupUi] TerminalWidget done");
 
     m_terminalDock = new QDockWidget(tr("Terminal"), this);
     m_terminalDock->setObjectName("TerminalDock");   // для saveState/restoreState
