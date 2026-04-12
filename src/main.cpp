@@ -1,4 +1,3 @@
-#include <cstdio>
 #include <QApplication>
 #include <QIcon>
 #include <QDir>
@@ -26,17 +25,28 @@ static bool loadAppTranslator(QTranslator &t, const QString &langCode)
     return false;
 }
 
+// Startup log — enabled only in LINSCP_STARTLOG builds (debug workflow).
+// Writes to a file so it works regardless of subsystem or NDEBUG.
+#ifdef LINSCP_STARTLOG
+#include <cstdio>
+static FILE *g_log = nullptr;
+static void slog(const char *msg)
+{
+    if (!g_log) g_log = fopen("linscp_startup.log", "w");
+    if (!g_log) return;
+    fputs(msg, g_log);
+    fputc('\n', g_log);
+    fflush(g_log);
+}
+#else
+static inline void slog(const char *) {}
+#endif
+
 int main(int argc, char *argv[])
 {
-#ifndef NDEBUG
-    fprintf(stderr, "[linscp] main() entered\n");
-    fflush(stderr);
-#endif
+    slog("[linscp] main() entered");
     QApplication app(argc, argv);
-#ifndef NDEBUG
-    fprintf(stderr, "[linscp] QApplication created\n");
-    fflush(stderr);
-#endif
+    slog("[linscp] QApplication created");
     app.setApplicationName("LinSCP");
     app.setApplicationVersion("0.1.0");
     app.setOrganizationName("LinSCP");
@@ -86,10 +96,7 @@ int main(int argc, char *argv[])
     QDir().mkpath(QDir::homePath() + "/.config/linscp");
 
     linscp::ui::MainWindow w;
-#ifndef NDEBUG
-    fprintf(stderr, "[linscp] MainWindow created, calling show()\n");
-    fflush(stderr);
-#endif
+    slog("[linscp] MainWindow created, calling show()");
     w.show();
 
     return app.exec();

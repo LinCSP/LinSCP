@@ -45,8 +45,9 @@ jobs:
           aqt install-qt windows desktop ${{ env.QT_VERSION }} win64_msvc2019_64 `
             -O "${{ runner.temp }}\Qt"
 
-      # RelWithDebInfo — release CRT (no ucrtbased.dll), console subsystem for visible errors
-      - name: Configure (RelWithDebInfo, console subsystem)
+      # RelWithDebInfo — release CRT (no ucrtbased.dll)
+      # LINSCP_STARTLOG=1 writes linscp_startup.log next to the .exe — works for any subsystem
+      - name: Configure (RelWithDebInfo, startup log)
         env:
           PKG_CONFIG_PATH: C:\vcpkg\installed\x64-windows\lib\pkgconfig
           PKG_CONFIG: C:\vcpkg\installed\x64-windows\tools\pkgconf\pkgconf.exe
@@ -59,7 +60,7 @@ jobs:
             -DCMAKE_PREFIX_PATH="$qtPrefix;C:\vcpkg\installed\x64-windows" `
             -DPKG_CONFIG_EXECUTABLE="C:\vcpkg\installed\x64-windows\tools\pkgconf\pkgconf.exe" `
             -DWITH_KEYRING=OFF `
-            -DLINSCP_CONSOLE=ON
+            -DCMAKE_CXX_FLAGS="-DLINSCP_STARTLOG=1"
 
       - name: Build
         run: cmake --build build -j $env:NUMBER_OF_PROCESSORS
