@@ -4,18 +4,36 @@
 #include <QAbstractFileIconProvider>
 #include <QIcon>
 #include <QMimeType>
+#include <QHash>
+#include <QString>
 
 namespace linscp {
 
-// Returns an FA-based icon for a MIME type — consistent across all themes.
-QIcon iconForMime(const QMimeType &mime);
-
-// QAbstractFileIconProvider implementation for QFileSystemModel (local panel).
+// QAbstractFileIconProvider implementation for QFileSystemModel.
+// All QIcon objects are pre-built in the constructor (GUI thread).
+// icon() only returns cached values — safe to call from any thread.
 class FileIconProvider final : public QAbstractFileIconProvider
 {
 public:
+    FileIconProvider();
+
     QIcon icon(const QFileInfo &info) const override;
     QIcon icon(IconType type)         const override;
+
+private:
+    // Pre-built icons (created once in GUI thread)
+    QIcon m_folder;
+    QIcon m_file;
+    QIcon m_fileZip;
+    QIcon m_filePdf;
+    QIcon m_fileImage;
+    QIcon m_fileAudio;
+    QIcon m_fileVideo;
+    QIcon m_fileCode;
+    QIcon m_fileText;
+    QIcon m_link;
+
+    const QIcon &iconForMimeType(const QString &mimeType) const;
 };
 
 } // namespace linscp
