@@ -50,7 +50,22 @@ ConnectionTab::ConnectionTab(core::session::SessionStore    *store,
 ConnectionTab::~ConnectionTab()
 {
     QObject::disconnect(this, nullptr, nullptr, nullptr);
-    disconnectSession();
+    // Do NOT call disconnectSession() here — it calls showPlaceholder() which
+    // creates a new QLabel(this) while 'this' is already being destroyed.
+    // Qt destroys all child widgets automatically; we only need to tear down
+    // non-widget resources and close the SSH session.
+    delete m_progressDlg;     m_progressDlg     = nullptr;
+    delete m_transferManager; m_transferManager = nullptr;
+    delete m_syncEngine;      m_syncEngine      = nullptr;
+    delete m_sftp;            m_sftp            = nullptr;
+
+    if (m_sessionManager)
+        m_sessionManager->closeAll();
+
+    if (!m_tempProfileId.isNull())
+        m_store->remove(m_tempProfileId);
+
+    m_sessionManager.reset();
 }
 
 // ── Подключение ───────────────────────────────────────────────────────────────
