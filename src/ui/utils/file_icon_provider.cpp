@@ -70,13 +70,20 @@ const QIcon &FileIconProvider::iconForMimeType(const QString &name) const
 
 QIcon FileIconProvider::icon(const QFileInfo &info) const
 {
+    // QFileSystemModel calls this from its FileInfoGatherer background thread.
+    // Qt docs: "QIcon must be used only in the GUI thread."
+    // Returning any QIcon (even a copy) from a non-GUI thread is unsafe.
+    // Real icons are provided by LocalFsModel::data(Qt::DecorationRole) in the GUI thread.
+    Q_UNUSED(info)
+    return QIcon();
+}
+
+QIcon FileIconProvider::iconForFile(const QFileInfo &info) const
+{
+    // GUI thread only — called from LocalFsModel::data().
     if (info.isDir())     return m_folder;
     if (info.isSymLink()) return m_link;
 
-    // Use extension only — QFileInfo::suffix() is pure string ops, safe from any thread.
-    // QMimeDatabase must NOT be used here because QFileSystemModel calls icon()
-    // from its FileInfoGatherer background thread, and QMimeDatabase is not thread-safe
-    // when a shared instance is accessed concurrently.
     const QString ext = info.suffix().toLower();
 
     if (ext == QLatin1String("zip")  || ext == QLatin1String("tar")  ||

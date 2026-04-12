@@ -13,8 +13,9 @@ namespace linscp {
 QIcon iconForMime(const QMimeType &mime);
 
 // QAbstractFileIconProvider implementation for QFileSystemModel.
-// All QIcon objects are pre-built in the constructor (GUI thread).
-// icon() only returns cached values — safe to call from any thread.
+// icon(QFileInfo) returns QIcon() — QFileSystemModel calls it from a background thread
+// and Qt docs forbid using QIcon off the GUI thread.
+// Use iconForFile() / iconForMimeType() from the GUI thread (e.g. in model::data()).
 class FileIconProvider final : public QAbstractFileIconProvider
 {
 public:
@@ -23,7 +24,8 @@ public:
     QIcon icon(const QFileInfo &info) const override;
     QIcon icon(IconType type)         const override;
 
-    // Used by iconForMime() free function (GUI thread only).
+    // GUI-thread-only helpers (called from model::data(), not from FileInfoGatherer).
+    QIcon iconForFile(const QFileInfo &info) const;
     const QIcon &iconForMimeType(const QString &mimeType) const;
 
 private:
