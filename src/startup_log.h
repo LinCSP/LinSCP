@@ -6,7 +6,7 @@
    inline FILE *&startupLogFile() { static FILE *f = nullptr; return f; }
    inline void slog(const char *msg) {
        FILE *&f = startupLogFile();
-       if (!f) f = fopen("linscp_startup.log", "a");
+       if (!f) f = fopen("linscp_startup.log", "w");
        if (!f) return;
        fputs(msg, f); fputc('\n', f); fflush(f);
    }
