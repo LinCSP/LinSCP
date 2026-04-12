@@ -28,6 +28,7 @@ static bool loadAppTranslator(QTranslator &t, const QString &langCode)
 
 int main(int argc, char *argv[])
 {
+    installCrashHandler();
     slog("[linscp] main() entered");
     QApplication app(argc, argv);
     slog("[linscp] QApplication created");
