@@ -73,9 +73,64 @@ QIcon FileIconProvider::icon(const QFileInfo &info) const
     if (info.isDir())     return m_folder;
     if (info.isSymLink()) return m_link;
 
-    static QMimeDatabase mimeDb;
-    const QMimeType mime = mimeDb.mimeTypeForFile(info, QMimeDatabase::MatchExtension);
-    return iconForMimeType(mime.name());
+    // Use extension only — QFileInfo::suffix() is pure string ops, safe from any thread.
+    // QMimeDatabase must NOT be used here because QFileSystemModel calls icon()
+    // from its FileInfoGatherer background thread, and QMimeDatabase is not thread-safe
+    // when a shared instance is accessed concurrently.
+    const QString ext = info.suffix().toLower();
+
+    if (ext == QLatin1String("zip")  || ext == QLatin1String("tar")  ||
+        ext == QLatin1String("gz")   || ext == QLatin1String("bz2")  ||
+        ext == QLatin1String("xz")   || ext == QLatin1String("zst")  ||
+        ext == QLatin1String("7z")   || ext == QLatin1String("rar")  ||
+        ext == QLatin1String("deb")  || ext == QLatin1String("rpm"))
+        return m_fileZip;
+
+    if (ext == QLatin1String("pdf"))
+        return m_filePdf;
+
+    if (ext == QLatin1String("jpg")  || ext == QLatin1String("jpeg") ||
+        ext == QLatin1String("png")  || ext == QLatin1String("gif")  ||
+        ext == QLatin1String("bmp")  || ext == QLatin1String("svg")  ||
+        ext == QLatin1String("webp") || ext == QLatin1String("ico")  ||
+        ext == QLatin1String("tiff") || ext == QLatin1String("tif"))
+        return m_fileImage;
+
+    if (ext == QLatin1String("mp3")  || ext == QLatin1String("wav")  ||
+        ext == QLatin1String("ogg")  || ext == QLatin1String("flac") ||
+        ext == QLatin1String("aac")  || ext == QLatin1String("m4a")  ||
+        ext == QLatin1String("opus"))
+        return m_fileAudio;
+
+    if (ext == QLatin1String("mp4")  || ext == QLatin1String("avi")  ||
+        ext == QLatin1String("mkv")  || ext == QLatin1String("mov")  ||
+        ext == QLatin1String("wmv")  || ext == QLatin1String("webm") ||
+        ext == QLatin1String("flv")  || ext == QLatin1String("m4v"))
+        return m_fileVideo;
+
+    if (ext == QLatin1String("cpp")  || ext == QLatin1String("cxx")  ||
+        ext == QLatin1String("c")    || ext == QLatin1String("h")    ||
+        ext == QLatin1String("hpp")  || ext == QLatin1String("hxx")  ||
+        ext == QLatin1String("py")   || ext == QLatin1String("js")   ||
+        ext == QLatin1String("ts")   || ext == QLatin1String("mjs")  ||
+        ext == QLatin1String("html") || ext == QLatin1String("htm")  ||
+        ext == QLatin1String("css")  || ext == QLatin1String("json") ||
+        ext == QLatin1String("xml")  || ext == QLatin1String("sh")   ||
+        ext == QLatin1String("bash") || ext == QLatin1String("java") ||
+        ext == QLatin1String("go")   || ext == QLatin1String("rs")   ||
+        ext == QLatin1String("php")  || ext == QLatin1String("rb")   ||
+        ext == QLatin1String("swift")|| ext == QLatin1String("kt"))
+        return m_fileCode;
+
+    if (ext == QLatin1String("txt")  || ext == QLatin1String("md")   ||
+        ext == QLatin1String("rst")  || ext == QLatin1String("log")  ||
+        ext == QLatin1String("csv")  || ext == QLatin1String("yaml") ||
+        ext == QLatin1String("yml")  || ext == QLatin1String("toml") ||
+        ext == QLatin1String("ini")  || ext == QLatin1String("conf") ||
+        ext == QLatin1String("cfg"))
+        return m_fileText;
+
+    return m_file;
 }
 
 QIcon FileIconProvider::icon(IconType type) const
