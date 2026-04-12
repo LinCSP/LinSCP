@@ -411,8 +411,16 @@ jobs:
 
       - name: Create .dmg
         run: |
-          $(brew --prefix qt)/bin/macdeployqt build/bin/linscp.app -dmg
-          mv build/bin/linscp.dmg "LinSCP-${{ github.ref_name }}-macos-arm64.dmg"
+          APP=$(find build -name "linscp.app" -type d | head -1)
+          if [ -z "$APP" ]; then
+            echo "ERROR: linscp.app not found. Build tree:"
+            find build -maxdepth 5 \( -name "linscp*" -o -name "*.app" \) | head -30
+            exit 1
+          fi
+          echo "Found: $APP"
+          $(brew --prefix qt)/bin/macdeployqt "$APP" -dmg
+          DMG=$(find build -name "*.dmg" | head -1)
+          mv "$DMG" "LinSCP-${{ github.ref_name }}-macos-arm64.dmg"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
