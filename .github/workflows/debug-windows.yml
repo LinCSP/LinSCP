@@ -99,3 +99,30 @@ jobs:
           name: linscp-debug-windows
           path: deploy\
           if-no-files-found: error
+
+      # Run the app briefly to trigger startup / catch early crashes.
+      # GHA Windows runners have a virtual desktop — GUI apps work.
+      - name: Run app (crash detection)
+        continue-on-error: true
+        shell: powershell
+        working-directory: deploy
+        run: |
+          Write-Host "Starting linscp.exe ..."
+          $p = Start-Process -FilePath ".\linscp.exe" -PassThru
+          Start-Sleep -Seconds 8
+          if ($p.HasExited) {
+            Write-Host "App exited early (code $($p.ExitCode)) — crash likely"
+          } else {
+            Write-Host "App alive after 8s — killing"
+            $p.Kill()
+          }
+
+      - name: Upload crash data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linscp-crash-data
+          path: |
+            deploy\linscp_startup.log
+            deploy\linscp_crash.dmp
+          if-no-files-found: warn
