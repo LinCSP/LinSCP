@@ -8,6 +8,22 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#ifdef _WIN32
+// MSVC sys/stat.h does not define POSIX permission bits
+#  ifndef S_IRUSR
+#    define S_IRUSR  0400
+#    define S_IWUSR  0200
+#    define S_IXUSR  0100
+#    define S_IRWXU  (S_IRUSR|S_IWUSR|S_IXUSR)
+#    define S_IRGRP  0040
+#    define S_IWGRP  0020
+#    define S_IXGRP  0010
+#    define S_IROTH  0004
+#    define S_IWOTH  0002
+#    define S_IXOTH  0001
+#  endif
+#endif
+
 namespace linscp::core::sftp {
 
 SftpClient::SftpClient(ssh::SshSession *session, QObject *parent)
@@ -126,8 +142,13 @@ bool SftpClient::downloadAsync(const QString &remotePath, const QString &localPa
     // sftp_async_read_begin/sftp_async_read помечены deprecated в libssh >= 0.10,
     // но новый sftp_aio API появился только в 0.11; используем старый со
     // явным подавлением предупреждений.
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#ifdef _MSC_VER
+#  pragma warning(push)
+#  pragma warning(disable: 4996)
+#else
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
 
     struct Req { int id = -1; QByteArray buf; };
     QQueue<Req> pipeline;
@@ -161,7 +182,11 @@ bool SftpClient::downloadAsync(const QString &remotePath, const QString &localPa
         // nread == 0 → EOF для этого слота, конвейер естественно опустеет
     }
 
-#pragma GCC diagnostic pop
+#ifdef _MSC_VER
+#  pragma warning(pop)
+#else
+#  pragma GCC diagnostic pop
+#endif
 
     sftp_close(remote);
     return ok;
