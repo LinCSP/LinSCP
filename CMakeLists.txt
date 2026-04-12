@@ -40,7 +40,10 @@ add_subdirectory(tests)
 
 # ── Install rules (used by CPack and cmake --install) ─────────────────────────
 include(GNUInstallDirs)
-install(TARGETS linscp RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS linscp
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    BUNDLE  DESTINATION .
+)
 install(FILES packaging/appimage/linscp.desktop
         DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/applications)
 install(FILES packaging/appimage/linscp.svg
