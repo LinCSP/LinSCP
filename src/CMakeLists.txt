@@ -132,7 +132,8 @@ if(WITH_KEYRING AND LIBSECRET_FOUND)
 endif()
 
 target_compile_options(linscp PRIVATE
-    -Wall -Wextra -Wpedantic
+    $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra;-Wpedantic>
+    $<$<CXX_COMPILER_ID:MSVC>:/W4;/wd4100;/wd4127>
     ${LIBSSH_CFLAGS_OTHER}
 )
 
