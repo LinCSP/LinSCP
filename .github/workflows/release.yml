@@ -337,7 +337,6 @@ jobs:
           cmake -B build -G Ninja `
             -DCMAKE_BUILD_TYPE=Release `
             -DCMAKE_PREFIX_PATH="$qtPrefix;C:\vcpkg\installed\x64-windows" `
-            -DWITH_TERMINAL=OFF `
             -DWITH_KEYRING=OFF
 
       - name: Build
@@ -382,7 +381,6 @@ jobs:
           cmake -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_PREFIX_PATH="$(brew --prefix qt)" \
-            -DWITH_TERMINAL=OFF \
             -DWITH_KEYRING=OFF
 
       - name: Build

@@ -85,9 +85,7 @@ set(LINSCP_SOURCES
     ui/utils/file_icon_provider.cpp
 )
 
-if(WITH_TERMINAL)
-    list(APPEND LINSCP_SOURCES ui/terminal/terminal_widget.cpp)
-endif()
+list(APPEND LINSCP_SOURCES ui/terminal/terminal_widget.cpp)
 
 qt_add_resources(LINSCP_SOURCES resources/icons.qrc)
 
@@ -120,11 +118,6 @@ target_link_directories(linscp PRIVATE
     ${LIBSSH_LIBRARY_DIRS}
     ${OPENSSL_LIBRARY_DIRS}
 )
-
-if(WITH_TERMINAL AND QTERMWIDGET_FOUND)
-    target_include_directories(linscp PRIVATE ${QTERMWIDGET_INCLUDE_DIRS})
-    target_link_libraries(linscp PRIVATE ${QTERMWIDGET_LIBRARIES})
-endif()
 
 if(WITH_KEYRING AND LIBSECRET_FOUND)
     target_include_directories(linscp PRIVATE ${LIBSECRET_INCLUDE_DIRS})

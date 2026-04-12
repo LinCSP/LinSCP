@@ -13,18 +13,7 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBSSH REQUIRED libssh>=0.10)
 pkg_check_modules(OPENSSL REQUIRED openssl>=3.0)
 
-option(WITH_TERMINAL "Build with embedded terminal (requires qtermwidget)" ON)
 option(WITH_KEYRING  "Build with libsecret/keyring integration" OFF)
-
-if(WITH_TERMINAL)
-    pkg_check_modules(QTERMWIDGET qtermwidget6)
-    if(QTERMWIDGET_FOUND)
-        add_compile_definitions(HAVE_QTERMWIDGET)
-        message(STATUS "qtermwidget6 found — full VT terminal enabled")
-    else()
-        message(STATUS "qtermwidget6 not found — fallback text terminal will be used")
-    endif()
-endif()
 
 if(WITH_KEYRING)
     pkg_check_modules(LIBSECRET libsecret-1)
