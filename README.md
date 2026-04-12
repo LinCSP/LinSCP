@@ -44,7 +44,7 @@ Pre-built packages are available on the [Releases](https://github.com/LinCSP/Lin
 | Ubuntu / Debian | `.deb` | `sudo dpkg -i linscp_*.deb` |
 | Fedora / RHEL | `.rpm` | `sudo rpm -i linscp-*.rpm` |
 | Windows 10/11 | `.exe` | Standard installer, SmartScreen may warn — click "More info → Run anyway" |
-| macOS 13+ | `.dmg` | See note below |
+| macOS 13+ (Apple Silicon) | `.dmg` | See note below |
 
 ### macOS
 
