@@ -348,10 +348,31 @@ jobs:
           $qtPrefix = (Get-ChildItem "${{ runner.temp }}\Qt" -Recurse `
             -Filter "Qt6Config.cmake" | Select-Object -First 1).DirectoryName `
             -replace "\\lib\\cmake\\Qt6", ""
-          New-Item -ItemType Directory -Path deploy | Out-Null
+          Write-Host "Qt prefix: $qtPrefix"
+
+          if (-not (Test-Path "build\bin\linscp.exe")) {
+            Write-Error "build\bin\linscp.exe not found"; exit 1
+          }
+
+          New-Item -ItemType Directory -Path deploy -Force | Out-Null
           Copy-Item build\bin\linscp.exe deploy\
+
           & "$qtPrefix\bin\windeployqt.exe" --release deploy\linscp.exe
-          Copy-Item "C:\vcpkg\installed\x64-windows\bin\*.dll" deploy\
+          Write-Host "windeployqt exit: $LASTEXITCODE"
+
+          $vcpkgBin = "C:\vcpkg\installed\x64-windows\bin"
+          $dlls = Get-ChildItem "$vcpkgBin\*.dll" -ErrorAction SilentlyContinue
+          if ($dlls) {
+            Copy-Item $dlls.FullName deploy\
+            Write-Host "Copied $($dlls.Count) vcpkg DLL(s)"
+          } else {
+            Write-Host "No DLLs in $vcpkgBin (listing):"
+            Get-ChildItem $vcpkgBin -ErrorAction SilentlyContinue |
+              Select-Object -First 20 | ForEach-Object { Write-Host "  $_" }
+          }
+
+          Write-Host "deploy\ contents ($((Get-ChildItem deploy\).Count) files):"
+          Get-ChildItem deploy\ | ForEach-Object { Write-Host "  $($_.Name)" }
 
       # ── NSIS installer ───────────────────────────────────────────────────────
       - name: Install NSIS

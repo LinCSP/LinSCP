@@ -89,7 +89,7 @@ list(APPEND LINSCP_SOURCES ui/terminal/terminal_widget.cpp)
 
 qt_add_resources(LINSCP_SOURCES resources/icons.qrc)
 
-add_executable(linscp ${LINSCP_SOURCES})
+add_executable(linscp WIN32 ${LINSCP_SOURCES})
 
 set_target_properties(linscp PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
