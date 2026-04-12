@@ -31,7 +31,8 @@ FileListView::FileListView(QWidget *parent)
 
     header()->setSectionsMovable(true);
     header()->setStretchLastSection(false);
-    header()->setSectionResizeMode(0, QHeaderView::Stretch);
+    // setSectionResizeMode(0, ...) нельзя вызывать без модели (нет секций → crash на Windows).
+    // Вызывается в LocalPanel/RemotePanel после setModel().
 }
 
 void FileListView::setRemoteMode(bool remote)

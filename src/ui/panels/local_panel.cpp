@@ -84,7 +84,6 @@ LocalPanel::LocalPanel(QWidget *parent)
 
     listView()->setModel(m_model);
     listView()->setRootIndex(m_model->index(QDir::homePath()));
-    // Local панель — не remote mode (по умолчанию false, явно для ясности)
     listView()->setRemoteMode(false);
 
     // Колонки QFileSystemModel: 0=Name, 1=Size, 2=Type, 3=Date Modified
