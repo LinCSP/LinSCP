@@ -72,9 +72,26 @@ jobs:
             -replace "\\lib\\cmake\\Qt6", ""
           New-Item -ItemType Directory -Path deploy -Force | Out-Null
           Copy-Item build\bin\linscp.exe deploy\
+
           & "$qtPrefix\bin\windeployqt.exe" --release deploy\linscp.exe
+          Write-Host "windeployqt exit: $LASTEXITCODE"
+
+          # Check critical plugin
+          if (-not (Test-Path "deploy\platforms\qwindows.dll")) {
+            Write-Warning "MISSING: deploy\platforms\qwindows.dll — app will not show a window!"
+          } else {
+            Write-Host "OK: platforms\qwindows.dll present"
+          }
+
+          # Copy vcpkg DLLs (libssh, openssl, etc.)
           $dlls = Get-ChildItem "C:\vcpkg\installed\x64-windows\bin\*.dll" -ErrorAction SilentlyContinue
-          if ($dlls) { Copy-Item $dlls.FullName deploy\ }
+          if ($dlls) { Copy-Item $dlls.FullName deploy\; Write-Host "Copied $($dlls.Count) vcpkg DLLs" }
+
+          # Full listing for diagnostics
+          Write-Host "--- deploy\ tree ---"
+          Get-ChildItem deploy\ -Recurse | ForEach-Object {
+            Write-Host "  $($_.FullName.Replace((Get-Location).Path + '\deploy\', ''))"
+          }
 
       - name: Upload debug build
         uses: actions/upload-artifact@v4
