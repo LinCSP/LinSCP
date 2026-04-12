@@ -34,6 +34,29 @@ It aims to bring the familiar WinSCP experience to Linux and other Unix-like sys
 
 > Coming soon — the project is in early development (v0.1-dev).
 
+## Download & Install
+
+Pre-built packages are available on the [Releases](https://github.com/LinCSP/LinSCP/releases) page.
+
+| Platform | Package | Notes |
+|----------|---------|-------|
+| Linux (any) | `.AppImage` | Make executable, run directly |
+| Ubuntu / Debian | `.deb` | `sudo dpkg -i linscp_*.deb` |
+| Fedora / RHEL | `.rpm` | `sudo rpm -i linscp-*.rpm` |
+| Windows 10/11 | `.exe` | Standard installer, SmartScreen may warn — click "More info → Run anyway" |
+| macOS 13+ | `.dmg` | See note below |
+
+### macOS
+
+LinSCP is not notarized (Apple charges $99/year for a Developer account).
+macOS will block the app with *"LinSCP is damaged and can't be opened"*.
+
+Run this once in Terminal after downloading the `.dmg`, then open it normally:
+
+```bash
+xattr -rd com.apple.quarantine LinSCP-*.dmg
+```
+
 ## Requirements
 
 | Dependency | Minimum version |

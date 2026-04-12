@@ -282,10 +282,128 @@ jobs:
           path: build/packages/*.rpm
           if-no-files-found: error
 
+  # ─── Windows NSIS installer (x64, MSVC) ─────────────────────────────────────
+  windows:
+    name: Windows (.exe installer, x64)
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Set up MSVC developer environment (needed for Ninja + cl.exe)
+      - name: Set up MSVC x64
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Install pkg-config
+        run: choco install pkgconfiglite -y
+
+      # ── libssh + OpenSSL via vcpkg ───────────────────────────────────────────
+      - name: Cache vcpkg packages
+        id: cache-vcpkg
+        uses: actions/cache@v4
+        with:
+          path: C:\vcpkg\installed
+          key: vcpkg-x64-windows-libssh-${{ env.LIBSSH_VERSION }}-openssl-v1
+
+      - name: Install libssh and OpenSSL via vcpkg
+        if: steps.cache-vcpkg.outputs.cache-hit != 'true'
+        run: vcpkg install libssh:x64-windows openssl:x64-windows
+
+      # ── Qt via aqtinstall ────────────────────────────────────────────────────
+      - name: Cache Qt ${{ env.QT_VERSION }}
+        id: cache-qt-win
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}\Qt
+          key: qt-${{ env.QT_VERSION }}-windows-v1
+
+      - name: Install Qt ${{ env.QT_VERSION }}
+        if: steps.cache-qt-win.outputs.cache-hit != 'true'
+        run: |
+          pip install aqtinstall
+          aqt install-qt windows desktop ${{ env.QT_VERSION }} win64_msvc2019_64 `
+            -O "${{ runner.temp }}\Qt"
+
+      # ── Build ────────────────────────────────────────────────────────────────
+      - name: Configure
+        env:
+          PKG_CONFIG_PATH: C:\vcpkg\installed\x64-windows\lib\pkgconfig
+        run: |
+          $qtPrefix = (Get-ChildItem "${{ runner.temp }}\Qt" -Recurse `
+            -Filter "Qt6Config.cmake" | Select-Object -First 1).DirectoryName `
+            -replace "\\lib\\cmake\\Qt6", ""
+          cmake -B build -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_PREFIX_PATH="$qtPrefix;C:\vcpkg\installed\x64-windows" `
+            -DWITH_TERMINAL=OFF `
+            -DWITH_KEYRING=OFF
+
+      - name: Build
+        run: cmake --build build -j $env:NUMBER_OF_PROCESSORS
+
+      # ── Bundle Qt DLLs + vcpkg DLLs ─────────────────────────────────────────
+      - name: Deploy (windeployqt + copy DLLs)
+        run: |
+          $qtPrefix = (Get-ChildItem "${{ runner.temp }}\Qt" -Recurse `
+            -Filter "Qt6Config.cmake" | Select-Object -First 1).DirectoryName `
+            -replace "\\lib\\cmake\\Qt6", ""
+          New-Item -ItemType Directory -Path deploy | Out-Null
+          Copy-Item build\bin\linscp.exe deploy\
+          & "$qtPrefix\bin\windeployqt.exe" --release deploy\linscp.exe
+          Copy-Item "C:\vcpkg\installed\x64-windows\bin\*.dll" deploy\
+
+      # ── NSIS installer ───────────────────────────────────────────────────────
+      - name: Create installer
+        run: makensis /DVERSION=${{ github.ref_name }} packaging\nsis\linscp.nsi
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: LinSCP-*-windows-x64.exe
+          if-no-files-found: error
+
+  # ─── macOS .dmg (x86_64, macos-13) ──────────────────────────────────────────
+  macos:
+    name: macOS (.dmg, x86_64)
+    runs-on: macos-13
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: brew install cmake ninja pkg-config libssh openssl qt
+
+      - name: Configure
+        run: |
+          export PKG_CONFIG_PATH="$(brew --prefix libssh)/lib/pkgconfig:$(brew --prefix openssl)/lib/pkgconfig"
+          cmake -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$(brew --prefix qt)" \
+            -DWITH_TERMINAL=OFF \
+            -DWITH_KEYRING=OFF
+
+      - name: Build
+        run: cmake --build build -j$(sysctl -n hw.logicalcpu)
+
+      - name: Create .dmg
+        run: |
+          $(brew --prefix qt)/bin/macdeployqt build/bin/linscp.app -dmg
+          mv build/bin/linscp.dmg "LinSCP-${{ github.ref_name }}-macos-x86_64.dmg"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: LinSCP-*.dmg
+          if-no-files-found: error
+
   # ─── Publish GitHub Release ───────────────────────────────────────────────────
   publish:
     name: Publish Release
-    needs: [appimage, deb, rpm]
+    needs: [appimage, deb, rpm, windows, macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -310,7 +428,7 @@ jobs:
 
           # Collect artifacts explicitly (globs may not expand in gh args)
           FILES=()
-          for f in dist/*.AppImage dist/*.deb dist/*.rpm; do
+          for f in dist/*.AppImage dist/*.deb dist/*.rpm dist/*.dmg dist/*.exe; do
             [ -f "$f" ] && FILES+=("$f")
           done
           echo "Uploading: ${FILES[*]}"
