@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <QApplication>
 #include <QIcon>
 #include <QDir>
@@ -27,7 +28,15 @@ static bool loadAppTranslator(QTranslator &t, const QString &langCode)
 
 int main(int argc, char *argv[])
 {
+#ifndef NDEBUG
+    fprintf(stderr, "[linscp] main() entered\n");
+    fflush(stderr);
+#endif
     QApplication app(argc, argv);
+#ifndef NDEBUG
+    fprintf(stderr, "[linscp] QApplication created\n");
+    fflush(stderr);
+#endif
     app.setApplicationName("LinSCP");
     app.setApplicationVersion("0.1.0");
     app.setOrganizationName("LinSCP");
@@ -77,6 +86,10 @@ int main(int argc, char *argv[])
     QDir().mkpath(QDir::homePath() + "/.config/linscp");
 
     linscp::ui::MainWindow w;
+#ifndef NDEBUG
+    fprintf(stderr, "[linscp] MainWindow created, calling show()\n");
+    fflush(stderr);
+#endif
     w.show();
 
     return app.exec();

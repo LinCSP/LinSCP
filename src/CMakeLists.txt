@@ -91,7 +91,10 @@ qt_add_resources(LINSCP_SOURCES resources/icons.qrc)
 
 option(LINSCP_CONSOLE "Build as console app (for debugging on Windows)" OFF)
 if(WIN32 AND LINSCP_CONSOLE)
-    add_executable(linscp ${LINSCP_SOURCES})          # console subsystem
+    add_executable(linscp ${LINSCP_SOURCES})
+    # Force console subsystem — Qt6::Core may otherwise override to WINDOWS
+    set_target_properties(linscp PROPERTIES WIN32_EXECUTABLE FALSE)
+    target_link_options(linscp PRIVATE "/SUBSYSTEM:CONSOLE")
 else()
     qt_add_executable(linscp ${LINSCP_SOURCES})       # GUI subsystem
 endif()
