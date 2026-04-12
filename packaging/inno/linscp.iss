@@ -52,6 +52,10 @@ Name: "{autodesktop}\{#MyAppName}";              Filename: "{app}\{#MyAppExeName
   Tasks: desktopicon
 
 [Run]
+; Install MSVC runtime silently if bundled by windeployqt
+Filename: "{app}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; \
+  StatusMsg: "Installing Visual C++ Runtime..."; \
+  Flags: runascurrentuser skipifdoesntexist
 Filename: "{app}\{#MyAppExeName}"; \
   Description: "{cm:LaunchProgram,{#MyAppName}}"; \
   Flags: nowait postinstall skipifsilent
