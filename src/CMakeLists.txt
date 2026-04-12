@@ -94,6 +94,9 @@ qt_add_executable(linscp ${LINSCP_SOURCES})
 set_target_properties(linscp PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
+if(APPLE)
+    set_target_properties(linscp PROPERTIES MACOSX_BUNDLE TRUE)
+endif()
 
 target_include_directories(linscp PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
