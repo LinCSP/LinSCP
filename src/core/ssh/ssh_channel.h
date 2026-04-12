@@ -26,6 +26,11 @@ public:
     /// Закрыть канал (не сессию)
     void close();
 
+    /// Обнулить внутренний handle без освобождения.
+    /// Вызывается из SshSession::~SshSession перед ssh_free(),
+    /// так как ssh_free() уже освобождает все каналы сессии изнутри.
+    void invalidate() { m_channel = nullptr; }
+
 signals:
     void closed();
 

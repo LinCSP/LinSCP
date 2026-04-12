@@ -24,6 +24,13 @@ SshSession::~SshSession()
     if (m_workerFuture.isRunning())
         m_workerFuture.waitForFinished();
 
+    // Сбрасываем handle во всех дочерних SshChannel перед ssh_free().
+    // ssh_free() освобождает все каналы сессии изнутри; без этого деструктор
+    // SshChannel (особенно отложенный через deleteLater) вызовет ssh_channel_free()
+    // на уже освобождённом указателе — double-free / SIGSEGV.
+    for (auto *ch : findChildren<SshChannel *>(Qt::FindDirectChildrenOnly))
+        ch->invalidate();
+
     if (m_session) {
         ssh_free(m_session);
         m_session = nullptr;
