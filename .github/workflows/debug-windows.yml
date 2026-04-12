@@ -20,19 +20,16 @@ jobs:
         with:
           arch: x64
 
-      - name: Install pkg-config
-        run: choco install pkgconfiglite -y
-
       - name: Cache vcpkg packages
         id: cache-vcpkg
         uses: actions/cache@v4
         with:
           path: C:\vcpkg\installed
-          key: vcpkg-x64-windows-libssh-${{ env.LIBSSH_VERSION }}-openssl-v1
+          key: vcpkg-x64-windows-libssh-${{ env.LIBSSH_VERSION }}-openssl-pkgconf-v1
 
-      - name: Install libssh and OpenSSL via vcpkg
+      - name: Install vcpkg packages
         if: steps.cache-vcpkg.outputs.cache-hit != 'true'
-        run: vcpkg install libssh:x64-windows openssl:x64-windows
+        run: vcpkg install libssh:x64-windows openssl:x64-windows pkgconf:x64-windows
 
       - name: Cache Qt ${{ env.QT_VERSION }}
         id: cache-qt-win
@@ -52,6 +49,7 @@ jobs:
       - name: Configure (RelWithDebInfo, console subsystem)
         env:
           PKG_CONFIG_PATH: C:\vcpkg\installed\x64-windows\lib\pkgconfig
+          PKG_CONFIG: C:\vcpkg\installed\x64-windows\tools\pkgconf\pkgconf.exe
         run: |
           $qtPrefix = (Get-ChildItem "${{ runner.temp }}\Qt" -Recurse `
             -Filter "Qt6Config.cmake" | Select-Object -First 1).DirectoryName `
@@ -59,6 +57,7 @@ jobs:
           cmake -B build -G Ninja `
             -DCMAKE_BUILD_TYPE=RelWithDebInfo `
             -DCMAKE_PREFIX_PATH="$qtPrefix;C:\vcpkg\installed\x64-windows" `
+            -DPKG_CONFIG_EXECUTABLE="C:\vcpkg\installed\x64-windows\tools\pkgconf\pkgconf.exe" `
             -DWITH_KEYRING=OFF `
             -DLINSCP_CONSOLE=ON
 
