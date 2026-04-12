@@ -89,7 +89,12 @@ list(APPEND LINSCP_SOURCES ui/terminal/terminal_widget.cpp)
 
 qt_add_resources(LINSCP_SOURCES resources/icons.qrc)
 
-qt_add_executable(linscp ${LINSCP_SOURCES})
+option(LINSCP_CONSOLE "Build as console app (for debugging on Windows)" OFF)
+if(WIN32 AND LINSCP_CONSOLE)
+    add_executable(linscp ${LINSCP_SOURCES})          # console subsystem
+else()
+    qt_add_executable(linscp ${LINSCP_SOURCES})       # GUI subsystem
+endif()
 
 set_target_properties(linscp PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
