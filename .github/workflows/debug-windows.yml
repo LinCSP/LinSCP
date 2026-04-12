@@ -48,8 +48,8 @@ jobs:
           aqt install-qt windows desktop ${{ env.QT_VERSION }} win64_msvc2019_64 `
             -O "${{ runner.temp }}\Qt"
 
-      # Debug build — NO WIN32 flag so errors print to console
-      - name: Configure (Debug, console subsystem)
+      # RelWithDebInfo — release CRT (no ucrtbased.dll), console subsystem for visible errors
+      - name: Configure (RelWithDebInfo, console subsystem)
         env:
           PKG_CONFIG_PATH: C:\vcpkg\installed\x64-windows\lib\pkgconfig
         run: |
@@ -57,7 +57,7 @@ jobs:
             -Filter "Qt6Config.cmake" | Select-Object -First 1).DirectoryName `
             -replace "\\lib\\cmake\\Qt6", ""
           cmake -B build -G Ninja `
-            -DCMAKE_BUILD_TYPE=Debug `
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo `
             -DCMAKE_PREFIX_PATH="$qtPrefix;C:\vcpkg\installed\x64-windows" `
             -DWITH_KEYRING=OFF `
             -DLINSCP_CONSOLE=ON
@@ -72,7 +72,7 @@ jobs:
             -replace "\\lib\\cmake\\Qt6", ""
           New-Item -ItemType Directory -Path deploy -Force | Out-Null
           Copy-Item build\bin\linscp.exe deploy\
-          & "$qtPrefix\bin\windeployqt.exe" --debug deploy\linscp.exe
+          & "$qtPrefix\bin\windeployqt.exe" --release deploy\linscp.exe
           $dlls = Get-ChildItem "C:\vcpkg\installed\x64-windows\bin\*.dll" -ErrorAction SilentlyContinue
           if ($dlls) { Copy-Item $dlls.FullName deploy\ }
 
