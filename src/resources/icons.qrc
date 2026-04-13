@@ -1,5 +1,7 @@
 <RCC>
     <qresource prefix="/icons">
+        <!-- Application logo (used as window + taskbar icon) -->
+        <file alias="linscp.svg">../../packaging/appimage/linscp.svg</file>
         <file alias="arrow-up.svg">icons/arrow-up.svg</file>
         <file alias="arrows-rotate.svg">icons/arrows-rotate.svg</file>
         <file alias="circle-info.svg">icons/circle-info.svg</file>

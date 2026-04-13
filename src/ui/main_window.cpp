@@ -46,7 +46,7 @@ MainWindow::MainWindow(QWidget *parent)
 {
     slog("[MW] constructor start");
     setWindowTitle("LinSCP");
-    setWindowIcon(svgIcon(QStringLiteral("server")));
+    setWindowIcon(QIcon(QStringLiteral(":/icons/linscp.svg")));
     setMinimumSize(900, 600);
     slog("[MW] setWindowIcon done");
 

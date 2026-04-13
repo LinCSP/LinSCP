@@ -5,7 +5,6 @@
 #include <QLocale>
 #include <QLibraryInfo>
 #include <QSettings>
-#include <QStyle>
 #include <QStyleFactory>
 #include <QPalette>
 #include "ui/main_window.h"
@@ -37,8 +36,7 @@ int main(int argc, char *argv[])
     app.setApplicationVersion("0.1.0");
     app.setOrganizationName("LinSCP");
     app.setOrganizationDomain("linscp.app");
-    app.setWindowIcon(QIcon::fromTheme("network-server",
-                      app.style()->standardIcon(QStyle::SP_DriveNetIcon)));
+    app.setWindowIcon(QIcon(":/icons/linscp.svg"));
     slog("[linscp] app metadata + icon set");
 
     // Fusion — чистый, современный стиль без зависимости от темы рабочего стола
