@@ -282,6 +282,13 @@ void ConnectionTab::onSshConnected()
         }
     });
 
+    // Держать RemotePanel в курсе текущего пути LocalPanel (для CopyDialog default)
+    m_remotePanel->setLocalPanelPath(m_localPanel->currentPath());
+    connect(m_localPanel, &panels::FilePanel::pathChanged,
+            this, [this](const QString &path) {
+        m_remotePanel->setLocalPanelPath(path);
+    });
+
     // Сохранять текущие пути при навигации
     if (m_pathState) {
         connect(m_localPanel, &panels::FilePanel::pathChanged,

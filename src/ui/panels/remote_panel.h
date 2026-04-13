@@ -21,6 +21,9 @@ public:
     /// Вызывается из ConnectionTab::onSshConnected после создания панели.
     void setSshSession(core::ssh::SshSession *session) { m_sshSession = session; }
 
+    /// Обновить путь локальной панели — используется как default в CopyDialog при Download.
+    void setLocalPanelPath(const QString &path) { m_localPanelPath = path; }
+
     QString     currentPath() const override;
     void        navigateTo(const QString &path) override;
     void        refresh() override;
@@ -62,9 +65,10 @@ private:
 
     core::sftp::SftpClient        *m_sftp;
     core::transfer::TransferQueue *m_queue;
-    core::ssh::SshSession         *m_sshSession = nullptr;
-    models::RemoteFsModel         *m_model      = nullptr;
-    bool                           m_showHidden = false;
+    core::ssh::SshSession         *m_sshSession    = nullptr;
+    models::RemoteFsModel         *m_model         = nullptr;
+    bool                           m_showHidden    = false;
+    QString                        m_localPanelPath;
 };
 
 } // namespace linscp::ui::panels

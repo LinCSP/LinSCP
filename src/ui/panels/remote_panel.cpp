@@ -105,9 +105,10 @@ void RemotePanel::downloadSelected(const QString &localDest, bool isMove)
 
     QString dest = localDest;
     if (dest.isEmpty()) {
+        const QString defaultDest = m_localPanelPath.isEmpty() ? QDir::homePath() : m_localPanelPath;
         dialogs::CopyDialog dlg(dialogs::CopyDialog::Direction::Download,
                                 isMove, paths,
-                                QDir::homePath(), this);
+                                defaultDest, this);
         if (dlg.exec() != QDialog::Accepted) return;
         dest = dlg.targetDirectory();
     }
