@@ -323,18 +323,6 @@ jobs:
           aqt install-qt windows desktop ${{ env.QT_VERSION }} win64_msvc2019_64 `
             -O "${{ runner.temp }}\Qt"
 
-      # ── Application icon: SVG → multi-resolution ICO ────────────────────────
-      # ImageMagick 7 (magick) is pre-installed on windows-latest.
-      # Renders the SVG at each size and packs them into a single .ico file.
-      - name: Generate linscp.ico from SVG
-        run: |
-          New-Item -ItemType Directory -Force -Path packaging\windows | Out-Null
-          magick -background none packaging\appimage\linscp.svg `
-            -define icon:auto-resize=256,128,64,48,32,16 `
-            packaging\windows\linscp.ico
-          $size = (Get-Item packaging\windows\linscp.ico).Length
-          Write-Host "linscp.ico generated — $size bytes"
-
       # ── Build ────────────────────────────────────────────────────────────────
       - name: Configure
         env:
