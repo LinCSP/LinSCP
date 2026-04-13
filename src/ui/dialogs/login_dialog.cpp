@@ -27,13 +27,63 @@
 #include <QDir>
 #include <QSettings>
 #include <QUuid>
+#include <QDropEvent>
+#include <QApplication>
+#include <QPalette>
 
 namespace linscp::ui::dialogs {
 
+// ─── Custom tree widget with internal drag-and-drop ───────────────────────────
+
+class SessionTreeWidget : public QTreeWidget {
+    Q_OBJECT
+public:
+    explicit SessionTreeWidget(QWidget *parent = nullptr) : QTreeWidget(parent) {
+        setDragEnabled(true);
+        setAcceptDrops(true);
+        setDropIndicatorShown(true);
+        setDragDropMode(QAbstractItemView::InternalMove);
+        setDefaultDropAction(Qt::MoveAction);
+    }
+
+signals:
+    void itemMoved();
+
+protected:
+    QMimeData *mimeData(const QList<QTreeWidgetItem *> &items) const override {
+        // "New connection" нельзя перетаскивать
+        for (const auto *item : items)
+            if (item->data(0, Qt::UserRole).toString() == QLatin1String("new"))
+                return nullptr;
+        return QTreeWidget::mimeData(items);
+    }
+
+    void dropEvent(QDropEvent *e) override {
+        // Сессия/папка не может быть дочерней у session или "new"
+        const QModelIndex idx = indexAt(e->position().toPoint());
+        if (idx.isValid()) {
+            auto *target = itemFromIndex(idx);
+            if (target) {
+                const QString t = target->data(0, Qt::UserRole).toString();
+                if (t == QLatin1String("session") || t == QLatin1String("new")) {
+                    // Разрешаем только InsertBefore/InsertAfter, не OnItem
+                    if (dropIndicatorPosition() == QAbstractItemView::OnItem) {
+                        e->ignore();
+                        return;
+                    }
+                }
+            }
+        }
+        QTreeWidget::dropEvent(e);
+        emit itemMoved();
+    }
+};
+
 // ─── Tree item user-data roles ────────────────────────────────────────────────
 
-static constexpr int RoleType    = Qt::UserRole;       // "folder" | "session" | "new"
-static constexpr int RoleUuid    = Qt::UserRole + 1;   // QUuid (sessions only)
+static constexpr int RoleType       = Qt::UserRole;       // "folder" | "session" | "new"
+static constexpr int RoleUuid       = Qt::UserRole + 1;   // QUuid (sessions only)
+static constexpr int RoleFolderPath = Qt::UserRole + 2; // full path e.g. "A-media/Cobalt"
 
 // ─── construction ─────────────────────────────────────────────────────────────
 
@@ -54,13 +104,17 @@ void LoginDialog::setupUi()
     setMinimumSize(600, 400);
 
     // ── Left: session tree ────────────────────────────────────────────────────
-    m_tree = new QTreeWidget(this);
+    m_tree = new SessionTreeWidget(this);
     m_tree->setHeaderHidden(true);
     m_tree->setMinimumWidth(230);
     m_tree->setMaximumWidth(320);
     m_tree->setIndentation(16);
     m_tree->setRootIsDecorated(true);
     m_tree->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    connect(m_tree, &SessionTreeWidget::itemMoved, this, [this]() {
+        syncTreeToStore();
+    });
 
     connect(m_tree, &QTreeWidget::currentItemChanged,
             this, [this](QTreeWidgetItem *, QTreeWidgetItem *) {
@@ -287,7 +341,7 @@ QTreeWidgetItem *LoginDialog::ensureFolder(const QString &groupPath)
             QTreeWidgetItem *child = current ? current->child(i)
                                              : m_tree->topLevelItem(i);
             if (child->data(0, RoleType).toString() == "folder"
-                && child->data(0, Qt::UserRole + 2).toString() == builtPath)
+                && child->data(0, RoleFolderPath).toString() == builtPath)
             {
                 found = child;
                 break;
@@ -299,9 +353,12 @@ QTreeWidgetItem *LoginDialog::ensureFolder(const QString &groupPath)
                 ? new QTreeWidgetItem(current, QStringList{part})
                 : new QTreeWidgetItem(m_tree, QStringList{part});
             found->setData(0, RoleType, QStringLiteral("folder"));
-            found->setData(0, Qt::UserRole + 2, builtPath);
-            found->setIcon(0, svgIcon(QStringLiteral("folder")));
+            found->setData(0, RoleFolderPath, builtPath);
+            found->setIcon(0, svgFolderIcon());
             found->setExpanded(true);
+            // Папки — светлее сессий (используем системный «приглушённый» цвет)
+            found->setForeground(0, QApplication::palette().color(QPalette::Disabled,
+                                                                   QPalette::Text));
         }
         current = found;
     }
@@ -423,7 +480,7 @@ void LoginDialog::onSave()
         }
         // Сохраняем в текущую папку дерева
         if (auto *folder = currentFolderItem())
-            p.groupPath = folder->data(0, Qt::UserRole + 2).toString();
+            p.groupPath = folder->data(0, RoleFolderPath).toString();
         m_store->add(p);
     } else {
         p.id = m_selectedProfile.id;
@@ -520,7 +577,7 @@ void LoginDialog::onNewFolder()
     QTreeWidgetItem *parentFolder = currentFolderItem();
 
     const QString parentPath = parentFolder
-        ? parentFolder->data(0, Qt::UserRole + 2).toString()
+        ? parentFolder->data(0, RoleFolderPath).toString()
         : QString{};
     const QString newPath = parentPath.isEmpty() ? name : parentPath + '/' + name;
 
@@ -528,8 +585,8 @@ void LoginDialog::onNewFolder()
         ? new QTreeWidgetItem(parentFolder, QStringList{name})
         : new QTreeWidgetItem(m_tree,       QStringList{name});
     folderItem->setData(0, RoleType,        QStringLiteral("folder"));
-    folderItem->setData(0, Qt::UserRole + 2, newPath);
-    folderItem->setIcon(0, svgIcon(QStringLiteral("folder")));
+    folderItem->setData(0, RoleFolderPath, newPath);
+    folderItem->setIcon(0, svgFolderIcon());
     folderItem->setExpanded(true);
     if (parentFolder) parentFolder->setExpanded(true);
     m_tree->setCurrentItem(folderItem);
@@ -558,7 +615,7 @@ void LoginDialog::onDeleteSession()
     if (type == QLatin1String("folder")) {
         QList<QUuid> ids;
         collectSessionIds(item, ids);
-        const QString folderPath = item->data(0, Qt::UserRole + 2).toString();
+        const QString folderPath = item->data(0, RoleFolderPath).toString();
 
         const QString msg = ids.isEmpty()
             ? tr("Delete folder \"%1\"?").arg(item->text(0))
@@ -736,7 +793,7 @@ static void collectCollapsed(QTreeWidgetItem *item, QStringList &out)
     if (item->data(0, Qt::UserRole).toString() == QLatin1String("folder")
         && !item->isExpanded())
     {
-        out << item->data(0, Qt::UserRole + 2).toString();
+        out << item->data(0, RoleFolderPath).toString();
     }
     for (int i = 0; i < item->childCount(); ++i)
         collectCollapsed(item->child(i), out);
@@ -756,7 +813,7 @@ void LoginDialog::saveExpandState() const
 static void applyExpandState(QTreeWidgetItem *item, const QSet<QString> &collapsed)
 {
     if (item->data(0, Qt::UserRole).toString() == QLatin1String("folder")) {
-        const QString path = item->data(0, Qt::UserRole + 2).toString();
+        const QString path = item->data(0, RoleFolderPath).toString();
         item->setExpanded(!collapsed.contains(path));
     }
     for (int i = 0; i < item->childCount(); ++i)
@@ -785,4 +842,76 @@ void LoginDialog::restoreExpandState()
     }
 }
 
+// ─── syncTreeToStore ──────────────────────────────────────────────────────────
+
+void LoginDialog::syncTreeToStore()
+{
+    // 1. Пересобрать актуальный список папок и groupPath каждой сессии из дерева
+    //    (после drag-and-drop визуальная структура уже изменилась).
+
+    QStringList newFolders;
+
+    std::function<void(QTreeWidgetItem *, const QString &)> traverse;
+    traverse = [&](QTreeWidgetItem *item, const QString &parentPath) {
+        for (int i = 0; i < item->childCount(); ++i) {
+            auto *child = item->child(i);
+            const QString type = child->data(0, Qt::UserRole).toString();
+
+            if (type == QLatin1String("folder")) {
+                const QString folderName = child->text(0);
+                const QString folderPath = parentPath.isEmpty()
+                    ? folderName
+                    : parentPath + QLatin1Char('/') + folderName;
+                // Обновить сохранённый путь в самом элементе
+                child->setData(0, RoleFolderPath, folderPath);
+                newFolders.append(folderPath);
+                traverse(child, folderPath);
+
+            } else if (type == QLatin1String("session")) {
+                const QUuid id = QUuid::fromString(child->data(0, RoleUuid).toString());
+                auto profile = m_store->find(id);
+                if (profile.isValid() && profile.groupPath != parentPath) {
+                    profile.groupPath = parentPath;
+                    m_store->update(profile);
+                }
+            }
+        }
+    };
+
+    // Обход элементов верхнего уровня
+    for (int i = 0; i < m_tree->topLevelItemCount(); ++i) {
+        auto *item = m_tree->topLevelItem(i);
+        const QString type = item->data(0, Qt::UserRole).toString();
+
+        if (type == QLatin1String("folder")) {
+            const QString name = item->text(0);
+            item->setData(0, RoleFolderPath, name);
+            newFolders.append(name);
+            traverse(item, name);
+
+        } else if (type == QLatin1String("session")) {
+            const QUuid id = QUuid::fromString(item->data(0, RoleUuid).toString());
+            auto profile = m_store->find(id);
+            if (profile.isValid() && !profile.groupPath.isEmpty()) {
+                profile.groupPath.clear();
+                m_store->update(profile);
+            }
+        }
+    }
+
+    // 2. Синхронизировать список папок в store: убрать удалённые, добавить новые
+    const QStringList oldFolders = m_store->folders();
+    for (const QString &f : oldFolders)
+        if (!newFolders.contains(f))
+            m_store->removeFolder(f);
+    for (const QString &f : newFolders)
+        if (!oldFolders.contains(f))
+            m_store->addFolder(f);
+
+    m_store->save();
+}
+
 } // namespace linscp::ui::dialogs
+
+// SessionTreeWidget определён в этом .cpp с Q_OBJECT — moc-файл включаем последним
+#include "login_dialog.moc"

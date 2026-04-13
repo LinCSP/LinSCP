@@ -3,7 +3,6 @@
 #include "core/session/session_profile.h"
 #include "core/session/session_store.h"
 
-class QTreeWidget;
 class QTreeWidgetItem;
 class QStackedWidget;
 class QLineEdit;
@@ -17,6 +16,8 @@ class QMenu;
 class QToolButton;
 
 namespace linscp::ui::dialogs {
+
+class SessionTreeWidget;  ///< QTreeWidget с поддержкой drag-and-drop сессий
 
 /// Главный диалог входа — аналог TLoginDialog (WinSCP).
 /// Открывается при «Новая вкладка» и содержит:
@@ -77,8 +78,11 @@ private:
     core::session::SessionProfile    m_selectedProfile;
     bool                             m_isNewConnection = true;
 
+    /// Синхронизировать порядок дерева → store после drag-and-drop
+    void syncTreeToStore();
+
     // ── Left panel ────────────────────────────────────────────────────────────
-    QTreeWidget  *m_tree;
+    SessionTreeWidget *m_tree;
 
     // ── Right panel ───────────────────────────────────────────────────────────
     QGroupBox    *m_connGroup;

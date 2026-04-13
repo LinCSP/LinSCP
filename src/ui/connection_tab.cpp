@@ -186,45 +186,38 @@ void ConnectionTab::onSshConnected()
             const core::transfer::ConflictInfo &dst)
             -> core::transfer::OverwritePolicy
         {
-            // Проверяем глобальную политику без вызова диалога
+            // Уже в UI-потоке (вызвано из checkConflict через BlockingQueuedConnection).
+            // Проверяем глобальную политику, установленную предыдущим ответом.
             if (overwriteAll->load()) return core::transfer::OverwritePolicy::Overwrite;
             if (skipAll->load())      return core::transfer::OverwritePolicy::Skip;
 
-            core::transfer::OverwritePolicy result = core::transfer::OverwritePolicy::Cancel;
+            dialogs::OverwriteDialog::FileInfo srcInfo{src.path, src.size, src.mtime};
+            dialogs::OverwriteDialog::FileInfo dstInfo{dst.path, dst.size, dst.mtime};
+            dialogs::OverwriteDialog dlg(srcInfo, dstInfo, this);
+            dlg.exec();
 
-            // BlockingQueuedConnection: блокирует воркер-поток, выполняет лямбду в UI-потоке
-            QMetaObject::invokeMethod(this, [&]() {
-                dialogs::OverwriteDialog::FileInfo srcInfo{src.path, src.size, src.mtime};
-                dialogs::OverwriteDialog::FileInfo dstInfo{dst.path, dst.size, dst.mtime};
-                dialogs::OverwriteDialog dlg(srcInfo, dstInfo, this);
-                dlg.exec();
-
-                switch (dlg.action()) {
-                case dialogs::OverwriteDialog::Action::Overwrite:
-                    result = core::transfer::OverwritePolicy::Overwrite;
-                    break;
-                case dialogs::OverwriteDialog::Action::OverwriteAll:
-                    overwriteAll->store(true);
-                    result = core::transfer::OverwritePolicy::Overwrite;
-                    break;
-                case dialogs::OverwriteDialog::Action::Skip:
-                    result = core::transfer::OverwritePolicy::Skip;
-                    break;
-                case dialogs::OverwriteDialog::Action::SkipAll:
-                    skipAll->store(true);
-                    result = core::transfer::OverwritePolicy::Skip;
-                    break;
-                case dialogs::OverwriteDialog::Action::Rename:
-                    // TODO: реализовать переименование (пока — пропустить)
-                    result = core::transfer::OverwritePolicy::Skip;
-                    break;
-                case dialogs::OverwriteDialog::Action::Cancel:
-                    result = core::transfer::OverwritePolicy::Cancel;
-                    break;
-                }
-            }, Qt::BlockingQueuedConnection);
-
-            return result;
+            switch (dlg.action()) {
+            case dialogs::OverwriteDialog::Action::Overwrite:
+                return core::transfer::OverwritePolicy::Overwrite;
+            case dialogs::OverwriteDialog::Action::OverwriteAll:
+                overwriteAll->store(true);
+                m_transferManager->setGlobalOverwritePolicy(
+                    core::transfer::OverwritePolicy::Overwrite);
+                return core::transfer::OverwritePolicy::Overwrite;
+            case dialogs::OverwriteDialog::Action::Skip:
+                return core::transfer::OverwritePolicy::Skip;
+            case dialogs::OverwriteDialog::Action::SkipAll:
+                skipAll->store(true);
+                m_transferManager->setGlobalOverwritePolicy(
+                    core::transfer::OverwritePolicy::Skip);
+                return core::transfer::OverwritePolicy::Skip;
+            case dialogs::OverwriteDialog::Action::Rename:
+                // TODO: реализовать переименование (пока — пропустить)
+                return core::transfer::OverwritePolicy::Skip;
+            case dialogs::OverwriteDialog::Action::Cancel:
+            default:
+                return core::transfer::OverwritePolicy::Cancel;
+            }
         });
 
     m_transferManager->start();
@@ -234,10 +227,11 @@ void ConnectionTab::onSshConnected()
     connect(m_transferManager, &core::transfer::TransferManager::transferStarted,
             m_progressDlg, &dialogs::ProgressDialog::trackTransfer);
 
-    // Обновить удалённую панель после каждой завершённой успешной передачи
-    connect(m_transferManager, &core::transfer::TransferManager::transferFinished,
-            this, [this](const QUuid &, bool ok) {
-        if (ok && m_remotePanel)
+    // Обновить удалённую панель только когда очередь полностью опустела —
+    // не после каждого файла, чтобы не гонялись со следующим заданием в воркере.
+    connect(m_transferManager, &core::transfer::TransferManager::overallProgress,
+            this, [this](int /*active*/, int queued) {
+        if (queued == 0 && m_remotePanel)
             m_remotePanel->refresh();
     });
 

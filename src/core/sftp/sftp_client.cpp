@@ -58,6 +58,7 @@ bool SftpClient::init()
 
 SftpDirectory SftpClient::listDirectory(const QString &remotePath)
 {
+    QMutexLocker locker(&m_mutex);
     SftpDirectory result;
     result.path = remotePath;
 
@@ -99,6 +100,7 @@ SftpDirectory SftpClient::listDirectory(const QString &remotePath)
 
 SftpFileInfo SftpClient::stat(const QString &remotePath)
 {
+    QMutexLocker locker(&m_mutex);
     sftp_attributes attr = sftp_stat(m_sftp, remotePath.toUtf8().constData());
     if (!attr) return {};
 
@@ -117,6 +119,7 @@ SftpFileInfo SftpClient::stat(const QString &remotePath)
 bool SftpClient::downloadAsync(const QString &remotePath, const QString &localPath,
                                ProgressCallback progress)
 {
+    QMutexLocker locker(&m_mutex);
     sftp_file remote = sftp_open(m_sftp, remotePath.toUtf8().constData(), O_RDONLY, 0);
     if (!remote) {
         m_lastError = tr("Cannot open remote file: %1").arg(remotePath);
@@ -195,6 +198,7 @@ bool SftpClient::downloadAsync(const QString &remotePath, const QString &localPa
 bool SftpClient::download(const QString &remotePath, const QString &localPath,
                           ProgressCallback progress)
 {
+    QMutexLocker locker(&m_mutex);
     sftp_file remote = sftp_open(m_sftp, remotePath.toUtf8().constData(),
                                  O_RDONLY, 0);
     if (!remote) {
@@ -236,6 +240,7 @@ bool SftpClient::upload(const QString &localPath, const QString &remotePath,
 bool SftpClient::uploadResume(const QString &localPath, const QString &remotePath,
                               qint64 offset, ProgressCallback progress)
 {
+    QMutexLocker locker(&m_mutex);
     QFile local(localPath);
     if (!local.open(QIODevice::ReadOnly)) {
         m_lastError = tr("Cannot open local file: %1").arg(localPath);
@@ -281,6 +286,7 @@ bool SftpClient::uploadResume(const QString &localPath, const QString &remotePat
 
 bool SftpClient::rename(const QString &oldPath, const QString &newPath)
 {
+    QMutexLocker locker(&m_mutex);
     return sftp_rename(m_sftp,
                        oldPath.toUtf8().constData(),
                        newPath.toUtf8().constData()) == SSH_OK;
@@ -288,17 +294,20 @@ bool SftpClient::rename(const QString &oldPath, const QString &newPath)
 
 bool SftpClient::remove(const QString &remotePath)
 {
+    QMutexLocker locker(&m_mutex);
     return sftp_unlink(m_sftp, remotePath.toUtf8().constData()) == SSH_OK;
 }
 
 bool SftpClient::mkdir(const QString &remotePath)
 {
+    QMutexLocker locker(&m_mutex);
     return sftp_mkdir(m_sftp, remotePath.toUtf8().constData(),
                       S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) == SSH_OK;
 }
 
 bool SftpClient::rmdir(const QString &remotePath)
 {
+    QMutexLocker locker(&m_mutex);
     return sftp_rmdir(m_sftp, remotePath.toUtf8().constData()) == SSH_OK;
 }
 
@@ -369,11 +378,13 @@ bool SftpClient::removeRecursive(const QString &remotePath)
 
 bool SftpClient::chmod(const QString &remotePath, uint mode)
 {
+    QMutexLocker locker(&m_mutex);
     return sftp_chmod(m_sftp, remotePath.toUtf8().constData(), mode) == SSH_OK;
 }
 
 QString SftpClient::readlink(const QString &remotePath)
 {
+    QMutexLocker locker(&m_mutex);
     char *target = sftp_readlink(m_sftp, remotePath.toUtf8().constData());
     if (!target) return {};
     QString result = QString::fromUtf8(target);
@@ -383,6 +394,7 @@ QString SftpClient::readlink(const QString &remotePath)
 
 bool SftpClient::symlink(const QString &target, const QString &linkPath)
 {
+    QMutexLocker locker(&m_mutex);
     return sftp_symlink(m_sftp,
                         target.toUtf8().constData(),
                         linkPath.toUtf8().constData()) == SSH_OK;

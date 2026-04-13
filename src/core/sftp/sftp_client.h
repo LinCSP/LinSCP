@@ -2,6 +2,7 @@
 #include <QObject>
 #include <QString>
 #include <QList>
+#include <QMutex>
 #include <functional>
 #include <libssh/sftp.h>
 
@@ -88,9 +89,10 @@ signals:
 private:
     bool init();
 
-    ssh::SshSession *m_session = nullptr;
-    sftp_session     m_sftp    = nullptr;
-    QString          m_lastError;
+    ssh::SshSession     *m_session = nullptr;
+    sftp_session         m_sftp    = nullptr;
+    QString              m_lastError;
+    mutable QRecursiveMutex m_mutex; ///< serialises all libssh calls (sftp_session is not thread-safe)
 
     static constexpr qint64 kChunkSize    = 32768; ///< байт за одну операцию чтения/записи
     static constexpr int    kAsyncWindow  = 8;     ///< число параллельных async-запросов

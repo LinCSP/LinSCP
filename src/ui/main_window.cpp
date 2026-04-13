@@ -38,6 +38,65 @@
 #include <QSettings>
 #include <QDir>
 #include <QCloseEvent>
+#include <QResizeEvent>
+
+// ── Кастомный таб-бар с кнопкой «+» сразу после последней вкладки ─────────────
+
+class AddTabButton : public QToolButton {
+public:
+    explicit AddTabButton(QWidget *parent = nullptr) : QToolButton(parent) {
+        setText(QStringLiteral("+"));
+        setFixedSize(24, 24);
+        setAutoRaise(true);
+        setCursor(Qt::PointingHandCursor);
+        setToolTip(QObject::tr("New connection tab (Ctrl+T)"));
+    }
+};
+
+class TabBarWithAdd : public QTabBar {
+    Q_OBJECT
+public:
+    explicit TabBarWithAdd(QWidget *parent = nullptr)
+        : QTabBar(parent), m_btn(new AddTabButton(this))
+    {
+        setExpanding(false);
+        connect(m_btn, &QToolButton::clicked, this, &TabBarWithAdd::newTabRequested);
+    }
+
+signals:
+    void newTabRequested();
+
+protected:
+    void tabLayoutChange() override { QTabBar::tabLayoutChange(); repositionBtn(); }
+    void resizeEvent(QResizeEvent *e) override { QTabBar::resizeEvent(e); repositionBtn(); }
+    void showEvent(QShowEvent *e)    override { QTabBar::showEvent(e);    repositionBtn(); }
+
+private:
+    void repositionBtn() {
+        int x = 2;
+        for (int i = 0; i < count(); ++i)
+            x = tabRect(i).right() + 1;
+        const int y = (height() - m_btn->height()) / 2;
+        m_btn->move(qMin(x + 3, width() - m_btn->width() - 2), qMax(0, y));
+        m_btn->raise();
+    }
+    AddTabButton *m_btn;
+};
+
+class TabWidgetWithAdd : public QTabWidget {
+    Q_OBJECT
+public:
+    explicit TabWidgetWithAdd(QWidget *parent = nullptr) : QTabWidget(parent) {
+        auto *bar = new TabBarWithAdd(this);
+        setTabBar(bar);
+        connect(bar, &TabBarWithAdd::newTabRequested,
+                this, &TabWidgetWithAdd::newTabRequested);
+    }
+signals:
+    void newTabRequested();
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 namespace linscp::ui {
 
@@ -92,19 +151,14 @@ MainWindow::~MainWindow()
 void MainWindow::setupUi()
 {
     slog("[setupUi] start");
-    m_tabWidget = new QTabWidget(this);
+    auto *tabWidgetWithAdd = new TabWidgetWithAdd(this);
+    m_tabWidget = tabWidgetWithAdd;
     m_tabWidget->setTabsClosable(false); // кастомные кнопки добавляем вручную
     m_tabWidget->setMovable(true);
     m_tabWidget->setDocumentMode(true);
+    connect(tabWidgetWithAdd, &TabWidgetWithAdd::newTabRequested,
+            this, &MainWindow::onNewTab);
     slog("[setupUi] tabWidget created");
-
-    // Кнопка "+" для нового таба
-    auto *newTabBtn = new QToolButton(m_tabWidget);
-    newTabBtn->setText("+");
-    newTabBtn->setToolTip(tr("New connection tab"));
-    newTabBtn->setAutoRaise(true);
-    m_tabWidget->setCornerWidget(newTabBtn, Qt::TopRightCorner);
-    connect(newTabBtn, &QToolButton::clicked, this, &MainWindow::onNewTab);
 
     connect(m_tabWidget, &QTabWidget::tabCloseRequested, this, &MainWindow::onCloseTab);
     connect(m_tabWidget, &QTabWidget::currentChanged,    this, &MainWindow::onTabChanged);
@@ -607,3 +661,6 @@ void MainWindow::restoreWindowState()
 }
 
 } // namespace linscp::ui
+
+// TabBarWithAdd / TabWidgetWithAdd определены в этом .cpp с Q_OBJECT
+#include "main_window.moc"
