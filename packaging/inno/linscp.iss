@@ -29,8 +29,8 @@ WizardStyle=modern
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayName={#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
-; Installer/uninstaller wizard icon (path relative to this .iss file)
-SetupIconFile=..\..\packaging\windows\linscp.ico
+; Path relative to SourceDir (repo root)
+SetupIconFile=packaging\windows\linscp.ico
 ; Source path is relative to the location of this .iss file
 SourceDir=..\..\
 

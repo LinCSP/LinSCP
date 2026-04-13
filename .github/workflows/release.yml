@@ -282,7 +282,7 @@ jobs:
           path: build/packages/*.rpm
           if-no-files-found: error
 
-  # ─── Windows NSIS installer (x64, MSVC) ─────────────────────────────────────
+  # ─── Windows Inno Setup installer (x64, MSVC) ───────────────────────────────
   windows:
     name: Windows (.exe installer, x64)
     runs-on: windows-latest
