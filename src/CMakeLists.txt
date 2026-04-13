@@ -97,6 +97,10 @@ if(WIN32 AND LINSCP_CONSOLE)
     target_link_options(linscp PRIVATE "/SUBSYSTEM:CONSOLE")
 else()
     qt_add_executable(linscp ${LINSCP_SOURCES})       # GUI subsystem
+    if(WIN32)
+        set_target_properties(linscp PROPERTIES WIN32_EXECUTABLE TRUE)
+        target_link_options(linscp PRIVATE "/SUBSYSTEM:WINDOWS")
+    endif()
 endif()
 
 set_target_properties(linscp PROPERTIES
