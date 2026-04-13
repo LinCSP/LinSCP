@@ -29,6 +29,8 @@ WizardStyle=modern
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayName={#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
+; Installer/uninstaller wizard icon (path relative to this .iss file)
+SetupIconFile=..\..\packaging\windows\linscp.ico
 ; Source path is relative to the location of this .iss file
 SourceDir=..\..\
 
@@ -46,10 +48,13 @@ Source: "deploy\*"; DestDir: "{app}"; \
   Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{group}\{#MyAppName}";                    Filename: "{app}\{#MyAppExeName}"
+; IconFilename is optional — Windows reads the icon from the EXE resource (ID 1).
+; Listed explicitly so the entry is self-documenting.
+Name: "{group}\{#MyAppName}";                       Filename: "{app}\{#MyAppExeName}"; \
+  IconFilename: "{app}\{#MyAppExeName}"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
-Name: "{autodesktop}\{#MyAppName}";              Filename: "{app}\{#MyAppExeName}"; \
-  Tasks: desktopicon
+Name: "{autodesktop}\{#MyAppName}";                 Filename: "{app}\{#MyAppExeName}"; \
+  IconFilename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
 ; Install MSVC runtime silently if bundled by windeployqt

@@ -45,6 +45,16 @@ jobs:
           aqt install-qt windows desktop ${{ env.QT_VERSION }} win64_msvc2019_64 `
             -O "${{ runner.temp }}\Qt"
 
+      # ── Application icon: SVG → multi-resolution ICO ────────────────────────
+      - name: Generate linscp.ico from SVG
+        run: |
+          New-Item -ItemType Directory -Force -Path packaging\windows | Out-Null
+          magick -background none packaging\appimage\linscp.svg `
+            -define icon:auto-resize=256,128,64,48,32,16 `
+            packaging\windows\linscp.ico
+          $size = (Get-Item packaging\windows\linscp.ico).Length
+          Write-Host "linscp.ico generated — $size bytes"
+
       # RelWithDebInfo — release CRT (no ucrtbased.dll)
       # LINSCP_STARTLOG=1 writes linscp_startup.log next to the .exe — works for any subsystem
       - name: Configure (RelWithDebInfo, startup log)
