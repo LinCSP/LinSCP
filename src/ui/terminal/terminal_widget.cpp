@@ -10,7 +10,6 @@
 #include <QDir>
 #include <QFile>
 #include <QFileDevice>
-#include <QProcessEnvironment>
 #include <QStandardPaths>
 #include <QTimer>
 #include <QUuid>
@@ -133,51 +132,13 @@ void TerminalWidget::onLaunchClicked()
         return;
     }
 
+    // Парольная аутентификация без ключа: вставить sshpass перед ssh.
+    // putty обрабатывает пароль самостоятельно через -pw (buildCommand).
+    if (!m_password.isEmpty() && m_keyPath.isEmpty())
+        injectSshpass(args);
+
     delete m_process;
     m_process = new QProcess(this);
-
-    // Передать пароль через SSH_ASKPASS если аутентификация парольная.
-    // QTemporaryFile::close() не закрывает FD (намеренное поведение Qt),
-    // поэтому используем обычный QFile — у него close() реально освобождает FD,
-    // иначе дочерний процесс наследует write-FD и ssh получает ETXTBSY при exec.
-    if (!m_password.isEmpty() && m_keyPath.isEmpty()) {
-        // Удалить предыдущий скрипт если остался
-        if (!m_askpassPath.isEmpty()) {
-            QFile::remove(m_askpassPath);
-            m_askpassPath.clear();
-        }
-
-        const QString path = QDir::tempPath()
-            + QStringLiteral("/linscp_askpass_%1.sh")
-                  .arg(QUuid::createUuid().toString(QUuid::WithoutBraces).left(8));
-
-        QFile f(path);
-        if (f.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            // Экранируем одиночные кавычки в пароле
-            QString safePass = m_password;
-            safePass.replace(QStringLiteral("'"), QStringLiteral("'\\''"));
-            f.write(QStringLiteral("#!/bin/sh\nprintf '%1'\n").arg(safePass).toUtf8());
-            f.close();  // QFile::close() реально закрывает FD
-
-            QFile::setPermissions(path, QFileDevice::ReadOwner
-                                      | QFileDevice::WriteOwner
-                                      | QFileDevice::ExeOwner);
-            m_askpassPath = path;
-
-            QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-            env.insert(QStringLiteral("SSH_ASKPASS"),         path);
-            env.insert(QStringLiteral("SSH_ASKPASS_REQUIRE"), QStringLiteral("force"));
-            m_process->setProcessEnvironment(env);
-
-            // Удалить скрипт через 30 с — SSH к тому времени уже прочитал пароль
-            QTimer::singleShot(30000, this, [this]() {
-                if (!m_askpassPath.isEmpty()) {
-                    QFile::remove(m_askpassPath);
-                    m_askpassPath.clear();
-                }
-            });
-        }
-    }
 
     connect(m_process, &QProcess::started, this, [this, prog]() {
         updateStatus(tr("Running in %1…  (close the terminal window to stop)").arg(prog));
@@ -188,6 +149,60 @@ void TerminalWidget::onLaunchClicked()
             this, &TerminalWidget::onProcessFinished);
 
     m_process->start(prog, args);
+}
+
+bool TerminalWidget::injectSshpass(QStringList &args)
+{
+    const QString sshpassBin = QStandardPaths::findExecutable(QStringLiteral("sshpass"));
+    if (sshpassBin.isEmpty()) {
+        // sshpass не установлен — SSH сам запросит пароль в терминале
+        return false;
+    }
+
+    // Удалить предыдущий файл, если остался
+    if (!m_passfilePath.isEmpty()) {
+        QFile::remove(m_passfilePath);
+        m_passfilePath.clear();
+    }
+
+    const QString pfPath = QDir::tempPath()
+        + QStringLiteral("/linscp_pass_%1")
+              .arg(QUuid::createUuid().toString(QUuid::WithoutBraces).left(8));
+
+    QFile pf(pfPath);
+    if (!pf.open(QIODevice::WriteOnly | QIODevice::Text))
+        return false;
+    pf.write((m_password + '\n').toUtf8());
+    pf.close();
+    QFile::setPermissions(pfPath, QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+    m_passfilePath = pfPath;
+
+    // Вставить "sshpass -f FILE" перед "ssh" в аргументах.
+    // Большинство эмуляторов: args = [..., "ssh", ssh-flags…]
+    // xfce4-terminal:        args = ["-e", "ssh -p …"]  (вся команда одной строкой)
+    const int sshIdx = args.indexOf(QStringLiteral("ssh"));
+    if (sshIdx >= 0) {
+        args.insert(sshIdx, pfPath);
+        args.insert(sshIdx, QStringLiteral("-f"));
+        args.insert(sshIdx, sshpassBin);
+    } else {
+        // xfce4-terminal: одиночная строка после -e
+        const int eIdx = args.indexOf(QStringLiteral("-e"));
+        if (eIdx >= 0 && eIdx + 1 < args.size()) {
+            args[eIdx + 1] = sshpassBin + QStringLiteral(" -f ") + pfPath
+                             + QStringLiteral(" ") + args[eIdx + 1];
+        }
+    }
+
+    // Удалить файл через 30 с — sshpass читает его в момент аутентификации
+    QTimer::singleShot(30'000, this, [this]() {
+        if (!m_passfilePath.isEmpty()) {
+            QFile::remove(m_passfilePath);
+            m_passfilePath.clear();
+        }
+    });
+
+    return true;
 }
 
 void TerminalWidget::onProcessFinished()
@@ -220,17 +235,29 @@ bool TerminalWidget::buildCommand(QString &program, QStringList &args) const
         if (path.isEmpty()) return false;
         program = path;
         if (bin == "putty") {
+            // putty имеет собственный механизм аутентификации;
+            // -pw передаёт пароль напрямую (видно в ps, но putty иначе не умеет)
             args = { "-ssh", "-P", QString::number(m_port), "-l", m_username };
             if (!m_keyPath.isEmpty()) args << "-i" << m_keyPath;
+            if (!m_password.isEmpty()) args << "-pw" << m_password;
             args << m_host;
-        } else if (bin == "kitty" || bin == "alacritty") {
+        } else if (bin == "kitty") {
+            // kitty: программа передаётся как аргументы напрямую (без -e)
             args = QStringList{ "ssh" } + makeSshArgs();
+        } else if (bin == "alacritty") {
+            args = QStringList{ "-e", "ssh" } + makeSshArgs();
         } else if (bin == "xfce4-terminal") {
+            // xfce4-terminal -e принимает команду одной строкой
             args = { "-e", "ssh " + makeSshArgs().join(' ') };
         } else if (bin == "gnome-terminal") {
-            args = QStringList{ "--" , "ssh" } + makeSshArgs();
+            args = QStringList{ "--", "ssh" } + makeSshArgs();
+        } else if (bin == "konsole") {
+            // --nofork: не передавать вкладку существующему процессу konsole.
+            // Без него konsole-лаунчер сразу выходит → QProcess теряет трекинг,
+            // temp-файл пароля удаляется до того как sshpass успевает его прочитать.
+            args = QStringList{ "--nofork", "-e", "ssh" } + makeSshArgs();
         } else {
-            // xterm, konsole, lxterminal, mate-terminal, tilix…
+            // xterm, lxterminal, mate-terminal, tilix…
             args = QStringList{ "-e", "ssh" } + makeSshArgs();
         }
         return true;

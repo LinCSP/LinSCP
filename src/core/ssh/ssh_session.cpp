@@ -247,24 +247,35 @@ SshChannel *SshSession::openChannel(ChannelType type)
 
 QString SshSession::execCommand(const QString &cmd)
 {
-    SshChannel *ch = openChannel(ChannelType::Exec);
+    // Намеренно не используем QObject-обёртку SshChannel: этот метод вызывается
+    // из воркер-потоков (SftpClient, Checksum), а SshSession живёт в UI-потоке.
+    // Создание QObject-дочернего объекта из чужого потока — UB в Qt.
+    if (m_state != SessionState::Connected) return {};
+
+    ssh_channel ch = ssh_channel_new(m_session);
     if (!ch) return {};
 
-    if (ssh_channel_request_exec(ch->handle(), cmd.toUtf8().constData()) != SSH_OK) {
-        ch->close();
-        ch->deleteLater();
+    if (ssh_channel_open_session(ch) != SSH_OK) {
+        ssh_channel_free(ch);
+        return {};
+    }
+
+    if (ssh_channel_request_exec(ch, cmd.toUtf8().constData()) != SSH_OK) {
+        ssh_channel_send_eof(ch);
+        ssh_channel_close(ch);
+        ssh_channel_free(ch);
         return {};
     }
 
     QByteArray output;
     char buf[4096];
     int nbytes;
-    while ((nbytes = ssh_channel_read(ch->handle(), buf, sizeof(buf), 0)) > 0) {
+    while ((nbytes = ssh_channel_read(ch, buf, sizeof(buf), 0)) > 0)
         output.append(buf, nbytes);
-    }
 
-    ch->close();
-    ch->deleteLater();
+    ssh_channel_send_eof(ch);
+    ssh_channel_close(ch);
+    ssh_channel_free(ch);
     return QString::fromUtf8(output).trimmed();
 }
 

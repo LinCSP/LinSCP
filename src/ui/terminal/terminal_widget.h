@@ -45,18 +45,19 @@ private slots:
 private:
     void setupUi();
     bool buildCommand(QString &program, QStringList &args) const;
+    bool injectSshpass(QStringList &args);   ///< вставляет sshpass перед ssh; создаёт temp-файл
     void updateStatus(const QString &text, bool isError = false);
 
     QString  m_host;
     quint16  m_port     = 22;
     QString  m_username;
     QString  m_keyPath;
-    QString  m_password;   ///< пусто → не используем SSH_ASKPASS
+    QString  m_password;   ///< пусто → ключевая / агентная аутентификация
 
     QPushButton *m_btnLaunch  = nullptr;
     QLabel      *m_statusLbl  = nullptr;
     QProcess    *m_process    = nullptr;
-    QString      m_askpassPath;  ///< путь к временному askpass-скрипту
+    QString      m_passfilePath;  ///< путь к временному файлу пароля для sshpass
 };
 
 } // namespace linscp::ui::terminal
