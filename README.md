@@ -69,18 +69,19 @@ xattr -rd com.apple.quarantine LinSCP-*.dmg
 
 Optional:
 - **libsecret** — GNOME Keyring / KWallet integration (`-DWITH_KEYRING=ON`)
+- **sshpass** — required for password-based authentication in the external terminal (key/agent auth works without it)
 
 ## Building
 
 ```bash
 # Install dependencies (Arch Linux)
-sudo pacman -S qt6-base cmake libssh openssl ninja
+sudo pacman -S qt6-base cmake libssh openssl ninja sshpass
 
 # Install dependencies (Ubuntu 24.04 / Debian 12)
-sudo apt install qt6-base-dev cmake libssh-dev libssl-dev ninja-build
+sudo apt install qt6-base-dev cmake libssh-dev libssl-dev ninja-build sshpass
 
 # Install dependencies (Fedora 39+)
-sudo dnf install qt6-qtbase-devel cmake libssh-devel openssl-devel ninja-build
+sudo dnf install qt6-qtbase-devel cmake libssh-devel openssl-devel ninja-build sshpass
 
 # Clone and build
 git clone https://github.com/LinCSP/LinSCP.git
@@ -203,6 +204,27 @@ LinSCP does not embed a terminal emulator. Instead, it launches your preferred t
 | Custom   | via Preferences |
 
 Press **F9** or use **Session → Open Terminal** to open the terminal for the current session.
+
+### Password authentication
+
+When connecting with a password (not a key or SSH agent), LinSCP uses **`sshpass`** to pass the
+password to the SSH process non-interactively. Without `sshpass`, the terminal will open but SSH
+will prompt for the password manually.
+
+Install `sshpass` if it is not already present:
+
+```bash
+# Arch Linux
+sudo pacman -S sshpass
+
+# Ubuntu / Debian
+sudo apt install sshpass
+
+# Fedora / RHEL
+sudo dnf install sshpass
+```
+
+Key-based and SSH agent authentication do not require `sshpass`.
 
 ## Running tests
 
