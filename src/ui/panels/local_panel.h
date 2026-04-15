@@ -26,6 +26,14 @@ public:
     void setShowHiddenFiles(bool show) override;
     bool showHiddenFiles() const override { return m_showHidden; }
 
+    /// Восстановить сортировку (column — индекс, order — Qt::SortOrder as int)
+    void applySortState(int column, int order);
+    int  sortColumn() const;
+    int  sortOrder()  const;
+
+signals:
+    void sortStateChanged(int column, int order);
+
 protected:
     void onItemActivated(const QModelIndex &index) override;
     void populateContextMenu(QMenu *menu, const QModelIndex &index) override;

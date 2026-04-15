@@ -168,6 +168,20 @@ void RemoteFsModel::loadDirectory(Node *node)
         QMetaObject::invokeMethod(this, [this, node, dir = std::move(dir), gen]() mutable {
             if (gen != m_generation) return;
 
+            if (dir.hasError) {
+                // Листинг не удался (сессия оборвана, нет прав, …).
+                // Вызываем begin/endResetModel чтобы не оставить модель в незавершённом
+                // состоянии (beginResetModel уже вызван в refresh()), и сигналим ошибку.
+                node->loading = false;
+                // НЕ помечаем loaded=true — следующий вручную вызванный refresh()
+                // сделает ещё одну попытку загрузить директорию.
+                beginResetModel();
+                node->children.clear();
+                endResetModel();
+                emit errorOccurred(dir.errorMessage);
+                return;
+            }
+
             beginResetModel();
 
             node->children.clear();

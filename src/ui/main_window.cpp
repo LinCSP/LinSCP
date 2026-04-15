@@ -441,6 +441,14 @@ ConnectionTab *MainWindow::addConnectionTab(const QString &title)
             tab->remotePanel()->setShowHiddenFiles(true);
     }
 
+    // Немедленно сохранять сортировку локальной панели при изменении
+    connect(tab->localPanel(), &panels::LocalPanel::sortStateChanged,
+            tab, [](int col, int ord) {
+        QSettings s("LinSCP", "LinSCP");
+        s.setValue("localSortColumn", col);
+        s.setValue("localSortOrder",  ord);
+    });
+
     connect(tab, &ConnectionTab::titleChanged, this, [this, tab](const QString &t) {
         const int i = m_tabWidget->indexOf(tab);
         if (i >= 0) m_tabWidget->setTabText(i, t);
@@ -647,6 +655,12 @@ void MainWindow::saveWindowState()
     s.setValue("vertSplitter", m_vertSplitter->saveState());
     if (m_showHiddenAction)
         s.setValue("showHiddenFiles", m_showHiddenAction->isChecked());
+
+    // Сортировка локальной панели (глобальная, не зависит от сессии)
+    if (auto *tab = currentTab(); tab && tab->localPanel()) {
+        s.setValue("localSortColumn", tab->localPanel()->sortColumn());
+        s.setValue("localSortOrder",  tab->localPanel()->sortOrder());
+    }
 }
 
 void MainWindow::restoreWindowState()
@@ -658,6 +672,15 @@ void MainWindow::restoreWindowState()
         s.value("vertSplitter").toByteArray());
     if (m_showHiddenAction && s.contains("showHiddenFiles"))
         m_showHiddenAction->setChecked(s.value("showHiddenFiles").toBool());
+
+    // Сортировка локальной панели
+    if (s.contains("localSortColumn")) {
+        if (auto *tab = currentTab(); tab && tab->localPanel()) {
+            tab->localPanel()->applySortState(
+                s.value("localSortColumn", 0).toInt(),
+                s.value("localSortOrder",  0).toInt());
+        }
+    }
 }
 
 } // namespace linscp::ui

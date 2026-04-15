@@ -169,11 +169,19 @@ void TransferManager::runItem(const TransferItem &item)
                        err);
 
     QMetaObject::invokeMethod(this, [this, id = item.id, ok]() {
-        int queued = 0;
+        // Считаем ВСЕ незавершённые задания: Queued + InProgress.
+        // Только Queued недостаточно — воркер мог уже поставить следующий элемент
+        // в InProgress до того, как этот invokeMethod обработается в UI-потоке.
+        // Если считать только Queued, overallProgress(0,0) срабатывает преждевременно
+        // (пока ещё идёт передача), вызывает лишний refresh() и из-за
+        // конфликта m_generation панель остаётся пустой.
+        int remaining = 0;
         for (const auto &it : m_queue->items())
-            if (it.status == TransferStatus::Queued) ++queued;
+            if (it.status == TransferStatus::Queued ||
+                it.status == TransferStatus::InProgress)
+                ++remaining;
         emit transferFinished(id, ok);
-        emit overallProgress(0, queued);
+        emit overallProgress(0, remaining);
     }, Qt::QueuedConnection);
 }
 

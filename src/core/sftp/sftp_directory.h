@@ -9,6 +9,8 @@ namespace linscp::core::sftp {
 struct SftpDirectory {
     QString           path;
     QList<SftpFileInfo> entries;
+    bool              hasError    = false; ///< true если листинг не удался
+    QString           errorMessage;        ///< сообщение об ошибке (при hasError)
 
     /// Только файлы (без директорий)
     QList<SftpFileInfo> files() const;

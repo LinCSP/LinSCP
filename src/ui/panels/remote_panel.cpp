@@ -53,6 +53,12 @@ RemotePanel::RemotePanel(core::sftp::SftpClient *sftp,
             this, &RemotePanel::onLoadingStarted);
     connect(m_model, &models::RemoteFsModel::loadingFinished,
             this, &RemotePanel::onLoadingFinished);
+    connect(m_model, &models::RemoteFsModel::errorOccurred,
+            this, [this](const QString &msg) {
+        // Показываем ошибку в строке состояния панели; при следующем
+        // ручном обновлении (Ctrl+R / кнопка) будет ещё одна попытка загрузки.
+        statusBar()->setText(tr("Error: %1").arg(msg));
+    });
 
     // Сортировка по клику на заголовок — in-memory, без SFTP-запроса
     connect(hdr, &QHeaderView::sectionClicked, this, [this, hdr](int logicalIndex) {
@@ -63,6 +69,7 @@ RemotePanel::RemotePanel(core::sftp::SftpClient *sftp,
             order = Qt::DescendingOrder;
         hdr->setSortIndicator(logicalIndex, order);
         m_model->setSortColumn(col, order);
+        emit sortStateChanged(logicalIndex, static_cast<int>(order));
     });
     hdr->setSortIndicatorShown(true);
     hdr->setSortIndicator(models::RemoteFsModel::ColName, Qt::AscendingOrder);
@@ -401,6 +408,25 @@ void RemotePanel::setShowHiddenFiles(bool show)
 {
     m_showHidden = show;
     m_model->setShowHidden(show);
+}
+
+void RemotePanel::applySortState(int column, int order)
+{
+    const auto col = static_cast<models::RemoteFsModel::Column>(column);
+    const auto ord = static_cast<Qt::SortOrder>(order);
+    listView()->header()->setSortIndicator(column, ord);
+    m_model->setSortColumn(col, ord);
+    // Не эмитим sortStateChanged — это восстановление, а не действие пользователя
+}
+
+int RemotePanel::sortColumn() const
+{
+    return listView()->header()->sortIndicatorSection();
+}
+
+int RemotePanel::sortOrder() const
+{
+    return static_cast<int>(listView()->header()->sortIndicatorOrder());
 }
 
 } // namespace linscp::ui::panels

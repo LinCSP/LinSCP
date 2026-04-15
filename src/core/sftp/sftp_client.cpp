@@ -64,8 +64,12 @@ SftpDirectory SftpClient::listDirectory(const QString &remotePath)
 
     sftp_dir dir = sftp_opendir(m_sftp, remotePath.toUtf8().constData());
     if (!dir) {
-        m_lastError = tr("Cannot open directory: %1").arg(remotePath);
+        m_lastError = tr("Cannot open directory: %1 (SFTP error %2)")
+                          .arg(remotePath)
+                          .arg(sftp_get_error(m_sftp));
         emit errorOccurred(m_lastError);
+        result.hasError     = true;
+        result.errorMessage = m_lastError;
         return result;
     }
 
@@ -119,6 +123,10 @@ SftpFileInfo SftpClient::stat(const QString &remotePath)
 bool SftpClient::downloadAsync(const QString &remotePath, const QString &localPath,
                                ProgressCallback progress)
 {
+    // stat() вызываем до захвата мьютекса: избегаем лишней рекурсии блокировки
+    // и не держим sftp-сессию занятой в момент открытия локального файла.
+    const qint64 total = stat(remotePath).size;
+
     QMutexLocker locker(&m_mutex);
     sftp_file remote = sftp_open(m_sftp, remotePath.toUtf8().constData(), O_RDONLY, 0);
     if (!remote) {
@@ -137,8 +145,6 @@ bool SftpClient::downloadAsync(const QString &remotePath, const QString &localPa
 
     // Включаем async-режим: без блокировки на read
     sftp_file_set_nonblocking(remote);
-
-    const qint64 total = stat(remotePath).size;
     TransferProgress tp; tp.total = total;
 
     // Конвейер: kAsyncWindow параллельных запросов → собираем по очереди.
@@ -198,6 +204,9 @@ bool SftpClient::downloadAsync(const QString &remotePath, const QString &localPa
 bool SftpClient::download(const QString &remotePath, const QString &localPath,
                           ProgressCallback progress)
 {
+    // stat() до захвата мьютекса — не держим блокировку во время двух запросов
+    const qint64 total = stat(remotePath).size;
+
     QMutexLocker locker(&m_mutex);
     sftp_file remote = sftp_open(m_sftp, remotePath.toUtf8().constData(),
                                  O_RDONLY, 0);
@@ -214,8 +223,6 @@ bool SftpClient::download(const QString &remotePath, const QString &localPath,
         emit errorOccurred(m_lastError);
         return false;
     }
-
-    const qint64 total = stat(remotePath).size;
     TransferProgress tp;
     tp.total = total;
 
@@ -316,8 +323,19 @@ bool SftpClient::uploadRecursive(const QString &localPath, const QString &remote
 {
     const QFileInfo fi(localPath);
     if (fi.isDir()) {
-        // Создать директорию на сервере (ошибка игнорируется если уже есть)
-        mkdir(remotePath);
+        if (!mkdir(remotePath)) {
+            // Ошибка mkdir допустима, если директория уже существует.
+            // Во всех других случаях (нет прав, нет родительского пути, …)
+            // дочерние sftp_open тоже упадут — лучше сразу вернуть ошибку.
+            const SftpFileInfo existing = stat(remotePath);
+            if (!existing.isDir) {
+                // Директория не существует И создать не удалось — настоящая ошибка.
+                if (m_lastError.isEmpty())
+                    m_lastError = tr("Cannot create remote directory: %1").arg(remotePath);
+                emit errorOccurred(m_lastError);
+                return false;
+            }
+        }
 
         for (const QString &child :
              QDir(localPath).entryList(QDir::AllEntries | QDir::NoDotAndDotDot)) {

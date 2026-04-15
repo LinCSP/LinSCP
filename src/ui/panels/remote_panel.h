@@ -29,6 +29,11 @@ public:
     void        refresh() override;
     QStringList selectedPaths() const override;
 
+signals:
+    /// Испускается при каждом изменении колонки или порядка сортировки
+    void sortStateChanged(int column, int order);
+
+public:
     void actionCopy()   override;   ///< F5 → Download выбранных файлов
     void actionMove()   override;   ///< F6 → Download + Delete remote
     void actionRename() override;
@@ -37,6 +42,13 @@ public:
 
     void setShowHiddenFiles(bool show) override;
     bool showHiddenFiles() const override { return m_showHidden; }
+
+    /// Восстановить сортировку (column — RemoteFsModel::Column, order — Qt::SortOrder)
+    void applySortState(int column, int order);
+    /// Текущая колонка сортировки (RemoteFsModel::Column)
+    int  sortColumn() const;
+    /// Текущий порядок сортировки (Qt::SortOrder cast to int)
+    int  sortOrder() const;
 
     /// Показывает CopyDialog, затем ставит в очередь загрузку выбранных файлов.
     /// @param localDest  если пуст — спрашивает через CopyDialog

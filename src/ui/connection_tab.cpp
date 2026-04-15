@@ -297,6 +297,15 @@ void ConnectionTab::onSshConnected()
             state.remotePath = path;
             m_pathState->save(m_profileId, state);
         });
+
+        // Сохранять сортировку удалённой панели при изменении пользователем
+        connect(m_remotePanel, &panels::RemotePanel::sortStateChanged,
+                this, [this](int col, int ord) {
+            auto state = m_pathState->load(m_profileId);
+            state.remoteSortColumn = col;
+            state.remoteSortOrder  = ord;
+            m_pathState->save(m_profileId, state);
+        });
     }
 
     const auto profile = m_store->find(m_profileId);
@@ -320,6 +329,10 @@ void ConnectionTab::onSshConnected()
                                               ? QStringLiteral("/")
                                               : profile.initialRemotePath);
         m_remotePanel->navigateTo(remotePath);
+
+        // Восстановить сортировку удалённой панели
+        if (state.remoteSortColumn != 0 || state.remoteSortOrder != 0)
+            m_remotePanel->applySortState(state.remoteSortColumn, state.remoteSortOrder);
     } else {
         m_remotePanel->navigateTo(
             profile.initialRemotePath.isEmpty() ? QStringLiteral("/") : profile.initialRemotePath);

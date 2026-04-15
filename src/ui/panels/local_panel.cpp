@@ -102,6 +102,12 @@ LocalPanel::LocalPanel(QWidget *parent)
         breadcrumb()->setPath(path);
         emit pathChanged(path);
     });
+
+    // Сигналим при смене сортировки — чтобы MainWindow мог сохранить в QSettings
+    connect(listView()->header(), &QHeaderView::sortIndicatorChanged,
+            this, [this](int col, Qt::SortOrder ord) {
+        emit sortStateChanged(col, static_cast<int>(ord));
+    });
 }
 
 // ── Навигация ─────────────────────────────────────────────────────────────────
@@ -313,6 +319,26 @@ void LocalPanel::setShowHiddenFiles(bool show)
     else
         f &= ~QDir::Hidden;
     m_model->setFilter(f);
+}
+
+// ── Сортировка ────────────────────────────────────────────────────────────────
+
+void LocalPanel::applySortState(int column, int order)
+{
+    const auto ord = static_cast<Qt::SortOrder>(order);
+    listView()->header()->setSortIndicator(column, ord);
+    // QFileSystemModel сортируется через стандартный механизм QTreeView
+    listView()->sortByColumn(column, ord);
+}
+
+int LocalPanel::sortColumn() const
+{
+    return listView()->header()->sortIndicatorSection();
+}
+
+int LocalPanel::sortOrder() const
+{
+    return static_cast<int>(listView()->header()->sortIndicatorOrder());
 }
 
 } // namespace linscp::ui::panels

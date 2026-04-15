@@ -8,6 +8,10 @@ namespace linscp::core::session {
 struct PathState {
     QString localPath;
     QString remotePath;
+
+    // Сортировка удалённой панели (сохраняется на сессию)
+    int     remoteSortColumn = 0; ///< индекс колонки (RemoteFsModel::Column)
+    int     remoteSortOrder  = 0; ///< 0 = Qt::AscendingOrder, 1 = Descending
 };
 
 /// Хранит последние открытые пути (local + remote) для каждой сессии.
