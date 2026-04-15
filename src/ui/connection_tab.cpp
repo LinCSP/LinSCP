@@ -9,7 +9,9 @@
 #include "core/session/session_store.h"
 #include "core/session/session_manager.h"
 #include "core/session/session_profile.h"
+#include "core/session/session_logger.h"
 #include "core/session/path_state_store.h"
+#include "core/app_settings.h"
 #include "core/ssh/ssh_session.h"
 #include "core/sftp/sftp_client.h"
 #include "core/transfer/transfer_manager.h"
@@ -54,6 +56,7 @@ ConnectionTab::~ConnectionTab()
     // creates a new QLabel(this) while 'this' is already being destroyed.
     // Qt destroys all child widgets automatically; we only need to tear down
     // non-widget resources and close the SSH session.
+    if (m_logger) { m_logger->stop(); delete m_logger; m_logger = nullptr; }
     delete m_progressDlg;     m_progressDlg     = nullptr;
     delete m_transferManager; m_transferManager = nullptr;
     delete m_syncEngine;      m_syncEngine      = nullptr;
@@ -86,6 +89,16 @@ void ConnectionTab::connectToSession(const QUuid &profileId)
     if (!sshSession) {
         emit statusChanged(tr("Failed to create session"));
         return;
+    }
+
+    // Запустить лог сессии (до аутентификации — чтобы поймать все logMessage)
+    if (core::AppSettings::sessionLogEnabled()) {
+        if (!m_logger)
+            m_logger = new core::session::SessionLogger(this);
+        const auto prof = m_store->find(profileId);
+        m_logger->start(prof.host, prof.username);
+        connect(sshSession, &core::ssh::SshSession::logMessage,
+                m_logger, &core::session::SessionLogger::log);
     }
 
     auto *authDlg = new dialogs::AuthDialog(sshSession, this);
@@ -134,6 +147,7 @@ void ConnectionTab::connectToProfile(const core::session::SessionProfile &profil
 
 void ConnectionTab::disconnectSession()
 {
+    if (m_logger) { m_logger->stop(); delete m_logger; m_logger = nullptr; }
     delete m_progressDlg;     m_progressDlg     = nullptr;
     delete m_transferManager; m_transferManager = nullptr;
     delete m_syncEngine;      m_syncEngine      = nullptr;
@@ -221,6 +235,26 @@ void ConnectionTab::onSshConnected()
         });
 
     m_transferManager->start();
+
+    // Логировать передачи если лог включён
+    if (m_logger) {
+        connect(m_transferManager, &core::transfer::TransferManager::transferStarted,
+                this, [this](const QUuid &id) {
+            const auto item = m_sharedQueue->item(id);
+            const QString direction = (item.direction == core::transfer::TransferDirection::Upload)
+                                          ? tr("Upload") : tr("Download");
+            m_logger->log(tr("%1 started: %2").arg(direction, item.remotePath));
+        });
+        connect(m_transferManager, &core::transfer::TransferManager::transferFinished,
+                this, [this](const QUuid &id, bool success) {
+            const auto item = m_sharedQueue->item(id);
+            const QString direction = (item.direction == core::transfer::TransferDirection::Upload)
+                                          ? tr("Upload") : tr("Download");
+            m_logger->log(success
+                ? tr("%1 finished: %2").arg(direction, item.remotePath)
+                : tr("%1 failed: %2").arg(direction, item.remotePath));
+        });
+    }
 
     m_progressDlg = new dialogs::ProgressDialog(
         m_transferManager, m_sharedQueue, this);

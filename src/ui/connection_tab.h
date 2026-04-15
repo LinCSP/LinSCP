@@ -7,7 +7,7 @@
 
 class QSplitter;
 
-namespace linscp::core::session { class SessionStore; class SessionManager; class PathStateStore; }
+namespace linscp::core::session { class SessionStore; class SessionManager; class PathStateStore; class SessionLogger; }
 namespace linscp::core::transfer { class TransferQueue; class TransferManager; }
 namespace linscp::core::sftp    { class SftpClient; }
 namespace linscp::core::sync    { class SyncEngine; }
@@ -71,6 +71,7 @@ private:
     QUuid   m_tempProfileId;
     QString m_title = tr("Not connected");
     std::unique_ptr<core::session::SessionManager> m_sessionManager;
+    core::session::SessionLogger      *m_logger          = nullptr;
     core::sftp::SftpClient           *m_sftp            = nullptr;
     core::transfer::TransferManager  *m_transferManager = nullptr;
     core::sync::SyncEngine           *m_syncEngine      = nullptr;

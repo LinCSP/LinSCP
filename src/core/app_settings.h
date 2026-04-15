@@ -61,6 +61,14 @@ public:
     static int  maxConcurrentTransfers();
     static void setMaxConcurrentTransfers(int n);
 
+    // ── Лог сессии ────────────────────────────────────────────────────────────
+    static bool    sessionLogEnabled();
+    static void    setSessionLogEnabled(bool v);
+
+    /// Директория для лог-файлов. Пустая строка → ~/.local/share/linscp/logs
+    static QString sessionLogDir();
+    static void    setSessionLogDir(const QString &dir);
+
     // ── Вспомогательные ───────────────────────────────────────────────────────
 
     /// Имя бинарника для заданного режима (пустая строка для AutoDetect/Custom)

@@ -63,6 +63,7 @@ void PreferencesDialog::setupUi()
     buildPageInterface();
     buildPageTerminal();
     buildPageTransfer();
+    buildPageLogging();
     buildTree();
 
     root->addWidget(splitter, 1);
@@ -100,7 +101,60 @@ void PreferencesDialog::buildTree()
     auto *xfer  = new QTreeWidgetItem(m_tree, { tr("Transfer") });
     xfer->setData(0, Qt::UserRole, 2);
 
+    auto *log   = new QTreeWidgetItem(m_tree, { tr("Logging") });
+    log->setData(0, Qt::UserRole, 3);
+
     m_tree->setCurrentItem(iface);
+}
+
+// ── Страница: Логирование ─────────────────────────────────────────────────────
+
+void PreferencesDialog::buildPageLogging()
+{
+    auto *page = new QWidget;
+    auto *vbox = new QVBoxLayout(page);
+    vbox->setContentsMargins(16, 16, 16, 16);
+    vbox->setSpacing(12);
+
+    vbox->addWidget(new QLabel(tr("<b>Logging</b>")));
+
+    auto *grp  = new QGroupBox(tr("Session log"), page);
+    auto *form = new QFormLayout(grp);
+
+    m_logEnabled = new QCheckBox(tr("Enable session log"), grp);
+    form->addRow(m_logEnabled);
+
+    auto *dirRow = new QHBoxLayout;
+    m_logDir = new QLineEdit(grp);
+    m_logDir->setPlaceholderText(tr("Default: ~/.local/share/linscp/logs"));
+    m_logBrowse = new QPushButton(tr("Browse…"), grp);
+    m_logBrowse->setFixedWidth(80);
+    dirRow->addWidget(m_logDir);
+    dirRow->addWidget(m_logBrowse);
+    form->addRow(tr("Directory:"), dirRow);
+
+    m_logHint = new QLabel(
+        tr("<i>Each session creates a separate file: YYYYMMDD_HHmmss_user@host.log</i>"),
+        grp);
+    m_logHint->setTextFormat(Qt::RichText);
+    m_logHint->setWordWrap(true);
+    m_logHint->setStyleSheet("font-size: 11px; color: palette(mid);");
+    form->addRow(m_logHint);
+
+    vbox->addWidget(grp);
+    vbox->addStretch(1);
+
+    m_stack->addWidget(page);   // index 3
+
+    connect(m_logBrowse, &QPushButton::clicked, this, [this]() {
+        const QString dir = QFileDialog::getExistingDirectory(
+            this, tr("Select log directory"),
+            m_logDir->text().isEmpty()
+                ? QStandardPaths::writableLocation(QStandardPaths::HomeLocation)
+                : m_logDir->text());
+        if (!dir.isEmpty())
+            m_logDir->setText(dir);
+    });
 }
 
 // ── Страница: Интерфейс ───────────────────────────────────────────────────────
@@ -323,6 +377,10 @@ void PreferencesDialog::loadSettings()
 
     // Transfer
     m_maxConcurrent->setValue(AppSettings::maxConcurrentTransfers());
+
+    // Logging
+    m_logEnabled->setChecked(AppSettings::sessionLogEnabled());
+    m_logDir->setText(AppSettings::sessionLogDir());
 }
 
 void PreferencesDialog::saveSettings()
@@ -344,6 +402,10 @@ void PreferencesDialog::saveSettings()
 
     // Transfer
     AppSettings::setMaxConcurrentTransfers(m_maxConcurrent->value());
+
+    // Logging
+    AppSettings::setSessionLogEnabled(m_logEnabled->isChecked());
+    AppSettings::setSessionLogDir(m_logDir->text().trimmed());
 }
 
 } // namespace linscp::ui::dialogs

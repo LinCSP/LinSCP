@@ -34,6 +34,7 @@ set(LINSCP_SOURCES
     core/session/session_profile.cpp
     core/session/session_store.cpp
     core/session/session_manager.cpp
+    core/session/session_logger.cpp
     core/session/path_state_store.cpp
     core/session/winscp_importer.cpp
 

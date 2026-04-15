@@ -65,6 +65,14 @@ private:
 
     // ── Страница: Передача данных ─────────────────────────────────────────────
     QSpinBox    *m_maxConcurrent = nullptr;
+
+    // ── Страница: Логирование ─────────────────────────────────────────────────
+    QCheckBox   *m_logEnabled   = nullptr;
+    QLineEdit   *m_logDir       = nullptr;
+    QPushButton *m_logBrowse    = nullptr;
+    QLabel      *m_logHint      = nullptr;
+
+    void buildPageLogging();
 };
 
 } // namespace linscp::ui::dialogs

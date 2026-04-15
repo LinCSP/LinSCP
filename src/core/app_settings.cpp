@@ -126,6 +126,26 @@ void AppSettings::setMaxConcurrentTransfers(int n)
     auto cfg = s(); cfg.setValue("transfer/maxConcurrent", n);
 }
 
+// ── Лог сессии ───────────────────────────────────────────────────────────────
+
+bool AppSettings::sessionLogEnabled()
+{
+    return s().value("log/sessionEnabled", false).toBool();
+}
+void AppSettings::setSessionLogEnabled(bool v)
+{
+    auto cfg = s(); cfg.setValue("log/sessionEnabled", v);
+}
+
+QString AppSettings::sessionLogDir()
+{
+    return s().value("log/sessionDir").toString();
+}
+void AppSettings::setSessionLogDir(const QString &dir)
+{
+    auto cfg = s(); cfg.setValue("log/sessionDir", dir);
+}
+
 // ── Вспомогательные ───────────────────────────────────────────────────────────
 
 QString AppSettings::terminalBinaryForMode(TerminalMode mode)
