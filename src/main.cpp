@@ -28,6 +28,25 @@ int main(int argc, char *argv[])
 {
     installCrashHandler();
     slog("[linscp] main() entered");
+
+    // ── Язык: читаем настройки ДО создания QApplication ──────────────────────
+    // Qt6 фиксирует системный locale при создании QApplication. Поэтому если
+    // пользователь выбрал язык отличный от системного, нужно переопределить
+    // default locale заранее — иначе QFileSystemModel и другие Qt-классы
+    // будут использовать системный язык независимо от наших QTranslator.
+    {
+        QSettings prefs("LinSCP", "LinSCP");
+        if (prefs.contains("language")) {
+            const QString saved = prefs.value("language").toString();
+            // "en" или "" → принудительно C/English, иначе — выбранный язык
+            if (saved.isEmpty() || saved == "en")
+                QLocale::setDefault(QLocale(QLocale::English, QLocale::UnitedStates));
+            else
+                QLocale::setDefault(QLocale(saved));
+        }
+        // Если пользователь ничего не выбирал — системный locale остаётся.
+    }
+
     QApplication app(argc, argv);
     slog("[linscp] QApplication created");
 
@@ -44,18 +63,21 @@ int main(int argc, char *argv[])
 
     // ── Переводы ──────────────────────────────────────────────────────────────
 
-    // 1. Qt стандартные строки (кнопки диалогов и т.д.)
+    const QSettings prefs("LinSCP", "LinSCP");
+    const bool userChoseLang = prefs.contains("language");
+    const QString saved = prefs.value("language").toString(); // "" / "en" = English
+
+    const QLocale appLocale = QLocale(); // уже установлен setDefault выше
+
+    // 1. Qt стандартные строки (кнопки диалогов, QFileSystemModel и т.д.)
+    //    qtbase содержит реальные переводы (~200 КБ), qt — пустышка (~100 байт).
     static QTranslator qtTranslator;
-    if (qtTranslator.load(QLocale::system(), "qt", "_",
+    if (qtTranslator.load(appLocale, "qtbase", "_",
                           QLibraryInfo::path(QLibraryInfo::TranslationsPath)))
         app.installTranslator(&qtTranslator);
 
     // 2. LinSCP: сначала явный выбор пользователя, потом системный locale
     static QTranslator appTranslator;
-    const QSettings prefs("LinSCP", "LinSCP");
-    const bool userChoseLang = prefs.contains("language");
-    const QString saved = prefs.value("language").toString(); // "" / "en" = English
-
     bool loaded = false;
     if (userChoseLang) {
         loaded = loadAppTranslator(appTranslator, saved);

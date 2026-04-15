@@ -18,6 +18,7 @@ public:
     };
 
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
+    QVariant headerData(int section, Qt::Orientation orientation, int role = Qt::DisplayRole) const override;
 
 private:
     std::unique_ptr<linscp::FileIconProvider> m_iconProvider;

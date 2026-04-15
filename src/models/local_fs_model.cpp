@@ -27,4 +27,17 @@ QVariant LocalFsModel::data(const QModelIndex &index, int role) const
     return QFileSystemModel::data(index, role);
 }
 
+QVariant LocalFsModel::headerData(int section, Qt::Orientation orientation, int role) const
+{
+    if (orientation == Qt::Horizontal && role == Qt::DisplayRole) {
+        switch (section) {
+        case 0: return tr("Name");
+        case 1: return tr("Size");
+        case 2: return tr("Type");
+        case 3: return tr("Date Modified");
+        }
+    }
+    return QFileSystemModel::headerData(section, orientation, role);
+}
+
 } // namespace linscp::models
