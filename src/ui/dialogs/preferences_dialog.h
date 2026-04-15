@@ -51,6 +51,7 @@ private:
 
     // ── Страница: Интерфейс ───────────────────────────────────────────────────
     QComboBox *m_langCombo   = nullptr;
+    QComboBox *m_themeCombo  = nullptr;
 
     // ── Страница: Интеграция / Терминал ──────────────────────────────────────
     QComboBox   *m_termMode      = nullptr;

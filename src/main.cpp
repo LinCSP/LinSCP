@@ -5,8 +5,7 @@
 #include <QLocale>
 #include <QLibraryInfo>
 #include <QSettings>
-#include <QStyleFactory>
-#include <QPalette>
+#include "core/app_settings.h"
 #include "ui/main_window.h"
 #include "startup_log.h"
 
@@ -39,16 +38,9 @@ int main(int argc, char *argv[])
     app.setWindowIcon(QIcon(":/icons/linscp.svg"));
     slog("[linscp] app metadata + icon set");
 
-    // Fusion — чистый, современный стиль без зависимости от темы рабочего стола
-    app.setStyle(QStyleFactory::create("Fusion"));
-    slog("[linscp] Fusion style set");
-
-    // Акцентный цвет — тёмно-синий
-    QPalette pal = app.palette();
-    pal.setColor(QPalette::Highlight,       QColor(0x0D6EFD));
-    pal.setColor(QPalette::HighlightedText, Qt::white);
-    app.setPalette(pal);
-    slog("[linscp] palette set");
+    // Применить тему оформления (System / Light / Dark) из настроек
+    linscp::core::AppSettings::applyTheme();
+    slog("[linscp] theme applied");
 
     // ── Переводы ──────────────────────────────────────────────────────────────
 

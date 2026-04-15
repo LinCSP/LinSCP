@@ -126,6 +126,14 @@ void PreferencesDialog::buildPageInterface()
     restartNote->setWordWrap(true);
     form->addRow(restartNote);
 
+    form->addRow(new QLabel);   // spacer
+
+    m_themeCombo = new QComboBox(page);
+    m_themeCombo->addItem(tr("System (follow OS)"),  int(AppSettings::ThemeMode::System));
+    m_themeCombo->addItem(tr("Light"),               int(AppSettings::ThemeMode::Light));
+    m_themeCombo->addItem(tr("Dark"),                int(AppSettings::ThemeMode::Dark));
+    form->addRow(tr("Theme:"), m_themeCombo);
+
     m_stack->addWidget(page);   // index 0
 }
 
@@ -292,6 +300,14 @@ void PreferencesDialog::loadSettings()
         }
     }
 
+    const int themeInt = int(AppSettings::theme());
+    for (int i = 0; i < m_themeCombo->count(); ++i) {
+        if (m_themeCombo->itemData(i).toInt() == themeInt) {
+            m_themeCombo->setCurrentIndex(i);
+            break;
+        }
+    }
+
     // Terminal
     const int modeInt = int(AppSettings::terminalMode());
     for (int i = 0; i < m_termMode->count(); ++i) {
@@ -313,6 +329,9 @@ void PreferencesDialog::saveSettings()
 {
     // Interface
     AppSettings::setLanguage(m_langCombo->currentData().toString());
+    AppSettings::setTheme(
+        static_cast<AppSettings::ThemeMode>(m_themeCombo->currentData().toInt()));
+    AppSettings::applyTheme();
 
     // Terminal
     AppSettings::setTerminalMode(

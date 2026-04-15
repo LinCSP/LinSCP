@@ -14,6 +14,17 @@ public:
     static QString language();
     static void    setLanguage(const QString &code);
 
+    enum class ThemeMode {
+        System = 0,  ///< следовать системной теме
+        Light  = 1,  ///< принудительно светлая
+        Dark   = 2,  ///< принудительно тёмная
+    };
+
+    static ThemeMode theme();
+    static void      setTheme(ThemeMode mode);
+    /// Применить текущую тему к QApplication (вызывать при старте и при смене темы)
+    static void      applyTheme();
+
     // ── Интеграция / Терминал ─────────────────────────────────────────────────
 
     /// Режим выбора терминала
