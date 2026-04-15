@@ -127,9 +127,10 @@ void RemoteFsModel::applySortToNode(Node *node)
 
     std::stable_sort(node->children.begin(), node->children.end(),
         [&](const std::unique_ptr<Node> &a, const std::unique_ptr<Node> &b) {
-            // Директории всегда первые, независимо от порядка
+            // Директории первые при ascending, последние при descending
             if (a->info.isDir != b->info.isDir)
-                return a->info.isDir > b->info.isDir;
+                return asc ? (a->info.isDir > b->info.isDir)
+                           : (a->info.isDir < b->info.isDir);
 
             bool less = false;
             switch (m_sortCol) {
@@ -197,7 +198,8 @@ void RemoteFsModel::loadDirectory(Node *node)
             const bool asc = (m_sortOrder == Qt::AscendingOrder);
             std::stable_sort(entries.begin(), entries.end(),
                 [&](const core::sftp::SftpFileInfo &a, const core::sftp::SftpFileInfo &b) {
-                    if (a.isDir != b.isDir) return a.isDir > b.isDir;
+                    if (a.isDir != b.isDir)
+                        return asc ? (a.isDir > b.isDir) : (a.isDir < b.isDir);
                     bool less = false;
                     switch (m_sortCol) {
                     case ColName:        less = a.name  < b.name;  break;

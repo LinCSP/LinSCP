@@ -326,7 +326,11 @@ void LocalPanel::setShowHiddenFiles(bool show)
 void LocalPanel::applySortState(int column, int order)
 {
     const auto ord = static_cast<Qt::SortOrder>(order);
+    // Блокируем сигналы, чтобы sortIndicatorChanged не триггернул sortStateChanged
+    // (это восстановление состояния, а не действие пользователя)
+    listView()->header()->blockSignals(true);
     listView()->header()->setSortIndicator(column, ord);
+    listView()->header()->blockSignals(false);
     // QFileSystemModel сортируется через стандартный механизм QTreeView
     listView()->sortByColumn(column, ord);
 }

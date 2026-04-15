@@ -449,6 +449,16 @@ ConnectionTab *MainWindow::addConnectionTab(const QString &title)
         s.setValue("localSortOrder",  ord);
     });
 
+    // Восстановить глобальную сортировку локальной панели для нового таба
+    {
+        const QSettings s("LinSCP", "LinSCP");
+        if (s.contains("localSortColumn")) {
+            tab->localPanel()->applySortState(
+                s.value("localSortColumn", 0).toInt(),
+                s.value("localSortOrder",  0).toInt());
+        }
+    }
+
     connect(tab, &ConnectionTab::titleChanged, this, [this, tab](const QString &t) {
         const int i = m_tabWidget->indexOf(tab);
         if (i >= 0) m_tabWidget->setTabText(i, t);

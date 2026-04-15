@@ -60,14 +60,12 @@ RemotePanel::RemotePanel(core::sftp::SftpClient *sftp,
         statusBar()->setText(tr("Error: %1").arg(msg));
     });
 
-    // Сортировка по клику на заголовок — in-memory, без SFTP-запроса
-    connect(hdr, &QHeaderView::sectionClicked, this, [this, hdr](int logicalIndex) {
+    // Сортировка по клику на заголовок — in-memory, без SFTP-запроса.
+    // Используем sortIndicatorChanged: срабатывает ПОСЛЕ того как QHeaderView
+    // сам переключил индикатор, поэтому не нужно вручную вычислять новый порядок.
+    connect(hdr, &QHeaderView::sortIndicatorChanged,
+            this, [this](int logicalIndex, Qt::SortOrder order) {
         const auto col = static_cast<models::RemoteFsModel::Column>(logicalIndex);
-        Qt::SortOrder order = Qt::AscendingOrder;
-        if (hdr->sortIndicatorSection() == logicalIndex
-            && hdr->sortIndicatorOrder() == Qt::AscendingOrder)
-            order = Qt::DescendingOrder;
-        hdr->setSortIndicator(logicalIndex, order);
         m_model->setSortColumn(col, order);
         emit sortStateChanged(logicalIndex, static_cast<int>(order));
     });
@@ -414,9 +412,12 @@ void RemotePanel::applySortState(int column, int order)
 {
     const auto col = static_cast<models::RemoteFsModel::Column>(column);
     const auto ord = static_cast<Qt::SortOrder>(order);
+    // Блокируем сигналы, чтобы sortIndicatorChanged не триггернул sortStateChanged
+    // (это восстановление состояния, а не действие пользователя)
+    listView()->header()->blockSignals(true);
     listView()->header()->setSortIndicator(column, ord);
+    listView()->header()->blockSignals(false);
     m_model->setSortColumn(col, ord);
-    // Не эмитим sortStateChanged — это восстановление, а не действие пользователя
 }
 
 int RemotePanel::sortColumn() const
