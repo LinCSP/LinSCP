@@ -13,7 +13,18 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBSSH REQUIRED libssh>=0.10)
 pkg_check_modules(OPENSSL REQUIRED openssl>=3.0)
 
+option(WITH_WEBDAV   "Build with libneon WebDAV support" ON)
 option(WITH_KEYRING  "Build with libsecret/keyring integration" OFF)
+
+if(WITH_WEBDAV)
+    pkg_check_modules(NEON neon>=0.32)
+    if(NEON_FOUND)
+        add_compile_definitions(WITH_WEBDAV)
+    else()
+        message(WARNING "libneon not found — WebDAV support disabled (install libneon-dev)")
+        set(WITH_WEBDAV OFF)
+    endif()
+endif()
 
 if(WITH_KEYRING)
     pkg_check_modules(LIBSECRET libsecret-1)

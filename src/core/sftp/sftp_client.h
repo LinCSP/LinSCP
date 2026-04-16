@@ -12,16 +12,6 @@
 
 namespace linscp::core::sftp {
 
-/// Прогресс передачи (байты передано / всего)
-struct TransferProgress {
-    qint64 transferred = 0;
-    qint64 total       = 0;
-    int    percent() const {
-        return total > 0 ? static_cast<int>(transferred * 100 / total) : 0;
-    }
-};
-
-using ProgressCallback = std::function<void(const TransferProgress &)>;
 
 /// SFTP-клиент поверх SshSession.
 /// Все методы синхронные — вызывать из воркер-потока (QThreadPool / QFuture).

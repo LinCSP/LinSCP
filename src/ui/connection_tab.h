@@ -12,6 +12,7 @@ namespace linscp::core::transfer { class TransferQueue; class TransferManager; }
 namespace linscp::core::sftp    { class SftpClient; }
 namespace linscp::core::sync    { class SyncEngine; }
 namespace linscp::core::ssh     { class SshSession; enum class HostVerifyResult; }
+namespace linscp::core          { class IRemoteFileSystem; }
 
 namespace linscp::ui {
 
@@ -34,7 +35,7 @@ public:
     void connectToProfile(const core::session::SessionProfile &profile);
     void disconnectSession();
 
-    bool      isConnected() const { return m_sftp != nullptr; }
+    bool      isConnected() const { return m_fs != nullptr; }
     QUuid     profileId()   const { return m_profileId; }
     QString   title()       const { return m_title; }
 
@@ -62,6 +63,8 @@ private slots:
 private:
     void showPlaceholder();
     void replaceRemotePanel(QWidget *w);
+    void connectWebDavProfile(const core::session::SessionProfile &profile);
+    void setupRemotePanel(const core::session::SessionProfile &profile);
 
     core::session::SessionStore    *m_store;
     core::transfer::TransferQueue  *m_sharedQueue;
@@ -72,7 +75,8 @@ private:
     QString m_title = tr("Not connected");
     std::unique_ptr<core::session::SessionManager> m_sessionManager;
     core::session::SessionLogger      *m_logger          = nullptr;
-    core::sftp::SftpClient           *m_sftp            = nullptr;
+    core::IRemoteFileSystem          *m_fs              = nullptr;
+    core::sftp::SftpClient           *m_sftpClient      = nullptr; ///< только для SFTP/SyncEngine
     core::transfer::TransferManager  *m_transferManager = nullptr;
     core::sync::SyncEngine           *m_syncEngine      = nullptr;
 

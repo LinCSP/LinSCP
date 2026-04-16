@@ -1,6 +1,7 @@
 #include "remote_panel.h"
 #include "ui/utils/svg_icon.h"
 #include "models/remote_fs_model.h"
+#include "core/i_remote_file_system.h"
 #include "core/ssh/ssh_session.h"
 #include "core/transfer/transfer_item.h"
 #include "core/transfer/transfer_queue.h"
@@ -24,14 +25,14 @@
 
 namespace linscp::ui::panels {
 
-RemotePanel::RemotePanel(core::sftp::SftpClient *sftp,
+RemotePanel::RemotePanel(core::IRemoteFileSystem *fs,
                          core::transfer::TransferQueue *queue,
                          QWidget *parent)
     : FilePanel(Side::Remote, parent)
-    , m_sftp(sftp)
+    , m_fs(fs)
     , m_queue(queue)
 {
-    m_model = new models::RemoteFsModel(sftp, this);
+    m_model = new models::RemoteFsModel(fs, this);
 
     listView()->setModel(m_model);
     listView()->setRemoteMode(true);    // remote DnD MIME
@@ -133,9 +134,9 @@ void RemotePanel::downloadSelected(const QString &localDest, bool isMove)
             watcher->deleteLater();
             refresh();
         });
-        watcher->setFuture(QtConcurrent::run([sftp = m_sftp, paths]() {
+        watcher->setFuture(QtConcurrent::run([fs = m_fs, paths]() {
             for (const QString &path : paths)
-                sftp->removeRecursive(path);
+                fs->removeRecursive(path);
         }));
     }
 }
@@ -181,7 +182,7 @@ void RemotePanel::actionMkdir()
                                                tr("Folder name:"),
                                                QLineEdit::Normal, {}, &ok);
     if (ok && !name.isEmpty()) {
-        m_sftp->mkdir(currentPath() + '/' + name);
+        m_fs->mkdir(currentPath() + '/' + name);
         refresh();
     }
 }
@@ -202,9 +203,9 @@ void RemotePanel::actionDelete()
         watcher->deleteLater();
         refresh();
     });
-    watcher->setFuture(QtConcurrent::run([sftp = m_sftp, paths]() {
+    watcher->setFuture(QtConcurrent::run([fs = m_fs, paths]() {
         for (const QString &path : paths)
-            sftp->removeRecursive(path);
+            fs->removeRecursive(path);
     }));
 }
 
@@ -219,7 +220,7 @@ void RemotePanel::actionRename()
         QLineEdit::Normal, m_model->fileInfo(idx).name, &ok);
     if (ok && !newName.isEmpty()) {
         const QString newPath = oldPath.section('/', 0, -2) + '/' + newName;
-        m_sftp->rename(oldPath, newPath);
+        m_fs->rename(oldPath, newPath);
         refresh();
     }
 }
@@ -233,7 +234,7 @@ void RemotePanel::onItemActivated(const QModelIndex &index)
         navigateTo(m_model->filePath(index));
     } else {
         // Открыть файл во встроенном редакторе
-        dialogs::RemoteEditorDialog dlg(m_sftp, m_model->filePath(index), this);
+        dialogs::RemoteEditorDialog dlg(m_fs, m_model->filePath(index), this);
         dlg.exec();
     }
 }
@@ -254,7 +255,7 @@ void RemotePanel::populateContextMenu(QMenu *menu, const QModelIndex &index)
             menu->addAction(svgIcon(QStringLiteral("pen-to-square")),
                             tr("Edit"),
                             [this, index]() {
-                dialogs::RemoteEditorDialog dlg(m_sftp, m_model->filePath(index), this);
+                dialogs::RemoteEditorDialog dlg(m_fs, m_model->filePath(index), this);
                 dlg.exec();
             });
         }
@@ -313,7 +314,7 @@ void RemotePanel::populateContextMenu(QMenu *menu, const QModelIndex &index)
                         tr("Properties…"),
                         [this, index]() {
             const core::sftp::SftpFileInfo info = m_model->fileInfo(index);
-            dialogs::PropertiesDialog dlg(info, m_sftp, this);
+            dialogs::PropertiesDialog dlg(info, m_fs, this);
             dlg.exec();
             refresh();
         });
@@ -361,12 +362,12 @@ void RemotePanel::onLoadingFinished(const QString &path)
 {
     const int count = m_model->rowCount(m_model->indexForPath(currentPath()));
 
-    if (!m_sshSession) {
+    if (!m_sshSession && !m_fs->supportsFreeSpace()) {
         statusBar()->setText(tr("%1 items").arg(count));
         return;
     }
 
-    // Запросить свободное место асинхронно — df блокирует сеть
+    // Запросить свободное место асинхронно — сетевой вызов блокирующий
     const QString snapshotPath = path.isEmpty() ? currentPath() : path;
     auto *watcher = new QFutureWatcher<QString>(this);
     connect(watcher, &QFutureWatcher<QString>::finished,
@@ -384,20 +385,25 @@ void RemotePanel::onLoadingFinished(const QString &path)
 
 QString RemotePanel::queryFreeSpace(const QString &path) const
 {
-    if (!m_sshSession) return {};
+    if (m_sshSession) {
+        // SFTP: df -P выводит строго-POSIX формат
+        const QString cmd = QStringLiteral("df -P '%1' 2>/dev/null | awk 'NR==2{print $4}'")
+                                .arg(QString(path).replace('\'', "'\\''"));
+        const QString out = m_sshSession->execCommand(cmd).trimmed();
+        if (out.isEmpty()) return {};
+        bool ok = false;
+        const qint64 blocks = out.toLongLong(&ok);
+        if (!ok || blocks < 0) return {};
+        return utils::FileUtils::humanSize(blocks * 1024LL);
+    }
 
-    // df -P выводит строго-POSIX формат: Filesystem / 1024-blocks / Used / Available / ...
-    const QString cmd = QStringLiteral("df -P '%1' 2>/dev/null | awk 'NR==2{print $4}'")
-                            .arg(QString(path).replace('\'', "'\\''"));
-    const QString out = m_sshSession->execCommand(cmd).trimmed();
-    if (out.isEmpty()) return {};
+    // WebDAV и другие FS через IRemoteFileSystem::freeSpace()
+    if (m_fs->supportsFreeSpace()) {
+        const qint64 bytes = m_fs->freeSpace(path);
+        return bytes >= 0 ? utils::FileUtils::humanSize(bytes) : QString{};
+    }
 
-    bool ok = false;
-    const qint64 blocks = out.toLongLong(&ok);
-    if (!ok || blocks < 0) return {};
-
-    // df -P возвращает 1024-байтные блоки
-    return utils::FileUtils::humanSize(blocks * 1024LL);
+    return {};
 }
 
 // ── Фильтры ───────────────────────────────────────────────────────────────────

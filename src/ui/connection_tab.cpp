@@ -14,6 +14,8 @@
 #include "core/app_settings.h"
 #include "core/ssh/ssh_session.h"
 #include "core/sftp/sftp_client.h"
+#include "core/sftp/sftp_file_system.h"
+#include "core/webdav/webdav_file_system.h"
 #include "core/transfer/transfer_manager.h"
 #include "core/transfer/transfer_queue.h"
 #include "core/sync/sync_engine.h"
@@ -60,7 +62,8 @@ ConnectionTab::~ConnectionTab()
     delete m_progressDlg;     m_progressDlg     = nullptr;
     delete m_transferManager; m_transferManager = nullptr;
     delete m_syncEngine;      m_syncEngine      = nullptr;
-    delete m_sftp;            m_sftp            = nullptr;
+    delete m_fs;              m_fs              = nullptr;
+    delete m_sftpClient;      m_sftpClient      = nullptr;
 
     if (m_sessionManager)
         m_sessionManager->closeAll();
@@ -137,6 +140,11 @@ void ConnectionTab::connectToSession(const QUuid &profileId)
 
 void ConnectionTab::connectToProfile(const core::session::SessionProfile &profile)
 {
+    if (profile.protocol == core::session::TransferProtocol::WebDav) {
+        connectWebDavProfile(profile);
+        return;
+    }
+
     const auto existing = m_store->find(profile.id);
     if (!existing.isValid()) {
         m_store->add(profile);
@@ -151,7 +159,8 @@ void ConnectionTab::disconnectSession()
     delete m_progressDlg;     m_progressDlg     = nullptr;
     delete m_transferManager; m_transferManager = nullptr;
     delete m_syncEngine;      m_syncEngine      = nullptr;
-    delete m_sftp;            m_sftp            = nullptr;
+    delete m_fs;              m_fs              = nullptr;
+    delete m_sftpClient;      m_sftpClient      = nullptr;
 
     if (m_sessionManager)
         m_sessionManager->closeAll();
@@ -182,10 +191,13 @@ void ConnectionTab::onSshConnected()
     auto *ssh = m_sessionManager->active(m_profileId);
     if (!ssh) return;
 
-    m_sftp = new core::sftp::SftpClient(ssh, this);
+    m_sftpClient = new core::sftp::SftpClient(ssh, this);
+    auto *sftpFs = new core::sftp::SftpFileSystem(m_sftpClient, this);
+    sftpFs->setSshSession(ssh);
+    m_fs = sftpFs;
 
     m_transferManager = new core::transfer::TransferManager(
-        m_sftp, m_sharedQueue, this);
+        m_fs, m_sharedQueue, this);
 
     // ── Overwrite callback ────────────────────────────────────────────────────
     // Вызывается из воркер-потока → маршаллим в UI-поток через BlockingQueuedConnection.
@@ -269,14 +281,14 @@ void ConnectionTab::onSshConnected()
             m_remotePanel->refresh();
     });
 
-    m_syncEngine = new core::sync::SyncEngine(m_sftp, m_sharedQueue, this);
+    m_syncEngine = new core::sync::SyncEngine(m_sftpClient, m_sharedQueue, this);
     m_syncEngine->setSshSession(ssh);
 
     if (m_remotePanel) {
         m_remotePanel->deleteLater();
         m_remotePanel = nullptr;
     }
-    m_remotePanel = new panels::RemotePanel(m_sftp, m_sharedQueue, this);
+    m_remotePanel = new panels::RemotePanel(m_fs, m_sharedQueue, this);
     m_remotePanel->setSshSession(ssh);
     replaceRemotePanel(m_remotePanel);
 
@@ -371,6 +383,136 @@ void ConnectionTab::onSshConnected()
         m_remotePanel->navigateTo(
             profile.initialRemotePath.isEmpty() ? QStringLiteral("/") : profile.initialRemotePath);
     }
+}
+
+// ── WebDAV подключение (без SSH) ──────────────────────────────────────────────
+
+void ConnectionTab::connectWebDavProfile(const core::session::SessionProfile &profile)
+{
+    if (isConnected()) disconnectSession();
+
+    m_profileId = profile.id;
+
+    m_fs = new core::webdav::WebDavFileSystem(profile, this);
+
+    m_transferManager = new core::transfer::TransferManager(
+        m_fs, m_sharedQueue, this);
+
+    auto overwriteAll = std::make_shared<std::atomic<bool>>(false);
+    auto skipAll      = std::make_shared<std::atomic<bool>>(false);
+    m_transferManager->setOverwriteCallback(
+        [this, overwriteAll, skipAll](
+            const core::transfer::ConflictInfo &src,
+            const core::transfer::ConflictInfo &dst)
+            -> core::transfer::OverwritePolicy
+        {
+            if (overwriteAll->load()) return core::transfer::OverwritePolicy::Overwrite;
+            if (skipAll->load())      return core::transfer::OverwritePolicy::Skip;
+            dialogs::OverwriteDialog::FileInfo srcInfo{src.path, src.size, src.mtime};
+            dialogs::OverwriteDialog::FileInfo dstInfo{dst.path, dst.size, dst.mtime};
+            dialogs::OverwriteDialog dlg(srcInfo, dstInfo, this);
+            dlg.exec();
+            switch (dlg.action()) {
+            case dialogs::OverwriteDialog::Action::Overwrite:
+                return core::transfer::OverwritePolicy::Overwrite;
+            case dialogs::OverwriteDialog::Action::OverwriteAll:
+                overwriteAll->store(true);
+                m_transferManager->setGlobalOverwritePolicy(core::transfer::OverwritePolicy::Overwrite);
+                return core::transfer::OverwritePolicy::Overwrite;
+            case dialogs::OverwriteDialog::Action::Skip:
+                return core::transfer::OverwritePolicy::Skip;
+            case dialogs::OverwriteDialog::Action::SkipAll:
+                skipAll->store(true);
+                m_transferManager->setGlobalOverwritePolicy(core::transfer::OverwritePolicy::Skip);
+                return core::transfer::OverwritePolicy::Skip;
+            default:
+                return core::transfer::OverwritePolicy::Cancel;
+            }
+        });
+    m_transferManager->start();
+
+    m_progressDlg = new dialogs::ProgressDialog(
+        m_transferManager, m_sharedQueue, this);
+    connect(m_transferManager, &core::transfer::TransferManager::transferStarted,
+            m_progressDlg, &dialogs::ProgressDialog::trackTransfer);
+
+    connect(m_transferManager, &core::transfer::TransferManager::overallProgress,
+            this, [this](int /*active*/, int queued) {
+        if (queued == 0 && m_remotePanel)
+            m_remotePanel->refresh();
+    });
+
+    setupRemotePanel(profile);
+
+    m_title = profile.name.isEmpty() ? profile.host : profile.name;
+    emit titleChanged(m_title);
+    emit statusChanged(tr("Connected: %1 (WebDAV)").arg(profile.host));
+    emit connectionEstablished();
+}
+
+void ConnectionTab::setupRemotePanel(const core::session::SessionProfile &profile)
+{
+    if (m_remotePanel) {
+        m_remotePanel->deleteLater();
+        m_remotePanel = nullptr;
+    }
+    m_remotePanel = new panels::RemotePanel(m_fs, m_sharedQueue, this);
+    replaceRemotePanel(m_remotePanel);
+
+    connect(m_localPanel, &panels::FilePanel::uploadRequested,
+            this, [this](const QStringList &files, const QString &) {
+        if (m_remotePanel) m_remotePanel->uploadFiles(files);
+    });
+
+    connect(m_remotePanel, &panels::FilePanel::downloadRequested,
+            this, [this](const QStringList &remotePaths, const QString &localDest) {
+        if (!m_remotePanel) return;
+        const QString dest = localDest.isEmpty() ? m_localPanel->currentPath() : localDest;
+        if (!remotePaths.isEmpty() && !localDest.isEmpty()) {
+            for (const QString &remotePath : remotePaths) {
+                core::transfer::TransferItem item;
+                item.direction  = core::transfer::TransferDirection::Download;
+                item.remotePath = remotePath;
+                item.localPath  = dest + '/' + QFileInfo(remotePath).fileName();
+                m_sharedQueue->enqueue(item);
+            }
+        } else {
+            m_remotePanel->downloadSelected(dest);
+        }
+    });
+
+    m_remotePanel->setLocalPanelPath(m_localPanel->currentPath());
+    connect(m_localPanel, &panels::FilePanel::pathChanged,
+            this, [this](const QString &path) {
+        m_remotePanel->setLocalPanelPath(path);
+    });
+
+    if (m_pathState) {
+        connect(m_localPanel, &panels::FilePanel::pathChanged,
+                this, [this](const QString &path) {
+            auto state = m_pathState->load(m_profileId);
+            state.localPath = path;
+            m_pathState->save(m_profileId, state);
+        });
+        connect(m_remotePanel, &panels::FilePanel::pathChanged,
+                this, [this](const QString &path) {
+            auto state = m_pathState->load(m_profileId);
+            state.remotePath = path;
+            m_pathState->save(m_profileId, state);
+        });
+        connect(m_remotePanel, &panels::RemotePanel::sortStateChanged,
+                this, [this](int col, int ord) {
+            auto state = m_pathState->load(m_profileId);
+            state.remoteSortColumn = col;
+            state.remoteSortOrder  = ord;
+            m_pathState->save(m_profileId, state);
+        });
+    }
+
+    const QString remotePath = !profile.webDavPath.isEmpty()
+                                   ? profile.webDavPath
+                                   : QStringLiteral("/");
+    m_remotePanel->navigateTo(remotePath);
 }
 
 void ConnectionTab::onSshError(const QString &msg)

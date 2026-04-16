@@ -1,4 +1,5 @@
 #include "remote_fs_model.h"
+#include "core/i_remote_file_system.h"
 #include "ui/utils/file_icon_provider.h"
 #include <QMimeType>
 #include <algorithm>
@@ -31,8 +32,8 @@ struct RemoteFsModel::Node {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-RemoteFsModel::RemoteFsModel(core::sftp::SftpClient *sftp, QObject *parent)
-    : QAbstractItemModel(parent), m_sftp(sftp)
+RemoteFsModel::RemoteFsModel(core::IRemoteFileSystem *fs, QObject *parent)
+    : QAbstractItemModel(parent), m_fs(fs)
 {
     m_pool.setMaxThreadCount(1); // sftp_session не thread-safe — только 1 поток
     m_root = std::make_unique<Node>();
@@ -164,29 +165,26 @@ void RemoteFsModel::loadDirectory(Node *node)
 
     const int gen = m_generation;
     m_pool.start([this, node, path, gen]() {
-        auto dir = m_sftp->listDirectory(path);
+        QList<core::sftp::SftpFileInfo> entries = m_fs->list(path);
+        const QString fsError = entries.isEmpty() ? m_fs->lastError() : QString{};
 
-        QMetaObject::invokeMethod(this, [this, node, dir = std::move(dir), gen]() mutable {
+        QMetaObject::invokeMethod(this,
+            [this, node, entries = std::move(entries), fsError, path, gen]() mutable {
             if (gen != m_generation) return;
 
-            if (dir.hasError) {
+            if (!fsError.isEmpty()) {
                 // Листинг не удался (сессия оборвана, нет прав, …).
-                // Вызываем begin/endResetModel чтобы не оставить модель в незавершённом
-                // состоянии (beginResetModel уже вызван в refresh()), и сигналим ошибку.
                 node->loading = false;
-                // НЕ помечаем loaded=true — следующий вручную вызванный refresh()
-                // сделает ещё одну попытку загрузить директорию.
                 beginResetModel();
                 node->children.clear();
                 endResetModel();
-                emit errorOccurred(dir.errorMessage);
+                emit errorOccurred(fsError);
                 return;
             }
 
             beginResetModel();
 
             node->children.clear();
-            auto entries = dir.entries;
 
             // Фильтрация скрытых
             if (!m_showHidden)
@@ -223,7 +221,7 @@ void RemoteFsModel::loadDirectory(Node *node)
             node->loading  = false;
             node->loadedAt = QDateTime::currentDateTime();
             endResetModel();
-            emit loadingFinished(dir.path);
+            emit loadingFinished(path);
         }, Qt::QueuedConnection);
     });
 }

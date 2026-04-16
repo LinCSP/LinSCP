@@ -3,13 +3,16 @@
 #include <QString>
 #include <QUuid>
 #include "core/ssh/ssh_auth.h"
+#include "core/webdav/webdav_client.h"  // WebDavEncryption
 
 namespace linscp::core::session {
 
 /// Протокол передачи файлов
 enum class TransferProtocol {
-    Sftp = 0,   ///< SFTP (предпочтительный)
-    Scp  = 1,   ///< SCP (fallback / legacy)
+    Sftp   = 0,   ///< SFTP (предпочтительный)
+    Scp    = 1,   ///< SCP (fallback / legacy)
+    WebDav = 2,   ///< WebDAV / WebDAV-over-HTTPS
+    S3     = 3,   ///< Amazon S3 / S3-compatible
 };
 
 /// Тип окончания строк на сервере
@@ -115,7 +118,11 @@ struct SessionProfile {
     QString initialLocalPath;
     bool    syncBrowsing       = false;  ///< синхронизировать локальную и удалённую панели
 
-    // Расширенные настройки
+    // ── WebDAV-специфичные поля ───────────────────────────────────────────────
+    webdav::WebDavEncryption webDavEncryption = webdav::WebDavEncryption::None;
+    QString webDavPath = QStringLiteral("/");  ///< начальный путь WebDAV
+
+    // Расширенные настройки (SSH-специфичные)
     TunnelSettings      tunnel;
     ProxySettings       proxy;
     EnvironmentSettings environment;
@@ -125,7 +132,11 @@ struct SessionProfile {
     QString notes;
     QColor  labelColor;
 
-    bool isValid() const { return !host.isEmpty() && !username.isEmpty(); }
+    bool isValid() const {
+        if (protocol == TransferProtocol::WebDav || protocol == TransferProtocol::S3)
+            return !host.isEmpty();
+        return !host.isEmpty() && !username.isEmpty();
+    }
 };
 
 } // namespace linscp::core::session

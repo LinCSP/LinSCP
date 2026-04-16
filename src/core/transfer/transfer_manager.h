@@ -6,7 +6,7 @@
 
 #include "transfer_queue.h"
 #include "transfer_item.h"
-#include "core/sftp/sftp_client.h"
+#include "core/i_remote_file_system.h"
 
 class QThread;
 
@@ -22,7 +22,7 @@ public:
         std::function<OverwritePolicy(const ConflictInfo &src,
                                       const ConflictInfo &dst)>;
 
-    explicit TransferManager(sftp::SftpClient *sftp, TransferQueue *queue,
+    explicit TransferManager(IRemoteFileSystem *fs, TransferQueue *queue,
                              QObject *parent = nullptr);
     ~TransferManager() override;
 
@@ -52,8 +52,8 @@ private:
     void runItem(const TransferItem &item);
     OverwritePolicy checkConflict(const TransferItem &item);
 
-    sftp::SftpClient *m_sftp;
-    TransferQueue    *m_queue;
+    IRemoteFileSystem *m_fs;
+    TransferQueue     *m_queue;
 
     OverwriteCallback  m_overwriteCb;
     QThread           *m_thread    = nullptr;
