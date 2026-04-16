@@ -175,6 +175,8 @@ core::session::SessionProfile SessionDialog::profile() const
     p.privateKeyPath = m_keyPath->text();
     p.webDavEncryption = static_cast<core::webdav::WebDavEncryption>(
         m_encryption->currentData().toInt());
+    if (!m_password->text().isEmpty())
+        p.password = m_password->text();
 
     return p;
 }

@@ -455,7 +455,9 @@ core::session::SessionProfile LoginDialog::collectProfile() const
     p.authMethod = static_cast<core::ssh::AuthMethod>(
         m_authMethod->currentData().toInt());
     p.privateKeyPath   = m_keyPath->text();
-    p.password         = m_password->text();   // транзиентно — не сохраняется на диск
+    // Если поле пустое — оставляем сохранённый пароль из профиля
+    if (!m_password->text().isEmpty())
+        p.password = m_password->text();
     p.notes            = m_noteMemo->toPlainText();
     p.webDavEncryption = static_cast<core::webdav::WebDavEncryption>(
         m_encryption->currentData().toInt());
