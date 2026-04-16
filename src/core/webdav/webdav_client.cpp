@@ -128,23 +128,18 @@ WebDavClient::WebDavClient(WebDavEncryption enc,
     , m_password(password)
 {
 #ifdef WITH_WEBDAV
-    const char *scheme = (enc == WebDavEncryption::None) ? "http" : "https";
-    m_session = ne_session_create(scheme,
-                                  host.toUtf8().constData(),
-                                  static_cast<unsigned int>(port));
-    if (!m_session) {
-        m_lastError = tr("Failed to create neon session");
-        return;
-    }
+    // Принять полный URL в поле хоста (например https://webdav.example.com/dav/)
+    QString cleanHost = host;
+    if (cleanHost.startsWith(QLatin1String("https://"), Qt::CaseInsensitive))
+        cleanHost = cleanHost.mid(8);
+    else if (cleanHost.startsWith(QLatin1String("http://"), Qt::CaseInsensitive))
+        cleanHost = cleanHost.mid(7);
+    // Отрезать путь (/dav/...) и порт (:443) если вставлен вместе с хостом
+    cleanHost = cleanHost.section('/', 0, 0).section(':', 0, 0);
 
-    ne_set_server_auth(m_session, authCallback, this);
-    ne_set_useragent(m_session, "LinSCP/" LINSCP_VERSION " (libneon)");
-
-    if (enc != WebDavEncryption::None) {
-        ne_ssl_trust_default_ca(m_session);
-        ne_ssl_set_verify(m_session, sslVerify, this);
-    }
-
+    m_enc  = enc;
+    m_host = cleanHost;
+    m_port = port;
     m_connected = true;
 #else
     Q_UNUSED(enc); Q_UNUSED(host); Q_UNUSED(port);
@@ -152,15 +147,46 @@ WebDavClient::WebDavClient(WebDavEncryption enc,
 #endif
 }
 
-WebDavClient::~WebDavClient()
-{
+WebDavClient::~WebDavClient() = default;
+
+// ── Фабрика сессий ────────────────────────────────────────────────────────────
+
 #ifdef WITH_WEBDAV
-    if (m_session) {
-        ne_session_destroy(m_session);
-        m_session = nullptr;
+/// Создаёт ne_session в ТЕКУЩЕМ потоке (libneon + OpenSSL не thread-safe
+/// при использовании сессии из другого потока). Каждый публичный метод
+/// создаёт сессию, выполняет запрос и уничтожает её — так устраняется
+/// double-free в SSL_free при ошибках соединения.
+ne_session *WebDavClient::makeSession() const
+{
+    const char *scheme = (m_enc == WebDavEncryption::None) ? "http" : "https";
+    ne_session *s = ne_session_create(scheme,
+                                      m_host.toUtf8().constData(),
+                                      static_cast<unsigned int>(m_port));
+    if (!s) {
+        m_lastError = tr("Failed to create neon session");
+        return nullptr;
     }
-#endif
+    ne_set_server_auth(s, authCallback, const_cast<WebDavClient *>(this));
+    ne_set_useragent(s, "LinSCP/" LINSCP_VERSION " (libneon)");
+    ne_set_connect_timeout(s, 15);
+    ne_set_read_timeout(s, 30);
+    if (m_enc != WebDavEncryption::None) {
+        ne_ssl_trust_default_ca(s);
+        ne_ssl_set_verify(s, sslVerify, const_cast<WebDavClient *>(this));
+    }
+    return s;
 }
+
+/// RAII-обёртка для автоматического ne_session_destroy
+struct SessionGuard {
+    ne_session *s;
+    explicit SessionGuard(ne_session *s) : s(s) {}
+    ~SessionGuard() { if (s) ne_session_destroy(s); }
+    operator ne_session *() const { return s; }
+    SessionGuard(const SessionGuard &) = delete;
+    SessionGuard &operator=(const SessionGuard &) = delete;
+};
+#endif
 
 // ── PROPFIND ──────────────────────────────────────────────────────────────────
 
@@ -171,7 +197,8 @@ QList<WebDavFileInfo> WebDavClient::propfind(const QString &path, int depth)
     m_lastError = tr("WebDAV not compiled");
     return {};
 #else
-    if (!m_session) return {};
+    SessionGuard s(makeSession());
+    if (!s) return {};
 
     static const char kBody[] =
         "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
@@ -186,7 +213,7 @@ QList<WebDavFileInfo> WebDavClient::propfind(const QString &path, int depth)
         "</D:propfind>";
 
     const QByteArray pathUtf8 = path.toUtf8();
-    ne_request *req = ne_request_create(m_session, "PROPFIND", pathUtf8.constData());
+    ne_request *req = ne_request_create(s, "PROPFIND", pathUtf8.constData());
 
     const QString depthStr = (depth == 0) ? QStringLiteral("0") : QStringLiteral("1");
     ne_add_request_header(req, "Depth", depthStr.toUtf8().constData());
@@ -198,14 +225,15 @@ QList<WebDavFileInfo> WebDavClient::propfind(const QString &path, int depth)
 
     const int rc = ne_request_dispatch(req);
     const ne_status *st = ne_get_status(req);
+    const int code = st->code;
     ne_request_destroy(req);
 
     if (rc != NE_OK) {
-        m_lastError = QString::fromUtf8(ne_get_error(m_session));
+        m_lastError = QString::fromUtf8(ne_get_error(s));
         return {};
     }
-    if (st->code != 207) {
-        m_lastError = tr("PROPFIND returned HTTP %1").arg(st->code);
+    if (code != 207) {
+        m_lastError = tr("PROPFIND returned HTTP %1").arg(code);
         return {};
     }
 
@@ -323,7 +351,8 @@ bool WebDavClient::get(const QString &remotePath, const QString &localPath,
     m_lastError = tr("WebDAV not compiled");
     return false;
 #else
-    if (!m_session) return false;
+    SessionGuard s(makeSession());
+    if (!s) return false;
 
     // Открыть выходной файл
     const int flags = (resumeOffset > 0)
@@ -338,7 +367,7 @@ bool WebDavClient::get(const QString &remotePath, const QString &localPath,
         ::lseek(fd, static_cast<off_t>(resumeOffset), SEEK_SET);
 
     const QByteArray pathUtf8 = remotePath.toUtf8();
-    ne_request *req = ne_request_create(m_session, "GET", pathUtf8.constData());
+    ne_request *req = ne_request_create(s, "GET", pathUtf8.constData());
 
     if (resumeOffset > 0) {
         const QByteArray rangeHdr = QStringLiteral("bytes=%1-").arg(resumeOffset).toUtf8();
@@ -364,7 +393,7 @@ bool WebDavClient::get(const QString &remotePath, const QString &localPath,
 
     if (rc != NE_OK || (code != 200 && code != 206)) {
         m_lastError = (rc != NE_OK)
-                      ? QString::fromUtf8(ne_get_error(m_session))
+                      ? QString::fromUtf8(ne_get_error(s))
                       : tr("GET returned HTTP %1").arg(code);
         return false;
     }
@@ -383,7 +412,8 @@ bool WebDavClient::put(const QString &localPath, const QString &remotePath,
     m_lastError = tr("WebDAV not compiled");
     return false;
 #else
-    if (!m_session) return false;
+    SessionGuard s(makeSession());
+    if (!s) return false;
 
     const int fd = ::open(localPath.toLocal8Bit().constData(), O_RDONLY);
     if (fd < 0) {
@@ -401,7 +431,7 @@ bool WebDavClient::put(const QString &localPath, const QString &remotePath,
     const qint64 sendSize = fileSize - resumeOffset;
 
     const QByteArray pathUtf8 = remotePath.toUtf8();
-    ne_request *req = ne_request_create(m_session, "PUT", pathUtf8.constData());
+    ne_request *req = ne_request_create(s, "PUT", pathUtf8.constData());
 
     if (resumeOffset > 0) {
         const QByteArray range = QStringLiteral("bytes %1-%2/%3")
@@ -423,7 +453,7 @@ bool WebDavClient::put(const QString &localPath, const QString &remotePath,
 
     if (rc != NE_OK || (code != 200 && code != 201 && code != 204)) {
         m_lastError = (rc != NE_OK)
-                      ? QString::fromUtf8(ne_get_error(m_session))
+                      ? QString::fromUtf8(ne_get_error(s))
                       : tr("PUT returned HTTP %1").arg(code);
         return false;
     }
@@ -440,10 +470,11 @@ bool WebDavClient::del(const QString &remotePath)
     m_lastError = tr("WebDAV not compiled");
     return false;
 #else
-    if (!m_session) return false;
-    const int rc = ne_delete(m_session, remotePath.toUtf8().constData());
+    SessionGuard s(makeSession());
+    if (!s) return false;
+    const int rc = ne_delete(s, remotePath.toUtf8().constData());
     if (rc != NE_OK) {
-        m_lastError = QString::fromUtf8(ne_get_error(m_session));
+        m_lastError = QString::fromUtf8(ne_get_error(s));
         return false;
     }
     return true;
@@ -459,10 +490,11 @@ bool WebDavClient::mkcol(const QString &remotePath)
     m_lastError = tr("WebDAV not compiled");
     return false;
 #else
-    if (!m_session) return false;
-    const int rc = ne_mkcol(m_session, remotePath.toUtf8().constData());
+    SessionGuard s(makeSession());
+    if (!s) return false;
+    const int rc = ne_mkcol(s, remotePath.toUtf8().constData());
     if (rc != NE_OK) {
-        m_lastError = QString::fromUtf8(ne_get_error(m_session));
+        m_lastError = QString::fromUtf8(ne_get_error(s));
         return false;
     }
     return true;
@@ -478,13 +510,14 @@ bool WebDavClient::move(const QString &from, const QString &to, bool overwrite)
     m_lastError = tr("WebDAV not compiled");
     return false;
 #else
-    if (!m_session) return false;
-    const int rc = ne_move(m_session,
+    SessionGuard s(makeSession());
+    if (!s) return false;
+    const int rc = ne_move(s,
                            overwrite ? 1 : 0,
                            from.toUtf8().constData(),
                            to.toUtf8().constData());
     if (rc != NE_OK) {
-        m_lastError = QString::fromUtf8(ne_get_error(m_session));
+        m_lastError = QString::fromUtf8(ne_get_error(s));
         return false;
     }
     return true;
@@ -500,14 +533,15 @@ bool WebDavClient::copy(const QString &from, const QString &to, bool overwrite)
     m_lastError = tr("WebDAV not compiled");
     return false;
 #else
-    if (!m_session) return false;
-    const int rc = ne_copy(m_session,
+    SessionGuard s(makeSession());
+    if (!s) return false;
+    const int rc = ne_copy(s,
                            overwrite ? 1 : 0,
                            NE_DEPTH_INFINITE,
                            from.toUtf8().constData(),
                            to.toUtf8().constData());
     if (rc != NE_OK) {
-        m_lastError = QString::fromUtf8(ne_get_error(m_session));
+        m_lastError = QString::fromUtf8(ne_get_error(s));
         return false;
     }
     return true;

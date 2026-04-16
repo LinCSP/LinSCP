@@ -77,13 +77,21 @@ private:
     static QList<WebDavFileInfo> parsePropfindResponse(const QByteArray &xml,
                                                         const QString &basePath);
 
-    QString m_username;
-    QString m_password;
-    QString m_lastError;
-    bool    m_connected = false;
+#ifdef WITH_WEBDAV
+    /// Создать ne_session в текущем потоке. Вызывающий обязан уничтожить её через
+    /// ne_session_destroy() после выполнения запроса.
+    ne_session *makeSession() const;
+#endif
+
+    QString          m_username;
+    QString          m_password;
+    mutable QString  m_lastError;
+    bool             m_connected = false;
 
 #ifdef WITH_WEBDAV
-    ne_session *m_session = nullptr;
+    WebDavEncryption m_enc;
+    QString          m_host;   ///< чистый хост (без схемы и пути)
+    quint16          m_port;
 #endif
 };
 

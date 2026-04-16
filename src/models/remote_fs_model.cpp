@@ -14,6 +14,7 @@ struct RemoteFsModel::Node {
     std::vector<std::unique_ptr<Node>>       children;
     bool                                     loaded    = false;
     bool                                     loading   = false;
+    bool                                     failed    = false;  ///< последняя загрузка завершилась ошибкой
     QDateTime                                loadedAt;  ///< время последней загрузки (TTL)
 
     int row() const {
@@ -51,6 +52,7 @@ void RemoteFsModel::setRootPath(const QString &path)
     m_root->children.clear();
     m_root->loaded  = false;
     m_root->loading = false;
+    m_root->failed  = false;
     endResetModel();
 
     loadDirectory(m_root.get());
@@ -76,6 +78,7 @@ void RemoteFsModel::refresh(const QModelIndex &index)
     node->children.clear();
     node->loaded  = false;
     node->loading = false;
+    node->failed  = false;
     endResetModel();
 
     loadDirectory(node);
@@ -175,6 +178,7 @@ void RemoteFsModel::loadDirectory(Node *node)
             if (!fsError.isEmpty()) {
                 // Листинг не удался (сессия оборвана, нет прав, …).
                 node->loading = false;
+                node->failed  = true;   // предотвратить бесконечный авто-ретрай
                 beginResetModel();
                 node->children.clear();
                 endResetModel();
@@ -253,10 +257,10 @@ QModelIndex RemoteFsModel::parent(const QModelIndex &index) const
 int RemoteFsModel::rowCount(const QModelIndex &parent) const
 {
     Node *node = nodeForIndex(parent);
-    // Автозагрузка только для корня
-    if (node == m_root.get() && !node->loaded && !node->loading) {
+    // Автозагрузка только для корня; после ошибки — только по явному Refresh
+    if (node == m_root.get() && !node->loaded && !node->loading && !node->failed) {
         const_cast<RemoteFsModel *>(this)->loadDirectory(node);
-    } else if (node == m_root.get() && node->isCacheExpired(m_cacheTtlSecs)) {
+    } else if (node == m_root.get() && !node->failed && node->isCacheExpired(m_cacheTtlSecs)) {
         // Кэш устарел — перезагрузить в фоне (без сброса текущих данных)
         const_cast<RemoteFsModel *>(this)->loadDirectory(node);
     }

@@ -38,6 +38,11 @@ bool WebDavFileSystem::isConnected() const
 QList<sftp::SftpFileInfo> WebDavFileSystem::list(const QString &path)
 {
     const auto entries = m_client->propfind(path, 1);
+    if (entries.isEmpty() && !m_client->lastError().isEmpty()) {
+        emit errorOccurred(m_client->lastError());
+        return {};
+    }
+
     QList<sftp::SftpFileInfo> result;
     result.reserve(entries.size());
 

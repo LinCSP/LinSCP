@@ -32,6 +32,8 @@ public:
 signals:
     /// Испускается при каждом изменении колонки или порядка сортировки
     void sortStateChanged(int column, int order);
+    /// Испускается когда первая загрузка директории завершилась (успех или ошибка)
+    void firstLoadDone();
 
 public:
     void actionCopy()   override;   ///< F5 → Download выбранных файлов
@@ -77,10 +79,11 @@ private:
 
     core::IRemoteFileSystem       *m_fs;
     core::transfer::TransferQueue *m_queue;
-    core::ssh::SshSession         *m_sshSession    = nullptr;
-    models::RemoteFsModel         *m_model         = nullptr;
-    bool                           m_showHidden    = false;
+    core::ssh::SshSession         *m_sshSession        = nullptr;
+    models::RemoteFsModel         *m_model             = nullptr;
+    bool                           m_showHidden        = false;
     QString                        m_localPanelPath;
+    bool                           m_firstLoadEmitted  = false;
 };
 
 } // namespace linscp::ui::panels

@@ -24,6 +24,7 @@
 #include <QLabel>
 #include <QVBoxLayout>
 #include <QFileInfo>
+#include <QProgressDialog>
 #include <memory>
 #include <atomic>
 
@@ -443,6 +444,19 @@ void ConnectionTab::connectWebDavProfile(const core::session::SessionProfile &pr
     });
 
     setupRemotePanel(profile);
+
+    // Показать немодальный диалог "Подключение…" пока идёт первая загрузка
+    auto *connectingDlg = new QProgressDialog(
+        tr("Connecting to %1…").arg(profile.host),
+        tr("Cancel"), 0, 0, this);
+    connectingDlg->setWindowTitle(tr("WebDAV"));
+    connectingDlg->setWindowModality(Qt::WindowModal);
+    connectingDlg->setMinimumDuration(0);
+    connectingDlg->setValue(0);
+    connect(m_remotePanel, &panels::RemotePanel::firstLoadDone,
+            connectingDlg, &QProgressDialog::accept);
+    connect(connectingDlg, &QProgressDialog::canceled,
+            this, [this]() { disconnectSession(); });
 
     m_title = profile.name.isEmpty() ? profile.host : profile.name;
     emit titleChanged(m_title);

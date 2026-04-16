@@ -150,44 +150,44 @@
 <context>
     <name>linscp::core::webdav::WebDavClient</name>
     <message>
-        <location filename="../core/webdav/webdav_client.cpp" line="136"/>
+        <location filename="../core/webdav/webdav_client.cpp" line="145"/>
         <source>Failed to create neon session</source>
         <translation>Не удалось создать neon-сессию</translation>
     </message>
     <message>
-        <location filename="../core/webdav/webdav_client.cpp" line="151"/>
+        <location filename="../core/webdav/webdav_client.cpp" line="162"/>
         <source>WebDAV support not compiled (rebuild with -DWITH_WEBDAV=ON)</source>
         <translation>Поддержка WebDAV не скомпилирована (пересоберите с -DWITH_WEBDAV=ON)</translation>
     </message>
     <message>
-        <location filename="../core/webdav/webdav_client.cpp" line="171"/>
-        <location filename="../core/webdav/webdav_client.cpp" line="323"/>
-        <location filename="../core/webdav/webdav_client.cpp" line="383"/>
-        <location filename="../core/webdav/webdav_client.cpp" line="440"/>
-        <location filename="../core/webdav/webdav_client.cpp" line="459"/>
-        <location filename="../core/webdav/webdav_client.cpp" line="478"/>
-        <location filename="../core/webdav/webdav_client.cpp" line="500"/>
+        <location filename="../core/webdav/webdav_client.cpp" line="182"/>
+        <location filename="../core/webdav/webdav_client.cpp" line="340"/>
+        <location filename="../core/webdav/webdav_client.cpp" line="400"/>
+        <location filename="../core/webdav/webdav_client.cpp" line="457"/>
+        <location filename="../core/webdav/webdav_client.cpp" line="476"/>
+        <location filename="../core/webdav/webdav_client.cpp" line="495"/>
+        <location filename="../core/webdav/webdav_client.cpp" line="517"/>
         <source>WebDAV not compiled</source>
         <translation>WebDAV не скомпилирован</translation>
     </message>
     <message>
-        <location filename="../core/webdav/webdav_client.cpp" line="208"/>
+        <location filename="../core/webdav/webdav_client.cpp" line="225"/>
         <source>PROPFIND returned HTTP %1</source>
         <translation>PROPFIND вернул HTTP %1</translation>
     </message>
     <message>
-        <location filename="../core/webdav/webdav_client.cpp" line="334"/>
-        <location filename="../core/webdav/webdav_client.cpp" line="390"/>
+        <location filename="../core/webdav/webdav_client.cpp" line="351"/>
+        <location filename="../core/webdav/webdav_client.cpp" line="407"/>
         <source>Cannot open local file: %1</source>
         <translation>Не удалось открыть локальный файл: %1</translation>
     </message>
     <message>
-        <location filename="../core/webdav/webdav_client.cpp" line="368"/>
+        <location filename="../core/webdav/webdav_client.cpp" line="385"/>
         <source>GET returned HTTP %1</source>
         <translation>GET вернул HTTP %1</translation>
     </message>
     <message>
-        <location filename="../core/webdav/webdav_client.cpp" line="427"/>
+        <location filename="../core/webdav/webdav_client.cpp" line="444"/>
         <source>PUT returned HTTP %1</source>
         <translation>PUT вернул HTTP %1</translation>
     </message>
@@ -344,80 +344,91 @@
 <context>
     <name>linscp::ui::ConnectionTab</name>
     <message>
-        <location filename="../ui/connection_tab.cpp" line="175"/>
+        <location filename="../ui/connection_tab.cpp" line="176"/>
         <location filename="../ui/connection_tab.h" line="75"/>
         <source>Not connected</source>
         <translation>Не подключено</translation>
     </message>
     <message>
-        <location filename="../ui/connection_tab.cpp" line="136"/>
+        <location filename="../ui/connection_tab.cpp" line="137"/>
         <source>Connecting…</source>
         <translation>Подключение…</translation>
     </message>
     <message>
-        <location filename="../ui/connection_tab.cpp" line="138"/>
+        <location filename="../ui/connection_tab.cpp" line="139"/>
+        <location filename="../ui/connection_tab.cpp" line="450"/>
         <source>Connecting to %1…</source>
         <translation>Подключение к %1…</translation>
     </message>
     <message>
-        <location filename="../ui/connection_tab.cpp" line="93"/>
+        <location filename="../ui/connection_tab.cpp" line="94"/>
         <source>Failed to create session</source>
         <translation>Ошибка создания сессии</translation>
     </message>
     <message>
-        <location filename="../ui/connection_tab.cpp" line="257"/>
-        <location filename="../ui/connection_tab.cpp" line="264"/>
+        <location filename="../ui/connection_tab.cpp" line="258"/>
+        <location filename="../ui/connection_tab.cpp" line="265"/>
         <source>Upload</source>
         <translation>Загрузка</translation>
     </message>
     <message>
-        <location filename="../ui/connection_tab.cpp" line="257"/>
-        <location filename="../ui/connection_tab.cpp" line="264"/>
+        <location filename="../ui/connection_tab.cpp" line="258"/>
+        <location filename="../ui/connection_tab.cpp" line="265"/>
         <source>Download</source>
         <translation>Скачивание</translation>
     </message>
     <message>
-        <location filename="../ui/connection_tab.cpp" line="258"/>
+        <location filename="../ui/connection_tab.cpp" line="259"/>
         <source>%1 started: %2</source>
         <translation>%1 начат: %2</translation>
     </message>
     <message>
-        <location filename="../ui/connection_tab.cpp" line="266"/>
+        <location filename="../ui/connection_tab.cpp" line="267"/>
         <source>%1 finished: %2</source>
         <translation>%1 завершён: %2</translation>
     </message>
     <message>
-        <location filename="../ui/connection_tab.cpp" line="267"/>
+        <location filename="../ui/connection_tab.cpp" line="268"/>
         <source>%1 failed: %2</source>
         <translation>%1 прерван: %2</translation>
     </message>
     <message>
-        <location filename="../ui/connection_tab.cpp" line="359"/>
+        <location filename="../ui/connection_tab.cpp" line="360"/>
         <source>%1@%2</source>
         <translation>%1@%2</translation>
     </message>
     <message>
-        <location filename="../ui/connection_tab.cpp" line="362"/>
+        <location filename="../ui/connection_tab.cpp" line="363"/>
         <source>Connected: %1@%2:%3</source>
         <translation>Подключено: %1@%2:%3</translation>
     </message>
     <message>
-        <location filename="../ui/connection_tab.cpp" line="449"/>
+        <location filename="../ui/connection_tab.cpp" line="451"/>
+        <source>Cancel</source>
+        <translation>Отмена</translation>
+    </message>
+    <message>
+        <location filename="../ui/connection_tab.cpp" line="452"/>
+        <source>WebDAV</source>
+        <translation>WebDAV</translation>
+    </message>
+    <message>
+        <location filename="../ui/connection_tab.cpp" line="463"/>
         <source>Connected: %1 (WebDAV)</source>
         <translation>Подключено: %1 (WebDAV)</translation>
     </message>
     <message>
-        <location filename="../ui/connection_tab.cpp" line="520"/>
+        <location filename="../ui/connection_tab.cpp" line="534"/>
         <source>Error</source>
         <translation>Ошибка</translation>
     </message>
     <message>
-        <location filename="../ui/connection_tab.cpp" line="522"/>
+        <location filename="../ui/connection_tab.cpp" line="536"/>
         <source>Error: %1</source>
         <translation>Ошибка: %1</translation>
     </message>
     <message>
-        <location filename="../ui/connection_tab.cpp" line="537"/>
+        <location filename="../ui/connection_tab.cpp" line="551"/>
         <source>&lt;center&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;Not connected&lt;/b&gt;&lt;br&gt;&lt;br&gt;Select a session in the toolbar and click &lt;b&gt;Connect&lt;/b&gt;,&lt;br&gt;or create a new session via &lt;b&gt;File → New Session…&lt;/b&gt;&lt;/center&gt;</source>
         <translation>&lt;center&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;Нет подключения&lt;/b&gt;&lt;br&gt;&lt;br&gt;Выберите сессию на панели инструментов и нажмите &lt;b&gt;Подключить&lt;/b&gt;,&lt;br&gt;или создайте новую сессию через &lt;b&gt;Файл → Новое соединение…&lt;/b&gt;&lt;/center&gt;</translation>
     </message>
@@ -2568,22 +2579,22 @@
 <context>
     <name>linscp::ui::panels::RemotePanel</name>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="181"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="185"/>
         <source>New Folder</source>
         <translation>Новая папка</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="182"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="186"/>
         <source>Folder name:</source>
         <translation>Имя папки:</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="194"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="198"/>
         <source>Delete</source>
         <translation>Удалить</translation>
     </message>
     <message numerus="yes">
-        <location filename="../ui/panels/remote_panel.cpp" line="195"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="199"/>
         <source>Delete %n item(s)?</source>
         <translation>
             <numerusform>Удалить %n элемент?</numerusform>
@@ -2592,43 +2603,43 @@
         </translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="219"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="223"/>
         <source>Rename</source>
         <translation>Переименовать</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="219"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="223"/>
         <source>New name:</source>
         <translation>Новое имя:</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="251"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="255"/>
         <source>Open</source>
         <translation>Открыть</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="256"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="260"/>
         <source>Edit</source>
         <translation>Редактировать</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="314"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="318"/>
         <source>Properties…</source>
         <translation>Свойства…</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="358"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="362"/>
         <source>Loading %1…</source>
         <translation>Загрузка %1…</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="366"/>
-        <location filename="../ui/panels/remote_panel.cpp" line="378"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="375"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="387"/>
         <source>%1 items</source>
         <translation>%1 элементов</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="268"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="272"/>
         <source>Download…	F5</source>
         <translation>Скачать…	F5</translation>
     </message>
@@ -2638,37 +2649,37 @@
         <translation>Ошибка: %1</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="199"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="203"/>
         <source>Deleting…</source>
         <translation>Удаление…</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="272"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="276"/>
         <source>Download and Delete…	F6</source>
         <translation>Скачать и удалить…	F6</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="277"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="281"/>
         <source>Download to Queue</source>
         <translation>Скачать в фоне</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="295"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="299"/>
         <source>Rename…	F2</source>
         <translation>Переименовать…	F2</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="299"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="303"/>
         <source>Delete	Del</source>
         <translation>Удалить	Del</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="307"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="311"/>
         <source>New Folder…	F7</source>
         <translation>Новая папка…	F7</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="380"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="389"/>
         <source>%1 items  |  Free: %2</source>
         <translation>%1 элементов  |  Свободно: %2</translation>
     </message>

@@ -59,6 +59,10 @@ RemotePanel::RemotePanel(core::IRemoteFileSystem *fs,
         // Показываем ошибку в строке состояния панели; при следующем
         // ручном обновлении (Ctrl+R / кнопка) будет ещё одна попытка загрузки.
         statusBar()->setText(tr("Error: %1").arg(msg));
+        if (!m_firstLoadEmitted) {
+            m_firstLoadEmitted = true;
+            emit firstLoadDone();
+        }
     });
 
     // Сортировка по клику на заголовок — in-memory, без SFTP-запроса.
@@ -360,6 +364,11 @@ void RemotePanel::onLoadingStarted(const QString &path)
 
 void RemotePanel::onLoadingFinished(const QString &path)
 {
+    if (!m_firstLoadEmitted) {
+        m_firstLoadEmitted = true;
+        emit firstLoadDone();
+    }
+
     const int count = m_model->rowCount(m_model->indexForPath(currentPath()));
 
     if (!m_sshSession && !m_fs->supportsFreeSpace()) {
