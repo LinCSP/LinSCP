@@ -649,7 +649,7 @@ void MainWindow::onAbout()
                         tr("<h2>LinSCP v%1</h2>"
                            "<p>Cross-platform SFTP/SSH file manager.</p>"
                            "<p>Open source · GPL v2<br>"
-                           "<a href=\"https://github.com/\">GitHub</a></p>").arg(version));
+                           "<a href=\"https://github.com/LinCSP/LinSCP\">GitHub</a></p>").arg(version));
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)

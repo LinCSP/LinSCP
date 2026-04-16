@@ -515,8 +515,8 @@
     </message>
     <message>
         <location filename="../ui/main_window.cpp" line="648"/>
-        <source>&lt;h2&gt;LinSCP v0.1&lt;/h2&gt;&lt;p&gt;Cross-platform SFTP/SSH file manager.&lt;/p&gt;&lt;p&gt;Open source · GPL v2&lt;br&gt;&lt;a href=&quot;https://github.com/&quot;&gt;GitHub&lt;/a&gt;&lt;/p&gt;</source>
-        <translation>&lt;h2&gt;LinSCP v0.1&lt;/h2&gt;&lt;p&gt;Кроссплатформенный файловый менеджер SFTP/SSH.&lt;/p&gt;&lt;p&gt;Открытый исходный код · GPL v2&lt;br&gt;&lt;a href=&quot;https://github.com/&quot;&gt;GitHub&lt;/a&gt;&lt;/p&gt;</translation>
+        <source>&lt;h2&gt;LinSCP v%1&lt;/h2&gt;&lt;p&gt;Cross-platform SFTP/SSH file manager.&lt;/p&gt;&lt;p&gt;Open source · GPL v2&lt;br&gt;&lt;a href=&quot;https://github.com/LinCSP/LinSCP&quot;&gt;GitHub&lt;/a&gt;&lt;/p&gt;</source>
+        <translation>&lt;h2&gt;LinSCP v%1&lt;/h2&gt;&lt;p&gt;Кроссплатформенный файловый менеджер SFTP/SSH.&lt;/p&gt;&lt;p&gt;Открытый исходный код · GPL v2&lt;br&gt;&lt;a href=&quot;https://github.com/LinCSP/LinSCP&quot;&gt;GitHub&lt;/a&gt;&lt;/p&gt;</translation>
     </message>
 </context>
 <context>
