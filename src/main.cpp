@@ -51,7 +51,7 @@ int main(int argc, char *argv[])
     slog("[linscp] QApplication created");
 
     app.setApplicationName("LinSCP");
-    app.setApplicationVersion("0.1.0");
+    app.setApplicationVersion(LINSCP_VERSION);
     app.setOrganizationName("LinSCP");
     app.setOrganizationDomain("linscp.app");
     app.setWindowIcon(QIcon(":/icons/linscp.svg"));

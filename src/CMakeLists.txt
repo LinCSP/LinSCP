@@ -158,6 +158,10 @@ target_compile_options(linscp PRIVATE
     ${LIBSSH_CFLAGS_OTHER}
 )
 
+target_compile_definitions(linscp PRIVATE
+    LINSCP_VERSION="${PROJECT_VERSION}"
+)
+
 # ── i18n / переводы ───────────────────────────────────────────────────────────
 if(Qt6LinguistTools_FOUND)
     set(TS_FILES i18n/linscp_ru.ts)
