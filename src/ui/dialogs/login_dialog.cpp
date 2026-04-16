@@ -137,8 +137,15 @@ void LoginDialog::setupUi()
     formLayout->setContentsMargins(12, 12, 12, 12);
 
     m_protocol = new QComboBox(m_connGroup);
-    m_protocol->addItem("SFTP", static_cast<int>(core::session::TransferProtocol::Sftp));
-    m_protocol->addItem("SCP",  static_cast<int>(core::session::TransferProtocol::Scp));
+    m_protocol->addItem("SFTP",   static_cast<int>(core::session::TransferProtocol::Sftp));
+    m_protocol->addItem("SCP",    static_cast<int>(core::session::TransferProtocol::Scp));
+    m_protocol->addItem("WebDAV", static_cast<int>(core::session::TransferProtocol::WebDav));
+
+    m_encryption = new QComboBox(m_connGroup);
+    m_encryption->addItem(tr("No encryption"), static_cast<int>(core::webdav::WebDavEncryption::None));
+    m_encryption->addItem(tr("TLS/SSL"),        static_cast<int>(core::webdav::WebDavEncryption::Tls));
+    m_encryption->addItem(tr("Implicit TLS"),   static_cast<int>(core::webdav::WebDavEncryption::ImplicitTls));
+    m_encryptionLabel = new QLabel(tr("Encryption:"), m_connGroup);
 
     m_host = new QLineEdit(m_connGroup);
     m_host->setPlaceholderText(tr("hostname or IP"));
@@ -174,16 +181,24 @@ void LoginDialog::setupUi()
     keyRow->addWidget(m_keyPath, 1);
     keyRow->addWidget(m_browseKey);
 
-    formLayout->addRow(tr("Protocol:"),   m_protocol);
-    formLayout->addRow(tr("Hostname:"),   hostRow);
-    formLayout->addRow(tr("Username:"),   m_username);
-    formLayout->addRow(tr("Auth:"),       m_authMethod);
-    formLayout->addRow(tr("Password:"),   m_password);
-    formLayout->addRow(tr("Key file:"),   keyRow);
+    m_authMethodLabel = new QLabel(tr("Auth:"), m_connGroup);
+
+    formLayout->addRow(tr("Protocol:"),    m_protocol);
+    formLayout->addRow(m_encryptionLabel,  m_encryption);
+    formLayout->addRow(tr("Hostname:"),    hostRow);
+    formLayout->addRow(tr("Username:"),    m_username);
+    formLayout->addRow(m_authMethodLabel,  m_authMethod);
+    formLayout->addRow(tr("Password:"),    m_password);
+    formLayout->addRow(tr("Key file:"),    keyRow);
 
     connect(m_authMethod, &QComboBox::currentIndexChanged,
             this, &LoginDialog::onAuthMethodChanged);
+    connect(m_protocol,   &QComboBox::currentIndexChanged,
+            this, &LoginDialog::onProtocolChanged);
+    connect(m_encryption, &QComboBox::currentIndexChanged,
+            this, &LoginDialog::onEncryptionChanged);
     onAuthMethodChanged(0);
+    onProtocolChanged(0);
 
     // Кнопки под формой: [Сохранить] [Ещё… ▼]
     m_saveBtn = new QPushButton(tr("Save"), m_connGroup);
@@ -422,6 +437,9 @@ void LoginDialog::showSessionForm(const core::session::SessionProfile &p)
     const int idx = m_authMethod->findData(static_cast<int>(p.authMethod));
     if (idx >= 0) m_authMethod->setCurrentIndex(idx);
 
+    const int encIdx = m_encryption->findData(static_cast<int>(p.webDavEncryption));
+    if (encIdx >= 0) m_encryption->setCurrentIndex(encIdx);
+
     m_saveBtn->setText(tr("Save changes"));
 }
 
@@ -436,9 +454,11 @@ core::session::SessionProfile LoginDialog::collectProfile() const
     p.username  = m_username->text().trimmed();
     p.authMethod = static_cast<core::ssh::AuthMethod>(
         m_authMethod->currentData().toInt());
-    p.privateKeyPath = m_keyPath->text();
-    p.password   = m_password->text();   // транзиентно — не сохраняется на диск
-    p.notes      = m_noteMemo->toPlainText();
+    p.privateKeyPath   = m_keyPath->text();
+    p.password         = m_password->text();   // транзиентно — не сохраняется на диск
+    p.notes            = m_noteMemo->toPlainText();
+    p.webDavEncryption = static_cast<core::webdav::WebDavEncryption>(
+        m_encryption->currentData().toInt());
 
     return p;
 }
@@ -909,6 +929,44 @@ void LoginDialog::syncTreeToStore()
             m_store->addFolder(f);
 
     m_store->save();
+}
+
+void LoginDialog::onProtocolChanged(int)
+{
+    const bool webdav = static_cast<core::session::TransferProtocol>(
+        m_protocol->currentData().toInt()) == core::session::TransferProtocol::WebDav;
+
+    m_encryptionLabel->setVisible(webdav);
+    m_encryption->setVisible(webdav);
+
+    if (m_authMethodLabel)
+        m_authMethodLabel->setVisible(!webdav);
+    m_authMethod->setVisible(!webdav);
+
+    if (webdav) {
+        const auto enc = static_cast<core::webdav::WebDavEncryption>(
+            m_encryption->currentData().toInt());
+        m_port->setValue(enc == core::webdav::WebDavEncryption::None ? 80 : 443);
+        const int pwdIdx = m_authMethod->findData(
+            static_cast<int>(core::ssh::AuthMethod::Password));
+        if (pwdIdx >= 0) m_authMethod->setCurrentIndex(pwdIdx);
+        onAuthMethodChanged(0);
+    } else {
+        m_port->setValue(22);
+    }
+}
+
+void LoginDialog::onEncryptionChanged(int)
+{
+    const bool webdav = static_cast<core::session::TransferProtocol>(
+        m_protocol->currentData().toInt()) == core::session::TransferProtocol::WebDav;
+    if (!webdav) return;
+
+    const auto enc = static_cast<core::webdav::WebDavEncryption>(
+        m_encryption->currentData().toInt());
+    const int cur = m_port->value();
+    if (cur == 80 || cur == 443)
+        m_port->setValue(enc == core::webdav::WebDavEncryption::None ? 80 : 443);
 }
 
 } // namespace linscp::ui::dialogs

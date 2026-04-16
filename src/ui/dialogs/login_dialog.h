@@ -2,6 +2,7 @@
 #include <QDialog>
 #include "core/session/session_profile.h"
 #include "core/session/session_store.h"
+#include "core/webdav/webdav_client.h"
 
 class QTreeWidgetItem;
 class QStackedWidget;
@@ -41,6 +42,8 @@ private slots:
     void onManageMenu();
     void onToolsMenu();
     void onAuthMethodChanged(int index);
+    void onProtocolChanged(int index);
+    void onEncryptionChanged(int index);
     void onBrowseKey();
     // Управление
     void onNewFolder();
@@ -88,10 +91,13 @@ private:
     QGroupBox    *m_connGroup;
 
     QComboBox    *m_protocol;
+    QComboBox    *m_encryption       = nullptr;
+    QLabel       *m_encryptionLabel  = nullptr;
     QLineEdit    *m_host;
     QSpinBox     *m_port;
     QLineEdit    *m_username;
     QComboBox    *m_authMethod;
+    QLabel       *m_authMethodLabel  = nullptr;
     QLineEdit    *m_password;
     QLineEdit    *m_keyPath;
     QPushButton  *m_browseKey;
