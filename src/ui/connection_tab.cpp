@@ -523,10 +523,25 @@ void ConnectionTab::setupRemotePanel(const core::session::SessionProfile &profil
         });
     }
 
-    const QString remotePath = !profile.webDavPath.isEmpty()
-                                   ? profile.webDavPath
-                                   : QStringLiteral("/");
-    m_remotePanel->navigateTo(remotePath);
+    if (m_pathState) {
+        const auto state = m_pathState->load(m_profileId);
+        if (!state.localPath.isEmpty())
+            m_localPanel->navigateTo(state.localPath);
+        const QString remotePath = !state.remotePath.isEmpty()
+                                       ? state.remotePath
+                                       : (!profile.webDavPath.isEmpty()
+                                              ? profile.webDavPath
+                                              : QStringLiteral("/"));
+        m_remotePanel->navigateTo(remotePath);
+
+        if (state.remoteSortColumn != 0 || state.remoteSortOrder != 0)
+            m_remotePanel->applySortState(state.remoteSortColumn, state.remoteSortOrder);
+    } else {
+        const QString remotePath = !profile.webDavPath.isEmpty()
+                                       ? profile.webDavPath
+                                       : QStringLiteral("/");
+        m_remotePanel->navigateTo(remotePath);
+    }
 }
 
 void ConnectionTab::onSshError(const QString &msg)
