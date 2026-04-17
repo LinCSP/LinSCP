@@ -87,7 +87,7 @@ bool WebDavFileSystem::uploadRecursive(const QString &localPath, const QString &
 {
     const QFileInfo fi(localPath);
     if (!fi.isDir())
-        return upload(localPath, remotePath + '/' + fi.fileName(), progress);
+        return upload(localPath, remotePath, progress);
 
     // Рекурсивный обход локального дерева
     const QString destBase = remotePath + '/' + fi.fileName();

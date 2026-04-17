@@ -64,6 +64,7 @@ static int acceptAny(void */*ud*/, ne_request */*req*/, const ne_status *st)
     return st->klass == 2 || st->code == 207;
 }
 
+
 /// Percent-encode каждый сегмент пути, сохраняя '/' как разделитель.
 static QByteArray encodePath(const QString &path)
 {
@@ -222,6 +223,7 @@ QList<WebDavFileInfo> WebDavClient::propfind(const QString &path, int depth)
     m_lastError = tr("WebDAV not compiled");
     return {};
 #else
+    m_lastError.clear();
     SessionGuard s(makeSession());
     if (!s) return {};
 

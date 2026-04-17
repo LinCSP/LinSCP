@@ -149,9 +149,14 @@ void RemotePanel::uploadFiles(const QStringList &localPaths, bool isMove)
 {
     if (localPaths.isEmpty()) return;
 
+    const bool singleFile = (localPaths.size() == 1);
+    const QString defaultDest = singleFile
+        ? utils::FileUtils::joinPath(currentPath(), QFileInfo(localPaths.first()).fileName())
+        : currentPath();
+
     dialogs::CopyDialog dlg(dialogs::CopyDialog::Direction::Upload,
                             isMove, localPaths,
-                            currentPath(), this);
+                            defaultDest, this);
     if (dlg.exec() != QDialog::Accepted) return;
     const QString destPath = dlg.targetDirectory();
 
@@ -160,7 +165,9 @@ void RemotePanel::uploadFiles(const QStringList &localPaths, bool isMove)
         core::transfer::TransferItem item;
         item.direction  = core::transfer::TransferDirection::Upload;
         item.localPath  = localPath;
-        item.remotePath = destPath + '/' + fi.fileName();
+        item.remotePath = singleFile
+            ? destPath
+            : utils::FileUtils::joinPath(destPath, fi.fileName());
         item.totalBytes = fi.size();
         m_queue->enqueue(item);
     }
@@ -336,10 +343,15 @@ void RemotePanel::onDropToPath(const QStringList &sourcePaths,
     // Откладываем — нельзя открывать диалог внутри dropEvent
     QTimer::singleShot(0, this, [this, sourcePaths, targetPath]() {
         // Local → Remote: показываем CopyDialog и ставим в очередь
-        const QString dest = targetPath.isEmpty() ? currentPath() : targetPath;
+        const QString baseDir = targetPath.isEmpty() ? currentPath() : targetPath;
+        const bool singleFile = (sourcePaths.size() == 1);
+        const QString defaultDest = singleFile
+            ? utils::FileUtils::joinPath(baseDir, QFileInfo(sourcePaths.first()).fileName())
+            : baseDir;
+
         dialogs::CopyDialog dlg(dialogs::CopyDialog::Direction::Upload,
                                 /*isMove=*/false, sourcePaths,
-                                dest, this);
+                                defaultDest, this);
         if (dlg.exec() != QDialog::Accepted) return;
         const QString finalDest = dlg.targetDirectory();
 
@@ -348,7 +360,9 @@ void RemotePanel::onDropToPath(const QStringList &sourcePaths,
             core::transfer::TransferItem item;
             item.direction  = core::transfer::TransferDirection::Upload;
             item.localPath  = localPath;
-            item.remotePath = finalDest + '/' + fi.fileName();
+            item.remotePath = singleFile
+                ? finalDest
+                : utils::FileUtils::joinPath(finalDest, fi.fileName());
             item.totalBytes = fi.size();
             m_queue->enqueue(item);
         }
