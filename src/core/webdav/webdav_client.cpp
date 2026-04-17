@@ -225,7 +225,21 @@ QList<WebDavFileInfo> WebDavClient::propfind(const QString &path, int depth)
     SessionGuard s(makeSession());
     if (!s) return {};
 
-    static const char kBody[] =
+    // depth=0: запрос свободного места — включаем quota
+    // depth=1: листинг директории — quota НЕ включаем, cloud.mail.ru
+    //          возвращает 400 при запросе quota на подпапках
+    static const char kBodyList[] =
+        "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+        "<D:propfind xmlns:D=\"DAV:\">"
+          "<D:prop>"
+            "<D:displayname/>"
+            "<D:getcontentlength/>"
+            "<D:getlastmodified/>"
+            "<D:resourcetype/>"
+          "</D:prop>"
+        "</D:propfind>";
+
+    static const char kBodyStat[] =
         "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
         "<D:propfind xmlns:D=\"DAV:\">"
           "<D:prop>"
@@ -237,13 +251,16 @@ QList<WebDavFileInfo> WebDavClient::propfind(const QString &path, int depth)
           "</D:prop>"
         "</D:propfind>";
 
+    const char *body   = (depth == 0) ? kBodyStat : kBodyList;
+    const size_t bodyLen = (depth == 0) ? sizeof(kBodyStat) - 1 : sizeof(kBodyList) - 1;
+
     const QByteArray pathUtf8 = encodePath(path);
     ne_request *req = ne_request_create(s, "PROPFIND", pathUtf8.constData());
 
     const QString depthStr = (depth == 0) ? QStringLiteral("0") : QStringLiteral("1");
     ne_add_request_header(req, "Depth", depthStr.toUtf8().constData());
     ne_add_request_header(req, "Content-Type", "application/xml; charset=utf-8");
-    ne_set_request_body_buffer(req, kBody, sizeof(kBody) - 1);
+    ne_set_request_body_buffer(req, body, bodyLen);
 
     BodyBuf buf;
     ne_add_response_body_reader(req, acceptAny, bodyReader, &buf);
@@ -258,6 +275,16 @@ QList<WebDavFileInfo> WebDavClient::propfind(const QString &path, int depth)
         return {};
     }
     if (code != 207) {
+        // cloud.mail.ru (и некоторые другие серверы) возвращают HTTP 400
+        // для PROPFIND depth=1 на пустых папках вместо стандартного 207.
+        // Проверяем через depth=0: если путь — коллекция, папка просто пустая.
+        if (code == 400 && depth != 0) {
+            const auto check = propfind(path, 0);
+            if (!check.isEmpty() && check.first().isCollection) {
+                m_lastError.clear();
+                return check; // list() пропустит первый элемент и вернёт []
+            }
+        }
         m_lastError = tr("PROPFIND returned HTTP %1").arg(code);
         return {};
     }

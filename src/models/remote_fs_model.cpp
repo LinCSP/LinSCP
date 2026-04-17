@@ -257,11 +257,13 @@ QModelIndex RemoteFsModel::parent(const QModelIndex &index) const
 int RemoteFsModel::rowCount(const QModelIndex &parent) const
 {
     Node *node = nodeForIndex(parent);
-    // Автозагрузка только для корня; после ошибки — только по явному Refresh
-    if (node == m_root.get() && !node->loaded && !node->loading && !node->failed) {
+    // Автозагрузка только для корня с установленным путём; после ошибки — только по явному Refresh.
+    // Проверка !m_rootPath.isEmpty() предотвращает PROPFIND с пустым путём до вызова navigateTo.
+    if (node == m_root.get() && !m_rootPath.isEmpty()
+            && !node->loaded && !node->loading && !node->failed) {
         const_cast<RemoteFsModel *>(this)->loadDirectory(node);
-    } else if (node == m_root.get() && !node->failed && node->isCacheExpired(m_cacheTtlSecs)) {
-        // Кэш устарел — перезагрузить в фоне (без сброса текущих данных)
+    } else if (node == m_root.get() && !m_rootPath.isEmpty()
+               && !node->failed && node->isCacheExpired(m_cacheTtlSecs)) {
         const_cast<RemoteFsModel *>(this)->loadDirectory(node);
     }
     return static_cast<int>(node->children.size());
