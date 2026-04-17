@@ -60,7 +60,12 @@ void FilePanel::setupToolbar()
 {
     m_toolbar->addAction(svgIcon(QStringLiteral("arrow-up")),
                          tr("Up"),
-                         [this]() { navigateTo(currentPath() + "/.."); });
+                         [this]() {
+        QString p = currentPath();
+        if (p.endsWith('/')) p.chop(1);
+        const int last = p.lastIndexOf('/');
+        navigateTo(last <= 0 ? QStringLiteral("/") : p.left(last + 1));
+    });
 
     m_toolbar->addAction(svgIcon(QStringLiteral("rotate")),
                          tr("Refresh"),
