@@ -604,10 +604,12 @@ bool WebDavClient::copy(const QString &from, const QString &to, bool overwrite)
 
 // ── Утилиты ───────────────────────────────────────────────────────────────────
 
+#ifdef WITH_WEBDAV
 QString WebDavClient::decodePath(const char *href)
 {
     return QUrl::fromPercentEncoding(QByteArray(href));
 }
+#endif
 
 
 } // namespace linscp::core::webdav
