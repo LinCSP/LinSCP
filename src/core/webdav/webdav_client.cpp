@@ -64,6 +64,29 @@ static int acceptAny(void */*ud*/, ne_request */*req*/, const ne_status *st)
     return st->klass == 2 || st->code == 207;
 }
 
+/// Percent-encode каждый сегмент пути, сохраняя '/' как разделитель.
+static QByteArray encodePath(const QString &path)
+{
+    QByteArray result;
+    result.reserve(path.size() * 3);
+    const QList<QStringView> segments = QStringView(path).split('/');
+    for (int i = 0; i < segments.size(); ++i) {
+        if (i > 0) result += '/';
+        result += QUrl::toPercentEncoding(segments[i].toString());
+    }
+    return result;
+}
+
+/// Preemptive Basic auth: добавляет Authorization-заголовок ДО первого запроса,
+/// чтобы не зависеть от neon-negotiation (которая иногда отказывает Basic через TLS).
+static void preAuthHook(ne_request *req, void *userdata, ne_buffer *header)
+{
+    Q_UNUSED(req);
+    const auto *client = static_cast<const WebDavClient *>(userdata);
+    const QByteArray line = "Authorization: " + client->authHeader() + "\r\n";
+    ne_buffer_append(header, line.constData(), static_cast<size_t>(line.size()));
+}
+
 // ── Скачивание с прогрессом ───────────────────────────────────────────────────
 struct DownloadCtx {
     int    fd;
@@ -141,6 +164,7 @@ WebDavClient::WebDavClient(WebDavEncryption enc,
     m_host = cleanHost;
     m_port = port;
     m_connected = true;
+    m_authHeader = "Basic " + (username + ':' + password).toUtf8().toBase64();
 #else
     Q_UNUSED(enc); Q_UNUSED(host); Q_UNUSED(port);
     m_lastError = tr("WebDAV support not compiled (rebuild with -DWITH_WEBDAV=ON)");
@@ -167,6 +191,7 @@ ne_session *WebDavClient::makeSession() const
         return nullptr;
     }
     ne_set_server_auth(s, authCallback, const_cast<WebDavClient *>(this));
+    ne_hook_pre_send(s, preAuthHook, const_cast<WebDavClient *>(this));
     ne_set_useragent(s, "LinSCP/" LINSCP_VERSION " (libneon)");
     ne_set_connect_timeout(s, 15);
     ne_set_read_timeout(s, 30);
@@ -212,7 +237,7 @@ QList<WebDavFileInfo> WebDavClient::propfind(const QString &path, int depth)
           "</D:prop>"
         "</D:propfind>";
 
-    const QByteArray pathUtf8 = path.toUtf8();
+    const QByteArray pathUtf8 = encodePath(path);
     ne_request *req = ne_request_create(s, "PROPFIND", pathUtf8.constData());
 
     const QString depthStr = (depth == 0) ? QStringLiteral("0") : QStringLiteral("1");
@@ -366,7 +391,7 @@ bool WebDavClient::get(const QString &remotePath, const QString &localPath,
     if (resumeOffset > 0)
         ::lseek(fd, static_cast<off_t>(resumeOffset), SEEK_SET);
 
-    const QByteArray pathUtf8 = remotePath.toUtf8();
+    const QByteArray pathUtf8 = encodePath(remotePath);
     ne_request *req = ne_request_create(s, "GET", pathUtf8.constData());
 
     if (resumeOffset > 0) {
@@ -430,7 +455,7 @@ bool WebDavClient::put(const QString &localPath, const QString &remotePath,
 
     const qint64 sendSize = fileSize - resumeOffset;
 
-    const QByteArray pathUtf8 = remotePath.toUtf8();
+    const QByteArray pathUtf8 = encodePath(remotePath);
     ne_request *req = ne_request_create(s, "PUT", pathUtf8.constData());
 
     if (resumeOffset > 0) {
@@ -472,7 +497,7 @@ bool WebDavClient::del(const QString &remotePath)
 #else
     SessionGuard s(makeSession());
     if (!s) return false;
-    const int rc = ne_delete(s, remotePath.toUtf8().constData());
+    const int rc = ne_delete(s, encodePath(remotePath).constData());
     if (rc != NE_OK) {
         m_lastError = QString::fromUtf8(ne_get_error(s));
         return false;
@@ -492,7 +517,7 @@ bool WebDavClient::mkcol(const QString &remotePath)
 #else
     SessionGuard s(makeSession());
     if (!s) return false;
-    const int rc = ne_mkcol(s, remotePath.toUtf8().constData());
+    const int rc = ne_mkcol(s, encodePath(remotePath).constData());
     if (rc != NE_OK) {
         m_lastError = QString::fromUtf8(ne_get_error(s));
         return false;
@@ -514,8 +539,8 @@ bool WebDavClient::move(const QString &from, const QString &to, bool overwrite)
     if (!s) return false;
     const int rc = ne_move(s,
                            overwrite ? 1 : 0,
-                           from.toUtf8().constData(),
-                           to.toUtf8().constData());
+                           encodePath(from).constData(),
+                           encodePath(to).constData());
     if (rc != NE_OK) {
         m_lastError = QString::fromUtf8(ne_get_error(s));
         return false;
@@ -538,8 +563,8 @@ bool WebDavClient::copy(const QString &from, const QString &to, bool overwrite)
     const int rc = ne_copy(s,
                            overwrite ? 1 : 0,
                            NE_DEPTH_INFINITE,
-                           from.toUtf8().constData(),
-                           to.toUtf8().constData());
+                           encodePath(from).constData(),
+                           encodePath(to).constData());
     if (rc != NE_OK) {
         m_lastError = QString::fromUtf8(ne_get_error(s));
         return false;
@@ -554,5 +579,6 @@ QString WebDavClient::decodePath(const char *href)
 {
     return QUrl::fromPercentEncoding(QByteArray(href));
 }
+
 
 } // namespace linscp::core::webdav

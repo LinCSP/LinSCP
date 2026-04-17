@@ -65,9 +65,12 @@ public:
 
     QString lastError() const { return m_lastError; }
 
-    // Доступ для authCallback (C-колбэка libneon)
+    // Доступ для authCallback и preAuthHook (C-колбэков libneon)
     QString username() const { return m_username; }
     QString password() const { return m_password; }
+#ifdef WITH_WEBDAV
+    const QByteArray &authHeader() const { return m_authHeader; }
+#endif
 
 private:
     /// Декодировать URL-encoded href в чистый путь
@@ -92,6 +95,7 @@ private:
     WebDavEncryption m_enc;
     QString          m_host;   ///< чистый хост (без схемы и пути)
     quint16          m_port;
+    QByteArray       m_authHeader; ///< preemptive "Basic base64(user:pass)"
 #endif
 };
 
