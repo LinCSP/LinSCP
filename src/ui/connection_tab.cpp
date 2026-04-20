@@ -63,6 +63,9 @@ ConnectionTab::~ConnectionTab()
     delete m_progressDlg;     m_progressDlg     = nullptr;
     delete m_transferManager; m_transferManager = nullptr;
     delete m_syncEngine;      m_syncEngine      = nullptr;
+    // Must precede m_fs/m_sftpClient: RemoteFsModel's QThreadPool destructor
+    // calls waitForDone(), so no pool task can access m_fs after this line.
+    delete m_remotePanel;     m_remotePanel     = nullptr;
     delete m_fs;              m_fs              = nullptr;
     delete m_sftpClient;      m_sftpClient      = nullptr;
 
@@ -160,6 +163,13 @@ void ConnectionTab::disconnectSession()
     delete m_progressDlg;     m_progressDlg     = nullptr;
     delete m_transferManager; m_transferManager = nullptr;
     delete m_syncEngine;      m_syncEngine      = nullptr;
+    // Delete synchronously before m_fs/m_sftpClient: RemoteFsModel's QThreadPool
+    // destructor calls waitForDone(), so no pool task can use m_fs after this.
+    if (m_remotePanel) {
+        delete m_remotePanel;
+        m_remotePanel = nullptr;
+    }
+    showPlaceholder();
     delete m_fs;              m_fs              = nullptr;
     delete m_sftpClient;      m_sftpClient      = nullptr;
 
@@ -174,12 +184,6 @@ void ConnectionTab::disconnectSession()
     m_sessionManager.reset();
     m_profileId = {};
     m_title = tr("Not connected");
-
-    if (m_remotePanel) {
-        m_remotePanel->deleteLater();
-        m_remotePanel = nullptr;
-    }
-    showPlaceholder();
 
     emit titleChanged(m_title);
     emit connectionLost();
