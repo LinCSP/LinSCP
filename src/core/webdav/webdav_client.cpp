@@ -105,7 +105,7 @@ static int downloadReader(void *userdata, const char *buf, size_t len)
         sftp::TransferProgress p;
         p.transferred = ctx->downloaded;
         p.total       = ctx->total;
-        (*ctx->cb)(p);
+        if (!(*ctx->cb)(p)) return -1;
     }
     return 0;
 }
@@ -133,7 +133,7 @@ static ssize_t uploadProvider(void *userdata, char *buffer, size_t buflen)
             sftp::TransferProgress p;
             p.transferred = ctx->uploaded;
             p.total       = ctx->total;
-            (*ctx->cb)(p);
+            if (!(*ctx->cb)(p)) return -1;
         }
     }
     return n;

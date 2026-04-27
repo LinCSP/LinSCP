@@ -91,7 +91,12 @@ bool WebDavFileSystem::uploadRecursive(const QString &localPath, const QString &
 
     // Рекурсивный обход локального дерева
     const QString destBase = remotePath + '/' + fi.fileName();
-    mkdir(destBase);
+    if (!mkdir(destBase)) {
+        // 405 — папка уже существует, это нормально; иная ошибка — прерываем
+        const sftp::SftpFileInfo check = stat(destBase);
+        if (check.path.isEmpty() || !check.isDir)
+            return false;
+    }
 
     const QDir dir(localPath);
     for (const QFileInfo &entry : dir.entryInfoList(QDir::AllEntries | QDir::NoDotAndDotDot)) {
@@ -108,22 +113,29 @@ bool WebDavFileSystem::uploadRecursive(const QString &localPath, const QString &
 }
 
 bool WebDavFileSystem::downloadRecursive(const QString &remotePath, const QString &localPath,
-                                         sftp::ProgressCallback progress)
+                                         sftp::ProgressCallback progress,
+                                         SizeCallback onSizeDiscovered)
 {
     const sftp::SftpFileInfo info = stat(remotePath);
     if (info.path.isEmpty()) return false;
 
-    if (!info.isDir)
+    if (!info.isDir) {
+        if (onSizeDiscovered) onSizeDiscovered(info.size);
         return download(remotePath, localPath + '/' + info.name, progress);
+    }
 
     // Рекурсивный обход удалённого дерева
     const QString destBase = localPath + '/' + info.name;
     QDir().mkpath(destBase);
 
     const QList<sftp::SftpFileInfo> entries = list(remotePath);
+    if (onSizeDiscovered) {
+        for (const sftp::SftpFileInfo &entry : entries)
+            if (!entry.isDir) onSizeDiscovered(entry.size);
+    }
     for (const sftp::SftpFileInfo &entry : entries) {
         if (entry.isDir) {
-            if (!downloadRecursive(entry.path, destBase, progress))
+            if (!downloadRecursive(entry.path, destBase, progress, onSizeDiscovered))
                 return false;
         } else {
             if (!download(entry.path, destBase + '/' + entry.name, progress))

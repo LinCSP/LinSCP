@@ -28,8 +28,14 @@ public:
                               qint64 offset, sftp::ProgressCallback progress = {}) = 0;
     virtual bool uploadRecursive(const QString &localPath, const QString &remotePath,
                                  sftp::ProgressCallback progress = {}) = 0;
+    using SizeCallback = std::function<void(qint64)>;
+
     virtual bool downloadRecursive(const QString &remotePath, const QString &localPath,
-                                   sftp::ProgressCallback progress = {}) = 0;
+                                   sftp::ProgressCallback progress = {},
+                                   SizeCallback onSizeDiscovered = {}) = 0;
+
+    /// Рекурсивно подсчитать суммарный размер файлов (в байтах); 0 если не поддерживается
+    virtual qint64 calcSizeRecursive(const QString &path) { Q_UNUSED(path); return 0; }
 
     // ── Файловые операции ─────────────────────────────────────────────────────
     virtual bool rename(const QString &oldPath, const QString &newPath) = 0;

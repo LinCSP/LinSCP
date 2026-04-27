@@ -30,6 +30,7 @@ public:
     // ── Вызывается из TransferManager ─────────────────────────────────────────
 
     void updateProgress(const QUuid &id, qint64 transferred);
+    void setTotalBytes(const QUuid &id, qint64 total);
     void setStatus(const QUuid &id, TransferStatus status, const QString &error = {});
 
     /// Вернуть следующий элемент с статусом Queued, либо null

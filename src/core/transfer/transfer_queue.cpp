@@ -90,6 +90,20 @@ void TransferQueue::updateProgress(const QUuid &id, qint64 transferred)
     emit itemChanged(id);
 }
 
+void TransferQueue::setTotalBytes(const QUuid &id, qint64 total)
+{
+    {
+        QMutexLocker lock(&m_mutex);
+        for (auto &it : m_items) {
+            if (it.id == id) {
+                it.totalBytes = total;
+                break;
+            }
+        }
+    }
+    emit itemChanged(id);
+}
+
 void TransferQueue::setStatus(const QUuid &id, TransferStatus status, const QString &error)
 {
     {

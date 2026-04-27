@@ -28,7 +28,9 @@ public:
     bool uploadRecursive(const QString &localPath, const QString &remotePath,
                          ProgressCallback progress = {}) override;
     bool downloadRecursive(const QString &remotePath, const QString &localPath,
-                           ProgressCallback progress = {}) override;
+                           ProgressCallback progress = {},
+                           SizeCallback onSizeDiscovered = {}) override;
+    qint64 calcSizeRecursive(const QString &path) override;
 
     bool rename(const QString &oldPath, const QString &newPath) override;
     bool remove(const QString &remotePath) override;

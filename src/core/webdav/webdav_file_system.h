@@ -34,7 +34,8 @@ public:
     bool uploadRecursive(const QString &localPath, const QString &remotePath,
                          sftp::ProgressCallback progress = {}) override;
     bool downloadRecursive(const QString &remotePath, const QString &localPath,
-                           sftp::ProgressCallback progress = {}) override;
+                           sftp::ProgressCallback progress = {},
+                           SizeCallback onSizeDiscovered = {}) override;
 
     bool rename(const QString &oldPath, const QString &newPath) override;
     bool remove(const QString &remotePath) override;

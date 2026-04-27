@@ -14,7 +14,8 @@ struct TransferProgress {
     }
 };
 
-using ProgressCallback = std::function<void(const TransferProgress &)>;
+/// Возвращает true — продолжать, false — отменить передачу.
+using ProgressCallback = std::function<bool(const TransferProgress &)>;
 
 /// Информация об удалённом файле/директории (аналог QFileInfo для SFTP)
 struct SftpFileInfo {

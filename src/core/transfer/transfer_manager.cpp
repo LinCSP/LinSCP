@@ -129,34 +129,56 @@ void TransferManager::runItem(const TransferItem &item)
     }
 
     // ── Передача ─────────────────────────────────────────────────────────────
+    // cumBase накапливает байты завершённых файлов; при старте нового файла
+    // p.transferred < prevFileBytes (сброс счётчика), добавляем предыдущее.
     auto progress = [this, &item,
-                     prevBytes  = qint64{0},
-                     chunkTimer = QElapsedTimer()](
-                        const sftp::TransferProgress &p) mutable
+                     prevFileBytes = qint64{0},
+                     cumBase       = qint64{0},
+                     prevBytes     = qint64{0},
+                     chunkTimer    = QElapsedTimer()](
+                        const sftp::TransferProgress &p) mutable -> bool
     {
+        // Отмена — немедленно останавливаем передачу
+        if (m_queue->item(item.id).status == TransferStatus::Cancelled) return false;
+
         while (m_paused.load() && !m_stop.load()) {
-            if (m_queue->item(item.id).status == TransferStatus::Cancelled) return;
+            if (m_queue->item(item.id).status == TransferStatus::Cancelled) return false;
             QThread::msleep(50);
         }
+        if (m_stop.load()) return false;
         m_queue->setStatus(item.id, TransferStatus::InProgress);
+
+        // Новый файл начался — prevFileBytes обнулился
+        if (p.transferred < prevFileBytes)
+            cumBase += prevFileBytes;
+        prevFileBytes = p.transferred;
 
         const int kbps = m_throttleKBps.load();
         if (kbps > 0 && prevBytes > 0) {
-            const qint64 chunk    = p.transferred - prevBytes;
+            const qint64 chunk    = (cumBase + p.transferred) - prevBytes;
             const qint64 elapsed  = chunkTimer.elapsed();
             const qint64 targetMs = chunk * 1000 / (static_cast<qint64>(kbps) * 1024);
             if (elapsed < targetMs && targetMs - elapsed < 10000)
                 QThread::msleep(static_cast<unsigned long>(targetMs - elapsed));
         }
-        prevBytes = p.transferred;
+        prevBytes = cumBase + p.transferred;
         chunkTimer.restart();
 
-        m_queue->updateProgress(item.id, p.transferred);
+        m_queue->updateProgress(item.id, cumBase + p.transferred);
+        return true;
+    };
+
+    // Накапливаем total size на лету при получении листингов (FileZilla-подход)
+    qint64 discoveredTotal = 0;
+    auto onSizeDiscovered = [this, &item, &discoveredTotal](qint64 size) {
+        discoveredTotal += size;
+        m_queue->setTotalBytes(item.id, discoveredTotal);
     };
 
     bool ok = false;
     if (item.direction == TransferDirection::Download) {
-        ok = m_fs->downloadRecursive(item.remotePath, item.localPath, progress);
+        ok = m_fs->downloadRecursive(item.remotePath, item.localPath,
+                                     progress, onSizeDiscovered);
     } else if (item.resumeOffset > 0) {
         ok = m_fs->uploadResume(item.localPath, item.remotePath,
                                 item.resumeOffset, progress);
@@ -164,9 +186,12 @@ void TransferManager::runItem(const TransferItem &item)
         ok = m_fs->uploadRecursive(item.localPath, item.remotePath, progress);
     }
 
-    const QString err = ok ? QString{} : m_fs->lastError();
+    const bool cancelled = (m_queue->item(item.id).status == TransferStatus::Cancelled);
+    const QString err = (ok || cancelled) ? QString{} : m_fs->lastError();
     m_queue->setStatus(item.id,
-                       ok ? TransferStatus::Completed : TransferStatus::Failed,
+                       ok        ? TransferStatus::Completed :
+                       cancelled ? TransferStatus::Cancelled :
+                                   TransferStatus::Failed,
                        err);
 
     QMetaObject::invokeMethod(this, [this, id = item.id, ok]() {

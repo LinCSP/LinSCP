@@ -123,8 +123,6 @@ SftpFileInfo SftpClient::stat(const QString &remotePath)
 bool SftpClient::downloadAsync(const QString &remotePath, const QString &localPath,
                                ProgressCallback progress)
 {
-    // stat() вызываем до захвата мьютекса: избегаем лишней рекурсии блокировки
-    // и не держим sftp-сессию занятой в момент открытия локального файла.
     const qint64 total = stat(remotePath).size;
 
     QMutexLocker locker(&m_mutex);
@@ -143,59 +141,44 @@ bool SftpClient::downloadAsync(const QString &remotePath, const QString &localPa
         return false;
     }
 
-    // Включаем async-режим: без блокировки на read
-    sftp_file_set_nonblocking(remote);
     TransferProgress tp; tp.total = total;
 
-    // Конвейер: kAsyncWindow параллельных запросов → собираем по очереди.
-    // sftp_async_read_begin/sftp_async_read помечены deprecated в libssh >= 0.10,
-    // но новый sftp_aio API появился только в 0.11; используем старый со
-    // явным подавлением предупреждений.
-#ifdef _MSC_VER
-#  pragma warning(push)
-#  pragma warning(disable: 4996)
-#else
-#  pragma GCC diagnostic push
-#  pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#endif
-
-    struct Req { int id = -1; QByteArray buf; };
+    // Конвейер по образцу FileZilla: окно kMaxInFlight байт (4 MB),
+    // размер чанка kChunkSize (32 KB). Для маленьких файлов выдаём ровно
+    // столько запросов, сколько нужно — нет лишних EOF round-trip.
+    struct Req { sftp_aio aio = nullptr; };
     QQueue<Req> pipeline;
+    QByteArray  rxBuf(static_cast<int>(kChunkSize), Qt::Uninitialized);
 
-    bool eof = false;
-    auto issueRead = [&]() {
-        if (eof) return;
-        Req r;
-        r.buf.resize(kChunkSize);
-        r.id = sftp_async_read_begin(remote, static_cast<uint32_t>(kChunkSize));
-        if (r.id < 0) { eof = true; return; }
-        pipeline.enqueue(std::move(r));
+    bool   eof      = false;
+    bool   ok       = true;
+    qint64 inFlight = 0; // байт в конвейере
+
+    auto issueReads = [&]() {
+        while (!eof && inFlight < kMaxInFlight) {
+            Req r;
+            const ssize_t rc = sftp_aio_begin_read(remote, kChunkSize, &r.aio);
+            if (rc == SSH_ERROR) { eof = true; ok = false; return; }
+            if (rc == 0)         { eof = true; return; }
+            inFlight += static_cast<qint64>(kChunkSize);
+            pipeline.enqueue(std::move(r));
+        }
     };
 
-    // Заполняем конвейер начальными запросами
-    for (int i = 0; i < kAsyncWindow; ++i) issueRead();
+    issueReads(); // первоначальное заполнение конвейера
 
-    bool ok = true;
     while (!pipeline.isEmpty()) {
         Req r = pipeline.dequeue();
-        ssize_t nread = sftp_async_read(remote, r.buf.data(),
-                                        static_cast<uint32_t>(kChunkSize),
-                                        static_cast<uint32_t>(r.id));
+        const ssize_t nread = sftp_aio_wait_read(&r.aio, rxBuf.data(), kChunkSize);
+        inFlight -= static_cast<qint64>(kChunkSize);
         if (nread < 0) { ok = false; break; }
         if (nread > 0) {
-            local.write(r.buf.constData(), nread);
+            local.write(rxBuf.constData(), nread);
             tp.transferred += nread;
-            if (progress) progress(tp);
-            issueRead(); // выдаём следующий запрос
+            if (progress && !progress(tp)) { ok = false; eof = true; break; }
+            issueReads(); // досылаем запросы, пока окно не заполнено
         }
-        // nread == 0 → EOF для этого слота, конвейер естественно опустеет
     }
-
-#ifdef _MSC_VER
-#  pragma warning(pop)
-#else
-#  pragma GCC diagnostic pop
-#endif
 
     sftp_close(remote);
     return ok;
@@ -231,11 +214,11 @@ bool SftpClient::download(const QString &remotePath, const QString &localPath,
     while ((nread = sftp_read(remote, buf, sizeof(buf))) > 0) {
         local.write(buf, nread);
         tp.transferred += nread;
-        if (progress) progress(tp);
+        if (progress && !progress(tp)) { nread = -1; break; }
     }
 
     sftp_close(remote);
-    return nread == 0; // 0 = EOF, -1 = error
+    return nread == 0; // 0 = EOF, -1 = error или отмена
 }
 
 bool SftpClient::upload(const QString &localPath, const QString &remotePath,
@@ -284,7 +267,7 @@ bool SftpClient::uploadResume(const QString &localPath, const QString &remotePat
             return false;
         }
         tp.transferred += nread;
-        if (progress) progress(tp);
+        if (progress && !progress(tp)) { sftp_close(remote); return false; }
     }
 
     sftp_close(remote);
@@ -348,22 +331,51 @@ bool SftpClient::uploadRecursive(const QString &localPath, const QString &remote
     return upload(localPath, remotePath, progress);
 }
 
+qint64 SftpClient::calcSizeRecursive(const QString &remotePath)
+{
+    const SftpFileInfo info = stat(remotePath);
+    if (info.path.isEmpty()) return 0;
+    if (!info.isDir) return info.size;
+
+    const SftpDirectory dir = listDirectory(remotePath);
+    qint64 total = 0;
+    for (const SftpFileInfo &entry : dir.entries) {
+        if (entry.isSymLink || entry.isDir)
+            total += calcSizeRecursive(entry.path);
+        else
+            total += entry.size;
+    }
+    return total;
+}
+
 bool SftpClient::downloadRecursive(const QString &remotePath, const QString &localPath,
-                                    ProgressCallback progress)
+                                    ProgressCallback progress, SizeCallback onSizeDiscovered)
 {
     const SftpFileInfo info = stat(remotePath);
     if (!info.path.isEmpty() && info.isDir) {
-        // Создать локальную директорию
         QDir().mkpath(localPath);
 
         const SftpDirectory dir = listDirectory(remotePath);
+
+        // Сообщаем об обнаруженных файлах до начала загрузки — total растёт на лету
+        // (подход FileZilla: размер известен из листинга, не из отдельного прохода)
+        if (onSizeDiscovered) {
+            for (const SftpFileInfo &entry : dir.entries) {
+                if (!entry.isDir && !entry.isSymLink)
+                    onSizeDiscovered(entry.size);
+            }
+        }
+
         for (const SftpFileInfo &entry : dir.entries) {
-            if (!downloadRecursive(entry.path, localPath + '/' + entry.name, progress))
+            if (!downloadRecursive(entry.path, localPath + '/' + entry.name,
+                                   progress, onSizeDiscovered))
                 return false;
         }
         return true;
     }
-    return download(remotePath, localPath, progress);
+    // Одиночный файл: размер сообщаем только если вызван напрямую (не рекурсивно)
+    if (onSizeDiscovered) onSizeDiscovered(info.size);
+    return downloadAsync(remotePath, localPath, progress);
 }
 
 bool SftpClient::removeRecursive(const QString &remotePath)

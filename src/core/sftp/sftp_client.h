@@ -53,9 +53,16 @@ public:
     bool uploadRecursive(const QString &localPath, const QString &remotePath,
                          ProgressCallback progress = {});
 
-    /// Скачать файл или директорию рекурсивно (remote → local)
+    /// Скачать файл или директорию рекурсивно (remote → local).
+    /// onSizeDiscovered(bytes) вызывается при обнаружении каждого нового файла —
+    /// позволяет обновлять totalBytes на лету (как FileZilla).
+    using SizeCallback = std::function<void(qint64)>;
     bool downloadRecursive(const QString &remotePath, const QString &localPath,
-                           ProgressCallback progress = {});
+                           ProgressCallback progress = {},
+                           SizeCallback onSizeDiscovered = {});
+
+    /// Рекурсивно подсчитать суммарный размер файлов (в байтах)
+    qint64 calcSizeRecursive(const QString &remotePath);
 
     bool rename(const QString &oldPath, const QString &newPath);
     bool remove(const QString &remotePath);
@@ -84,8 +91,10 @@ private:
     QString              m_lastError;
     mutable QRecursiveMutex m_mutex; ///< serialises all libssh calls (sftp_session is not thread-safe)
 
-    static constexpr qint64 kChunkSize    = 32768; ///< байт за одну операцию чтения/записи
-    static constexpr int    kAsyncWindow  = 8;     ///< число параллельных async-запросов
+    // FileZilla: chunk=32KB, max in-flight=4MB (req_maxsize=4194304, sftp.c:927).
+    // Окно байтовое, а не счётное — для малых файлов выдаём только нужное число запросов.
+    static constexpr size_t  kChunkSize     = 32768;           ///< байт за один запрос
+    static constexpr qint64  kMaxInFlight   = 4 * 1024 * 1024; ///< максимум байт в конвейере
 };
 
 } // namespace linscp::core::sftp
