@@ -1,13 +1,14 @@
 #include "transfer_manager.h"
+#include "core/sftp/sftp_file.h"
 #include <QElapsedTimer>
 #include <QFileInfo>
 #include <QThread>
 
 namespace linscp::core::transfer {
 
-TransferManager::TransferManager(sftp::SftpClient *sftp, TransferQueue *queue,
+TransferManager::TransferManager(IRemoteFileSystem *fs, TransferQueue *queue,
                                  QObject *parent)
-    : QObject(parent), m_sftp(sftp), m_queue(queue)
+    : QObject(parent), m_fs(fs), m_queue(queue)
 {
     // Когда в очередь добавляется элемент — будим воркер
     connect(queue, &TransferQueue::itemAdded,
@@ -71,9 +72,9 @@ OverwritePolicy TransferManager::checkConflict(const TransferItem &item)
 
     if (!m_overwriteCb) return OverwritePolicy::Overwrite;
 
-    // Один воркер — нет параллельных SFTP-операций, stat безопасен из этого потока.
+    // Один воркер — нет параллельных операций ФС, stat безопасен из этого потока.
     if (item.direction == TransferDirection::Upload) {
-        const sftp::SftpFileInfo remote = m_sftp->stat(item.remotePath);
+        const sftp::SftpFileInfo remote = m_fs->stat(item.remotePath);
         if (remote.path.isEmpty()) return OverwritePolicy::Overwrite;
 
         const QFileInfo localFi(item.localPath);
@@ -90,7 +91,7 @@ OverwritePolicy TransferManager::checkConflict(const TransferItem &item)
         const QFileInfo localFi(item.localPath);
         if (!localFi.exists()) return OverwritePolicy::Overwrite;
 
-        const sftp::SftpFileInfo remote = m_sftp->stat(item.remotePath);
+        const sftp::SftpFileInfo remote = m_fs->stat(item.remotePath);
         ConflictInfo src{ item.remotePath, remote.size,    remote.mtime     };
         ConflictInfo dst{ item.localPath,  localFi.size(), localFi.lastModified() };
 
@@ -155,15 +156,15 @@ void TransferManager::runItem(const TransferItem &item)
 
     bool ok = false;
     if (item.direction == TransferDirection::Download) {
-        ok = m_sftp->downloadRecursive(item.remotePath, item.localPath, progress);
+        ok = m_fs->downloadRecursive(item.remotePath, item.localPath, progress);
     } else if (item.resumeOffset > 0) {
-        ok = m_sftp->uploadResume(item.localPath, item.remotePath,
-                                  item.resumeOffset, progress);
+        ok = m_fs->uploadResume(item.localPath, item.remotePath,
+                                item.resumeOffset, progress);
     } else {
-        ok = m_sftp->uploadRecursive(item.localPath, item.remotePath, progress);
+        ok = m_fs->uploadRecursive(item.localPath, item.remotePath, progress);
     }
 
-    const QString err = ok ? QString{} : m_sftp->lastError();
+    const QString err = ok ? QString{} : m_fs->lastError();
     m_queue->setStatus(item.id,
                        ok ? TransferStatus::Completed : TransferStatus::Failed,
                        err);

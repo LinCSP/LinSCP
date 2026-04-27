@@ -1,5 +1,6 @@
 #include "session_dialog.h"
 #include "advanced_session_dialog.h"
+#include "core/webdav/webdav_client.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -41,8 +42,15 @@ void SessionDialog::setupUi()
     connLayout->setSpacing(8);
 
     m_protocol = new QComboBox(connGroup);
-    m_protocol->addItem("SFTP", static_cast<int>(core::session::TransferProtocol::Sftp));
-    m_protocol->addItem("SCP",  static_cast<int>(core::session::TransferProtocol::Scp));
+    m_protocol->addItem("SFTP",   static_cast<int>(core::session::TransferProtocol::Sftp));
+    m_protocol->addItem("SCP",    static_cast<int>(core::session::TransferProtocol::Scp));
+    m_protocol->addItem("WebDAV", static_cast<int>(core::session::TransferProtocol::WebDav));
+
+    m_encryption = new QComboBox(connGroup);
+    m_encryption->addItem(tr("No encryption"),   static_cast<int>(core::webdav::WebDavEncryption::None));
+    m_encryption->addItem(tr("TLS/SSL"),          static_cast<int>(core::webdav::WebDavEncryption::Tls));
+    m_encryption->addItem(tr("Implicit TLS"),     static_cast<int>(core::webdav::WebDavEncryption::ImplicitTls));
+    m_encryptionLabel = new QLabel(tr("Encryption:"), connGroup);
 
     m_host = new QLineEdit(connGroup);
     m_host->setPlaceholderText(tr("hostname or IP"));
@@ -57,8 +65,14 @@ void SessionDialog::setupUi()
     hostRow->addWidget(new QLabel(tr("Port:"), connGroup));
     hostRow->addWidget(m_port);
 
-    connLayout->addRow(tr("Protocol:"), m_protocol);
-    connLayout->addRow(tr("Host:"),     hostRow);
+    connLayout->addRow(tr("Protocol:"),    m_protocol);
+    connLayout->addRow(m_encryptionLabel,  m_encryption);
+    connLayout->addRow(tr("Host:"),        hostRow);
+
+    connect(m_protocol,   &QComboBox::currentIndexChanged,
+            this, &SessionDialog::onProtocolChanged);
+    connect(m_encryption, &QComboBox::currentIndexChanged,
+            this, &SessionDialog::onEncryptionChanged);
 
     // ── Auth group ────────────────────────────────────────────────────────────
     auto *authGroup  = new QGroupBox(tr("Authentication"), this);
@@ -85,14 +99,17 @@ void SessionDialog::setupUi()
     keyRow->addWidget(m_keyPath, 1);
     keyRow->addWidget(m_browseKey);
 
-    authLayout->addRow(tr("Username:"), m_username);
-    authLayout->addRow(tr("Method:"),   m_authMethod);
+    m_authMethodLabel = new QLabel(tr("Method:"), authGroup);
+
+    authLayout->addRow(tr("Username:"),  m_username);
+    authLayout->addRow(m_authMethodLabel, m_authMethod);
     authLayout->addRow(tr("Password:"), m_password);
     authLayout->addRow(tr("Key file:"), keyRow);
 
     connect(m_authMethod, &QComboBox::currentIndexChanged,
             this, &SessionDialog::onAuthMethodChanged);
     onAuthMethodChanged(0);
+    onProtocolChanged(0);  // инициализировать видимость для начального протокола
 
     // ── Test row ──────────────────────────────────────────────────────────────
     m_testBtn    = new QPushButton(tr("Test Connection"), this);
@@ -139,6 +156,9 @@ void SessionDialog::populate(const core::session::SessionProfile &p)
 
     const int idx = m_authMethod->findData(static_cast<int>(p.authMethod));
     if (idx >= 0) m_authMethod->setCurrentIndex(idx);
+
+    const int encIdx = m_encryption->findData(static_cast<int>(p.webDavEncryption));
+    if (encIdx >= 0) m_encryption->setCurrentIndex(encIdx);
 }
 
 core::session::SessionProfile SessionDialog::profile() const
@@ -153,6 +173,10 @@ core::session::SessionProfile SessionDialog::profile() const
     p.authMethod = static_cast<core::ssh::AuthMethod>(
         m_authMethod->currentData().toInt());
     p.privateKeyPath = m_keyPath->text();
+    p.webDavEncryption = static_cast<core::webdav::WebDavEncryption>(
+        m_encryption->currentData().toInt());
+    if (!m_password->text().isEmpty())
+        p.password = m_password->text();
 
     return p;
 }
@@ -165,6 +189,60 @@ void SessionDialog::onAuthMethodChanged(int)
     m_password->setVisible(method == core::ssh::AuthMethod::Password);
     m_keyPath->setVisible(method == core::ssh::AuthMethod::PublicKey);
     m_browseKey->setVisible(method == core::ssh::AuthMethod::PublicKey);
+}
+
+bool SessionDialog::isWebDav() const
+{
+    return static_cast<core::session::TransferProtocol>(
+               m_protocol->currentData().toInt())
+           == core::session::TransferProtocol::WebDav;
+}
+
+void SessionDialog::onProtocolChanged(int)
+{
+    const bool webdav = isWebDav();
+
+    // Строка шифрования — только для WebDAV
+    m_encryptionLabel->setVisible(webdav);
+    m_encryption->setVisible(webdav);
+
+    // Метод аутентификации — не нужен для WebDAV (всегда Password)
+    if (m_authMethodLabel)
+        m_authMethodLabel->setVisible(!webdav);
+    m_authMethod->setVisible(!webdav);
+
+    // Порт по умолчанию
+    if (webdav) {
+        const auto enc = static_cast<core::webdav::WebDavEncryption>(
+            m_encryption->currentData().toInt());
+        m_port->setValue(enc == core::webdav::WebDavEncryption::None ? 80 : 443);
+    } else {
+        m_port->setValue(22);
+    }
+
+    // Ключ/агент — недоступны при WebDAV
+    if (webdav) {
+        const int pwdIdx = m_authMethod->findData(
+            static_cast<int>(core::ssh::AuthMethod::Password));
+        if (pwdIdx >= 0) m_authMethod->setCurrentIndex(pwdIdx);
+        onAuthMethodChanged(0);
+    }
+}
+
+void SessionDialog::onEncryptionChanged(int)
+{
+    if (!isWebDav()) return;
+
+    const auto enc = static_cast<core::webdav::WebDavEncryption>(
+        m_encryption->currentData().toInt());
+
+    // Авто-корректировка порта, только если он ещё не менялся вручную
+    const int cur = m_port->value();
+    const bool wasHttp  = (cur == 80);
+    const bool wasHttps = (cur == 443);
+    if (wasHttp || wasHttps) {
+        m_port->setValue(enc == core::webdav::WebDavEncryption::None ? 80 : 443);
+    }
 }
 
 void SessionDialog::onBrowseKey()

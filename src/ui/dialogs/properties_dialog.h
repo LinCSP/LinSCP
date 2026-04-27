@@ -8,7 +8,7 @@ class QCheckBox;
 class QGroupBox;
 class QTabWidget;
 
-namespace linscp::core::sftp { class SftpClient; }
+namespace linscp::core { class IRemoteFileSystem; }
 
 namespace linscp::ui::dialogs {
 
@@ -18,7 +18,7 @@ class PropertiesDialog : public QDialog {
     Q_OBJECT
 public:
     explicit PropertiesDialog(const core::sftp::SftpFileInfo &fileInfo,
-                              core::sftp::SftpClient *sftp,
+                              core::IRemoteFileSystem *fs,
                               QWidget *parent = nullptr);
 
 private slots:
@@ -31,7 +31,7 @@ private:
     uint collectPermissions() const;
 
     core::sftp::SftpFileInfo  m_info;
-    core::sftp::SftpClient   *m_sftp;
+    core::IRemoteFileSystem  *m_fs;
 
     // Общая вкладка
     QLineEdit *m_nameEdit    = nullptr;

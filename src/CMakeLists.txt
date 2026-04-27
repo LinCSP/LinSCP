@@ -6,13 +6,21 @@ set(LINSCP_SOURCES
     core/ssh/ssh_channel.cpp
     core/ssh/known_hosts.cpp
 
+    # core
+    core/i_remote_file_system.cpp
+
     # core/sftp
     core/sftp/sftp_client.cpp
     core/sftp/sftp_file.cpp
     core/sftp/sftp_directory.cpp
+    core/sftp/sftp_file_system.cpp
 
     # core/scp
     core/scp/scp_client.cpp
+
+    # core/webdav (compiled unconditionally; HAVE_WEBDAV guards libneon calls)
+    core/webdav/webdav_client.cpp
+    core/webdav/webdav_file_system.cpp
 
     # core/transfer
     core/transfer/transfer_item.cpp
@@ -130,6 +138,7 @@ target_include_directories(linscp PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${LIBSSH_INCLUDE_DIRS}
     ${OPENSSL_INCLUDE_DIRS}
+    $<$<BOOL:${NEON_FOUND}>:${NEON_INCLUDE_DIRS}>
 )
 
 target_link_libraries(linscp PRIVATE
@@ -140,11 +149,13 @@ target_link_libraries(linscp PRIVATE
     Qt6::Svg
     ${LIBSSH_LIBRARIES}
     ${OPENSSL_LIBRARIES}
+    $<$<BOOL:${NEON_FOUND}>:${NEON_LIBRARIES}>
 )
 
 target_link_directories(linscp PRIVATE
     ${LIBSSH_LIBRARY_DIRS}
     ${OPENSSL_LIBRARY_DIRS}
+    $<$<BOOL:${NEON_FOUND}>:${NEON_LIBRARY_DIRS}>
 )
 
 if(WITH_KEYRING AND LIBSECRET_FOUND)
@@ -156,6 +167,10 @@ target_compile_options(linscp PRIVATE
     $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra;-Wpedantic>
     $<$<CXX_COMPILER_ID:MSVC>:/W4;/wd4100;/wd4127>
     ${LIBSSH_CFLAGS_OTHER}
+)
+
+target_compile_definitions(linscp PRIVATE
+    LINSCP_VERSION="${PROJECT_VERSION}"
 )
 
 # ── i18n / переводы ───────────────────────────────────────────────────────────

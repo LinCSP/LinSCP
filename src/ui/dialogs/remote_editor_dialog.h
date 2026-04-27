@@ -6,18 +6,18 @@ class QPlainTextEdit;
 class QPushButton;
 class QLabel;
 
-namespace linscp::core::sftp { class SftpClient; }
+namespace linscp::core { class IRemoteFileSystem; }
 
 namespace linscp::ui::dialogs {
 
 /// Простой встроенный редактор удалённого файла.
 /// Скачивает содержимое файла в буфер (не на диск), показывает
-/// QPlainTextEdit, при сохранении — загружает обратно через SFTP.
+/// QPlainTextEdit, при сохранении — загружает обратно через SFTP/WebDAV.
 /// Аналог WinSCP Internal Editor для небольших файлов (< 4 MB).
 class RemoteEditorDialog : public QDialog {
     Q_OBJECT
 public:
-    explicit RemoteEditorDialog(core::sftp::SftpClient *sftp,
+    explicit RemoteEditorDialog(core::IRemoteFileSystem *fs,
                                 const QString &remotePath,
                                 QWidget *parent = nullptr);
 
@@ -29,7 +29,7 @@ private:
     void loadFile();
     void applyHighlighting();
 
-    core::sftp::SftpClient *m_sftp;
+    core::IRemoteFileSystem *m_fs;
     QString                 m_remotePath;
 
     QPlainTextEdit *m_editor  = nullptr;

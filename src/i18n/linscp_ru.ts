@@ -148,6 +148,51 @@
     </message>
 </context>
 <context>
+    <name>linscp::core::webdav::WebDavClient</name>
+    <message>
+        <location filename="../core/webdav/webdav_client.cpp" line="145"/>
+        <source>Failed to create neon session</source>
+        <translation>Не удалось создать neon-сессию</translation>
+    </message>
+    <message>
+        <location filename="../core/webdav/webdav_client.cpp" line="162"/>
+        <source>WebDAV support not compiled (rebuild with -DWITH_WEBDAV=ON)</source>
+        <translation>Поддержка WebDAV не скомпилирована (пересоберите с -DWITH_WEBDAV=ON)</translation>
+    </message>
+    <message>
+        <location filename="../core/webdav/webdav_client.cpp" line="182"/>
+        <location filename="../core/webdav/webdav_client.cpp" line="340"/>
+        <location filename="../core/webdav/webdav_client.cpp" line="400"/>
+        <location filename="../core/webdav/webdav_client.cpp" line="457"/>
+        <location filename="../core/webdav/webdav_client.cpp" line="476"/>
+        <location filename="../core/webdav/webdav_client.cpp" line="495"/>
+        <location filename="../core/webdav/webdav_client.cpp" line="517"/>
+        <source>WebDAV not compiled</source>
+        <translation>WebDAV не скомпилирован</translation>
+    </message>
+    <message>
+        <location filename="../core/webdav/webdav_client.cpp" line="225"/>
+        <source>PROPFIND returned HTTP %1</source>
+        <translation>PROPFIND вернул HTTP %1</translation>
+    </message>
+    <message>
+        <location filename="../core/webdav/webdav_client.cpp" line="351"/>
+        <location filename="../core/webdav/webdav_client.cpp" line="407"/>
+        <source>Cannot open local file: %1</source>
+        <translation>Не удалось открыть локальный файл: %1</translation>
+    </message>
+    <message>
+        <location filename="../core/webdav/webdav_client.cpp" line="385"/>
+        <source>GET returned HTTP %1</source>
+        <translation>GET вернул HTTP %1</translation>
+    </message>
+    <message>
+        <location filename="../core/webdav/webdav_client.cpp" line="444"/>
+        <source>PUT returned HTTP %1</source>
+        <translation>PUT вернул HTTP %1</translation>
+    </message>
+</context>
+<context>
     <name>linscp::models::LocalFsModel</name>
     <message>
         <location filename="../models/local_fs_model.cpp" line="34"/>
@@ -173,52 +218,52 @@
 <context>
     <name>linscp::models::RemoteFsModel</name>
     <message>
-        <location filename="../models/remote_fs_model.cpp" line="318"/>
+        <location filename="../models/remote_fs_model.cpp" line="316"/>
         <source>Symlink → %1</source>
         <translation>Символическая ссылка → %1</translation>
     </message>
     <message>
-        <location filename="../models/remote_fs_model.cpp" line="329"/>
+        <location filename="../models/remote_fs_model.cpp" line="327"/>
         <source>Name</source>
         <translation>Имя</translation>
     </message>
     <message>
-        <location filename="../models/remote_fs_model.cpp" line="330"/>
+        <location filename="../models/remote_fs_model.cpp" line="328"/>
         <source>Size</source>
         <translation>Размер</translation>
     </message>
     <message>
-        <location filename="../models/remote_fs_model.cpp" line="331"/>
+        <location filename="../models/remote_fs_model.cpp" line="329"/>
         <source>Modified</source>
         <translation>Изменён</translation>
     </message>
     <message>
-        <location filename="../models/remote_fs_model.cpp" line="332"/>
+        <location filename="../models/remote_fs_model.cpp" line="330"/>
         <source>Permissions</source>
         <translation>Права</translation>
     </message>
     <message>
-        <location filename="../models/remote_fs_model.cpp" line="333"/>
+        <location filename="../models/remote_fs_model.cpp" line="331"/>
         <source>Owner</source>
         <translation>Владелец</translation>
     </message>
     <message>
-        <location filename="../models/remote_fs_model.cpp" line="282"/>
+        <location filename="../models/remote_fs_model.cpp" line="280"/>
         <source>%1 B</source>
         <translation>%1 Б</translation>
     </message>
     <message>
-        <location filename="../models/remote_fs_model.cpp" line="283"/>
+        <location filename="../models/remote_fs_model.cpp" line="281"/>
         <source>%1 KB</source>
         <translation>%1 КБ</translation>
     </message>
     <message>
-        <location filename="../models/remote_fs_model.cpp" line="284"/>
+        <location filename="../models/remote_fs_model.cpp" line="282"/>
         <source>%1 MB</source>
         <translation>%1 МБ</translation>
     </message>
     <message>
-        <location filename="../models/remote_fs_model.cpp" line="285"/>
+        <location filename="../models/remote_fs_model.cpp" line="283"/>
         <source>%1 GB</source>
         <translation>%1 ГБ</translation>
     </message>
@@ -299,48 +344,91 @@
 <context>
     <name>linscp::ui::ConnectionTab</name>
     <message>
-        <location filename="../ui/connection_tab.cpp" line="152"/>
-        <location filename="../ui/connection_tab.h" line="72"/>
+        <location filename="../ui/connection_tab.cpp" line="176"/>
+        <location filename="../ui/connection_tab.h" line="75"/>
         <source>Not connected</source>
         <translation>Не подключено</translation>
     </message>
     <message>
-        <location filename="../ui/connection_tab.cpp" line="120"/>
+        <location filename="../ui/connection_tab.cpp" line="137"/>
         <source>Connecting…</source>
         <translation>Подключение…</translation>
     </message>
     <message>
-        <location filename="../ui/connection_tab.cpp" line="122"/>
+        <location filename="../ui/connection_tab.cpp" line="139"/>
+        <location filename="../ui/connection_tab.cpp" line="450"/>
         <source>Connecting to %1…</source>
         <translation>Подключение к %1…</translation>
     </message>
     <message>
-        <location filename="../ui/connection_tab.cpp" line="87"/>
+        <location filename="../ui/connection_tab.cpp" line="94"/>
         <source>Failed to create session</source>
         <translation>Ошибка создания сессии</translation>
     </message>
     <message>
-        <location filename="../ui/connection_tab.cpp" line="313"/>
+        <location filename="../ui/connection_tab.cpp" line="258"/>
+        <location filename="../ui/connection_tab.cpp" line="265"/>
+        <source>Upload</source>
+        <translation>Загрузка</translation>
+    </message>
+    <message>
+        <location filename="../ui/connection_tab.cpp" line="258"/>
+        <location filename="../ui/connection_tab.cpp" line="265"/>
+        <source>Download</source>
+        <translation>Скачивание</translation>
+    </message>
+    <message>
+        <location filename="../ui/connection_tab.cpp" line="259"/>
+        <source>%1 started: %2</source>
+        <translation>%1 начат: %2</translation>
+    </message>
+    <message>
+        <location filename="../ui/connection_tab.cpp" line="267"/>
+        <source>%1 finished: %2</source>
+        <translation>%1 завершён: %2</translation>
+    </message>
+    <message>
+        <location filename="../ui/connection_tab.cpp" line="268"/>
+        <source>%1 failed: %2</source>
+        <translation>%1 прерван: %2</translation>
+    </message>
+    <message>
+        <location filename="../ui/connection_tab.cpp" line="360"/>
         <source>%1@%2</source>
         <translation>%1@%2</translation>
     </message>
     <message>
-        <location filename="../ui/connection_tab.cpp" line="316"/>
+        <location filename="../ui/connection_tab.cpp" line="363"/>
         <source>Connected: %1@%2:%3</source>
         <translation>Подключено: %1@%2:%3</translation>
     </message>
     <message>
-        <location filename="../ui/connection_tab.cpp" line="344"/>
+        <location filename="../ui/connection_tab.cpp" line="451"/>
+        <source>Cancel</source>
+        <translation>Отмена</translation>
+    </message>
+    <message>
+        <location filename="../ui/connection_tab.cpp" line="452"/>
+        <source>WebDAV</source>
+        <translation>WebDAV</translation>
+    </message>
+    <message>
+        <location filename="../ui/connection_tab.cpp" line="463"/>
+        <source>Connected: %1 (WebDAV)</source>
+        <translation>Подключено: %1 (WebDAV)</translation>
+    </message>
+    <message>
+        <location filename="../ui/connection_tab.cpp" line="534"/>
         <source>Error</source>
         <translation>Ошибка</translation>
     </message>
     <message>
-        <location filename="../ui/connection_tab.cpp" line="346"/>
+        <location filename="../ui/connection_tab.cpp" line="536"/>
         <source>Error: %1</source>
         <translation>Ошибка: %1</translation>
     </message>
     <message>
-        <location filename="../ui/connection_tab.cpp" line="361"/>
+        <location filename="../ui/connection_tab.cpp" line="551"/>
         <source>&lt;center&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;Not connected&lt;/b&gt;&lt;br&gt;&lt;br&gt;Select a session in the toolbar and click &lt;b&gt;Connect&lt;/b&gt;,&lt;br&gt;or create a new session via &lt;b&gt;File → New Session…&lt;/b&gt;&lt;/center&gt;</source>
         <translation>&lt;center&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;Нет подключения&lt;/b&gt;&lt;br&gt;&lt;br&gt;Выберите сессию на панели инструментов и нажмите &lt;b&gt;Подключить&lt;/b&gt;,&lt;br&gt;или создайте новую сессию через &lt;b&gt;Файл → Новое соединение…&lt;/b&gt;&lt;/center&gt;</translation>
     </message>
@@ -509,14 +597,14 @@
         <translation>Сначала подключитесь к серверу.</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.cpp" line="647"/>
+        <location filename="../ui/main_window.cpp" line="648"/>
         <source>About LinSCP</source>
         <translation>О программе LinSCP</translation>
     </message>
     <message>
-        <location filename="../ui/main_window.cpp" line="648"/>
-        <source>&lt;h2&gt;LinSCP v0.1&lt;/h2&gt;&lt;p&gt;Cross-platform SFTP/SSH file manager.&lt;/p&gt;&lt;p&gt;Open source · GPL v2&lt;br&gt;&lt;a href=&quot;https://github.com/&quot;&gt;GitHub&lt;/a&gt;&lt;/p&gt;</source>
-        <translation>&lt;h2&gt;LinSCP v0.1&lt;/h2&gt;&lt;p&gt;Кроссплатформенный файловый менеджер SFTP/SSH.&lt;/p&gt;&lt;p&gt;Открытый исходный код · GPL v2&lt;br&gt;&lt;a href=&quot;https://github.com/&quot;&gt;GitHub&lt;/a&gt;&lt;/p&gt;</translation>
+        <location filename="../ui/main_window.cpp" line="649"/>
+        <source>&lt;h2&gt;LinSCP v%1&lt;/h2&gt;&lt;p&gt;Cross-platform SFTP/SSH file manager.&lt;/p&gt;&lt;p&gt;Open source · GPL v2&lt;br&gt;&lt;a href=&quot;https://github.com/LinCSP/LinSCP&quot;&gt;GitHub&lt;/a&gt;&lt;/p&gt;</source>
+        <translation>&lt;h2&gt;LinSCP v%1&lt;/h2&gt;&lt;p&gt;Кроссплатформенный файловый менеджер SFTP/SSH.&lt;/p&gt;&lt;p&gt;Открытый исходный код · GPL v2&lt;br&gt;&lt;a href=&quot;https://github.com/LinCSP/LinSCP&quot;&gt;GitHub&lt;/a&gt;&lt;/p&gt;</translation>
     </message>
 </context>
 <context>
@@ -1076,8 +1164,8 @@
     <name>linscp::ui::dialogs::LoginDialog</name>
     <message>
         <location filename="../ui/dialogs/login_dialog.cpp" line="102"/>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="257"/>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="452"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="272"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="472"/>
         <source>Login</source>
         <translation>Вход</translation>
     </message>
@@ -1087,305 +1175,325 @@
         <translation>Подключение</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="144"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="151"/>
         <source>hostname or IP</source>
         <translation>имя хоста или IP</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="154"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="161"/>
         <source>Port:</source>
         <translation>Порт:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="160"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="167"/>
         <source>Password</source>
         <translation>Пароль</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="161"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="168"/>
         <source>Public Key</source>
         <translation>Открытый ключ</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="162"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="169"/>
         <source>SSH Agent</source>
         <translation>SSH-агент</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="166"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="173"/>
         <source>leave empty — prompt on connect</source>
         <translation>оставьте пустым — запросить при подключении</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="169"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="176"/>
         <source>Browse…</source>
         <translation>Обзор…</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="177"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="186"/>
         <source>Protocol:</source>
         <translation>Протокол:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="178"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="188"/>
         <source>Hostname:</source>
         <translation>Имя хоста:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="179"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="189"/>
         <source>Username:</source>
         <translation>Имя пользователя:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="180"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="184"/>
         <source>Auth:</source>
         <translation>Аутентификация:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="181"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="145"/>
+        <source>No encryption</source>
+        <translation>Без шифрования</translation>
+    </message>
+    <message>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="146"/>
+        <source>TLS/SSL</source>
+        <translation>TLS/SSL</translation>
+    </message>
+    <message>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="147"/>
+        <source>Implicit TLS</source>
+        <translation>Неявный TLS</translation>
+    </message>
+    <message>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="148"/>
+        <source>Encryption:</source>
+        <translation>Шифрование:</translation>
+    </message>
+    <message>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="191"/>
         <source>Password:</source>
         <translation>Пароль:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="182"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="192"/>
         <source>Key file:</source>
         <translation>Файл ключа:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="189"/>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="406"/>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="468"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="204"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="421"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="488"/>
         <source>Save</source>
         <translation>Сохранить</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="192"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="207"/>
         <source>Advanced…</source>
         <translation>Дополнительно…</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="203"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="218"/>
         <source>Note</source>
         <translation>Заметка</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="208"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="223"/>
         <source>Session notes…</source>
         <translation>Заметки о сессии…</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="231"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="246"/>
         <source>Import from WinSCP…</source>
         <translation>Импорт из WinSCP…</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="233"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="248"/>
         <source>Import sessions…</source>
         <translation>Импорт сессий…</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="234"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="249"/>
         <source>Export sessions…</source>
         <translation>Экспорт сессий…</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="237"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="252"/>
         <source>Tools</source>
         <translation>Инструменты</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="244"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="259"/>
         <source>Rename</source>
         <translation>Переименовать</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="245"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="260"/>
         <source>Delete</source>
         <translation>Удалить</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="246"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="261"/>
         <source>Duplicate</source>
         <translation>Дублировать</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="248"/>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="572"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="263"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="592"/>
         <source>New folder</source>
         <translation>Новая папка</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="251"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="266"/>
         <source>Manage</source>
         <translation>Управление</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="263"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="278"/>
         <source>Close</source>
         <translation>Закрыть</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="289"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="304"/>
         <source>New connection</source>
         <translation>Новое соединение</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="425"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="443"/>
         <source>Save changes</source>
         <translation>Сохранить изменения</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="453"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="473"/>
         <source>Please enter a hostname and username.</source>
         <translation>Введите имя хоста и имя пользователя.</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="468"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="488"/>
         <source>Hostname and username are required.</source>
         <translation>Имя хоста и имя пользователя обязательны.</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="476"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="496"/>
         <source>Save session</source>
         <translation>Сохранить сессию</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="477"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="497"/>
         <source>Session name:</source>
         <translation>Имя сессии:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="532"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="552"/>
         <source>Select Private Key</source>
         <translation>Выберите закрытый ключ</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="534"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="554"/>
         <source>Key files (id_rsa id_ed25519 id_ecdsa *.pem *.ppk);;All files (*)</source>
         <translation>Файлы ключей (id_rsa id_ed25519 id_ecdsa *.pem *.ppk);;Все файлы (*)</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="572"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="592"/>
         <source>Folder name:</source>
         <translation>Имя папки:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="621"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="641"/>
         <source>Delete folder &quot;%1&quot;?</source>
         <translation>Удалить папку «%1»?</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="622"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="642"/>
         <source>Delete folder &quot;%1&quot; and %2 session(s) inside?</source>
         <translation>Удалить папку «%1» и %2 сессии(й) внутри?</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="625"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="645"/>
         <source>Delete folder</source>
         <translation>Удалить папку</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="644"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="664"/>
         <source>Delete session</source>
         <translation>Удалить сессию</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="645"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="665"/>
         <source>Delete session &quot;%1&quot;?</source>
         <translation>Удалить сессию «%1»?</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="666"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="686"/>
         <source>Rename session</source>
         <translation>Переименовать сессию</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="666"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="686"/>
         <source>New name:</source>
         <translation>Новое имя:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="686"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="706"/>
         <source>Duplicate session</source>
         <translation>Дублировать сессию</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="686"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="706"/>
         <source>New session name:</source>
         <translation>Имя новой сессии:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="687"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="707"/>
         <source> (copy)</source>
         <translation> (копия)</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="702"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="722"/>
         <source>Import from WinSCP</source>
         <translation>Импорт из WinSCP</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="703"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="723"/>
         <source>WinSCP config (*.ini);;All files (*)</source>
         <translation>Конфигурация WinSCP (*.ini);;Все файлы (*)</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="708"/>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="717"/>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="731"/>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="733"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="728"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="737"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="751"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="753"/>
         <source>Import</source>
         <translation>Импорт</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="708"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="728"/>
         <source>No sessions found in the selected file.</source>
         <translation>В выбранном файле сессии не найдены.</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="718"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="738"/>
         <source>Imported %1 session(s) from WinSCP.</source>
         <translation>Импортировано %1 сессии(й) из WinSCP.</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="724"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="744"/>
         <source>Import sessions</source>
         <translation>Импорт сессий</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="725"/>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="741"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="745"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="761"/>
         <source>JSON files (*.json);;All files (*)</source>
         <translation>JSON-файлы (*.json);;Все файлы (*)</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="731"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="751"/>
         <source>Sessions imported successfully.</source>
         <translation>Сессии успешно импортированы.</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="733"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="753"/>
         <source>Failed to import sessions.</source>
         <translation>Не удалось импортировать сессии.</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="740"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="760"/>
         <source>Export sessions</source>
         <translation>Экспорт сессий</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="745"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="765"/>
         <source>Sessions exported successfully.</source>
         <translation>Сессии успешно экспортированы.</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="745"/>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="747"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="765"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="767"/>
         <source>Export</source>
         <translation>Экспорт</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/login_dialog.cpp" line="747"/>
+        <location filename="../ui/dialogs/login_dialog.cpp" line="767"/>
         <source>Failed to export sessions.</source>
         <translation>Не удалось экспортировать сессии.</translation>
     </message>
@@ -1499,157 +1607,198 @@
         <translation>Настройки</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="89"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="90"/>
         <source>Interface</source>
         <translation>Интерфейс</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="93"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="94"/>
         <source>Integration</source>
         <translation>Интеграция</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="96"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="97"/>
         <source>Terminal</source>
         <translation>Терминал</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="100"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="101"/>
         <source>Transfer</source>
         <translation>Передача</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="115"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="104"/>
+        <source>Logging</source>
+        <translation>Журналирование</translation>
+    </message>
+    <message>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="119"/>
+        <source>&lt;b&gt;Logging&lt;/b&gt;</source>
+        <translation>&lt;b&gt;Журналирование&lt;/b&gt;</translation>
+    </message>
+    <message>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="121"/>
+        <source>Session log</source>
+        <translation>Журнал сессий</translation>
+    </message>
+    <message>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="124"/>
+        <source>Enable session log</source>
+        <translation>Включить журнал сессий</translation>
+    </message>
+    <message>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="129"/>
+        <source>Default: ~/.local/share/linscp/logs</source>
+        <translation>По умолчанию: ~/.local/share/linscp/logs</translation>
+    </message>
+    <message>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="134"/>
+        <source>Directory:</source>
+        <translation>Каталог:</translation>
+    </message>
+    <message>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="137"/>
+        <source>&lt;i&gt;Each session creates a separate file: YYYYMMDD_HHmmss_user@host.log&lt;/i&gt;</source>
+        <translation>&lt;i&gt;Каждая сессия создаёт отдельный файл: YYYYMMDD_HHmmss_user@host.log&lt;/i&gt;</translation>
+    </message>
+    <message>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="151"/>
+        <source>Select log directory</source>
+        <translation>Выберите каталог журналов</translation>
+    </message>
+    <message>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="169"/>
         <source>&lt;b&gt;Interface&lt;/b&gt;</source>
         <translation>&lt;b&gt;Интерфейс&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="122"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="176"/>
         <source>Language:</source>
         <translation>Язык:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="125"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="179"/>
         <source>&lt;i&gt;Language change takes effect after restarting LinSCP.&lt;/i&gt;</source>
         <translation>&lt;i&gt;Изменение языка вступит в силу после перезапуска LinSCP.&lt;/i&gt;</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="132"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="186"/>
         <source>System (follow OS)</source>
         <translation>Системная (как в ОС)</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="133"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="187"/>
         <source>Light</source>
         <translation>Светлая</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="134"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="188"/>
         <source>Dark</source>
         <translation>Тёмная</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="135"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="189"/>
         <source>Theme:</source>
         <translation>Тема:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="149"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="203"/>
         <source>&lt;b&gt;Integration — Terminal emulator&lt;/b&gt;</source>
         <translation>&lt;b&gt;Интеграция — Эмулятор терминала&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="152"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="206"/>
         <source>Terminal program</source>
         <translation>Программа терминала</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="158"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="212"/>
         <source>Emulator:</source>
         <translation>Эмулятор:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="162"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="216"/>
         <source>Detected:</source>
         <translation>Обнаружен:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="167"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="221"/>
         <source>Custom terminal</source>
         <translation>Пользовательский терминал</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="173"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="130"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="227"/>
         <source>Browse…</source>
         <translation>Обзор…</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="177"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="231"/>
         <source>Path:</source>
         <translation>Путь:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="181"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="235"/>
         <source>Arguments:</source>
         <translation>Аргументы:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="184"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="238"/>
         <source>Placeholders: &lt;b&gt;%host%&lt;/b&gt;  &lt;b&gt;%port%&lt;/b&gt;  &lt;b&gt;%user%&lt;/b&gt;  &lt;b&gt;%key%&lt;/b&gt;</source>
         <translation>Подстановки: &lt;b&gt;%host%&lt;/b&gt;  &lt;b&gt;%port%&lt;/b&gt;  &lt;b&gt;%user%&lt;/b&gt;  &lt;b&gt;%key%&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="193"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="247"/>
         <source>Options</source>
         <translation>Параметры</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="196"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="250"/>
         <source>Automatically open terminal when connecting</source>
         <translation>Автоматически открывать терминал при подключении</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="219"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="273"/>
         <source>&lt;b&gt;Transfer&lt;/b&gt;</source>
         <translation>&lt;b&gt;Передача&lt;/b&gt;</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="221"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="275"/>
         <source>Parallel transfers</source>
         <translation>Параллельные передачи</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="225"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="279"/>
         <source> files</source>
         <translation> файлов</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="226"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="280"/>
         <source>Max simultaneous:</source>
         <translation>Максимум одновременных:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="262"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="316"/>
         <source>none found — install a terminal emulator</source>
         <translation>не найден — установите эмулятор терминала</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="268"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="322"/>
         <source>%1 not found in PATH</source>
         <translation>%1 не найден в PATH</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="271"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="325"/>
         <source>—</source>
         <translation>—</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="278"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="332"/>
         <source>Select terminal executable</source>
         <translation>Выберите исполняемый файл терминала</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/preferences_dialog.cpp" line="279"/>
+        <location filename="../ui/dialogs/preferences_dialog.cpp" line="333"/>
         <source>Executables (*)</source>
         <translation>Исполняемые файлы (*)</translation>
     </message>
@@ -1940,127 +2089,147 @@
 <context>
     <name>linscp::ui::dialogs::SessionDialog</name>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="35"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="36"/>
         <source>Login</source>
         <translation>Вход</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="39"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="40"/>
         <source>Connection</source>
         <translation>Подключение</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="48"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="56"/>
         <source>hostname or IP</source>
         <translation>имя хоста или IP</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="57"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="65"/>
         <source>Port:</source>
         <translation>Порт:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="61"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="70"/>
         <source>Host:</source>
         <translation>Хост:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="60"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="68"/>
         <source>Protocol:</source>
         <translation>Протокол:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="64"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="78"/>
         <source>Authentication</source>
         <translation>Аутентификация</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="71"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="85"/>
         <source>Password</source>
         <translation>Пароль</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="72"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="86"/>
         <source>Public Key</source>
         <translation>Открытый ключ</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="73"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="87"/>
         <source>SSH Agent</source>
         <translation>SSH-агент</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="77"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="91"/>
         <source>leave empty — prompt on connect</source>
         <translation>оставьте пустым — запросить при подключении</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="80"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="94"/>
         <source>Browse…</source>
         <translation>Обзор…</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="88"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="104"/>
         <source>Username:</source>
         <translation>Имя пользователя:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="89"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="102"/>
         <source>Method:</source>
         <translation>Метод:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="90"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="50"/>
+        <source>No encryption</source>
+        <translation>Без шифрования</translation>
+    </message>
+    <message>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="51"/>
+        <source>TLS/SSL</source>
+        <translation>TLS/SSL</translation>
+    </message>
+    <message>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="52"/>
+        <source>Implicit TLS</source>
+        <translation>Неявный TLS</translation>
+    </message>
+    <message>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="53"/>
+        <source>Encryption:</source>
+        <translation>Шифрование:</translation>
+    </message>
+    <message>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="106"/>
         <source>Password:</source>
         <translation>Пароль:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="91"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="107"/>
         <source>Key file:</source>
         <translation>Файл ключа:</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="98"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="115"/>
         <source>Test Connection</source>
         <translation>Проверить соединение</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="107"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="124"/>
         <source>More…</source>
         <translation>Дополнительно…</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="108"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="125"/>
         <source>Advanced session settings</source>
         <translation>Расширенные настройки сессии</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="112"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="129"/>
         <source>Save</source>
         <translation>Сохранить</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="113"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="130"/>
         <source>Cancel</source>
         <translation>Отмена</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="173"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="249"/>
         <source>Select Private Key</source>
         <translation>Выберите закрытый ключ</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="175"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="251"/>
         <source>Key files (id_rsa id_ed25519 id_ecdsa *.pem *.ppk);;All files (*)</source>
         <translation>Файлы ключей (id_rsa id_ed25519 id_ecdsa *.pem *.ppk);;Все файлы (*)</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="199"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="275"/>
         <source>Testing…</source>
         <translation>Проверка…</translation>
     </message>
     <message>
-        <location filename="../ui/dialogs/session_dialog.cpp" line="201"/>
+        <location filename="../ui/dialogs/session_dialog.cpp" line="277"/>
         <source>Not implemented yet</source>
         <translation>Ещё не реализовано</translation>
     </message>
@@ -2410,22 +2579,22 @@
 <context>
     <name>linscp::ui::panels::RemotePanel</name>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="180"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="185"/>
         <source>New Folder</source>
         <translation>Новая папка</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="181"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="186"/>
         <source>Folder name:</source>
         <translation>Имя папки:</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="193"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="198"/>
         <source>Delete</source>
         <translation>Удалить</translation>
     </message>
     <message numerus="yes">
-        <location filename="../ui/panels/remote_panel.cpp" line="194"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="199"/>
         <source>Delete %n item(s)?</source>
         <translation>
             <numerusform>Удалить %n элемент?</numerusform>
@@ -2434,83 +2603,83 @@
         </translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="218"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="223"/>
         <source>Rename</source>
         <translation>Переименовать</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="218"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="223"/>
         <source>New name:</source>
         <translation>Новое имя:</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="250"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="255"/>
         <source>Open</source>
         <translation>Открыть</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="255"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="260"/>
         <source>Edit</source>
         <translation>Редактировать</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="313"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="318"/>
         <source>Properties…</source>
         <translation>Свойства…</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="357"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="362"/>
         <source>Loading %1…</source>
         <translation>Загрузка %1…</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="365"/>
-        <location filename="../ui/panels/remote_panel.cpp" line="377"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="375"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="387"/>
         <source>%1 items</source>
         <translation>%1 элементов</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="267"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="272"/>
         <source>Download…	F5</source>
         <translation>Скачать…	F5</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="60"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="61"/>
         <source>Error: %1</source>
         <translation>Ошибка: %1</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="198"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="203"/>
         <source>Deleting…</source>
         <translation>Удаление…</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="271"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="276"/>
         <source>Download and Delete…	F6</source>
         <translation>Скачать и удалить…	F6</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="276"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="281"/>
         <source>Download to Queue</source>
         <translation>Скачать в фоне</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="294"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="299"/>
         <source>Rename…	F2</source>
         <translation>Переименовать…	F2</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="298"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="303"/>
         <source>Delete	Del</source>
         <translation>Удалить	Del</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="306"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="311"/>
         <source>New Folder…	F7</source>
         <translation>Новая папка…	F7</translation>
     </message>
     <message>
-        <location filename="../ui/panels/remote_panel.cpp" line="379"/>
+        <location filename="../ui/panels/remote_panel.cpp" line="389"/>
         <source>%1 items  |  Free: %2</source>
         <translation>%1 элементов  |  Свободно: %2</translation>
     </message>

@@ -6,7 +6,7 @@
 #include <QFuture>
 #include <memory>
 
-#include "core/sftp/sftp_client.h"
+#include "core/i_remote_file_system.h"
 #include "core/sftp/sftp_file.h"
 
 namespace linscp::models {
@@ -26,7 +26,7 @@ public:
         ColCount
     };
 
-    explicit RemoteFsModel(core::sftp::SftpClient *sftp, QObject *parent = nullptr);
+    explicit RemoteFsModel(core::IRemoteFileSystem *fs, QObject *parent = nullptr);
     ~RemoteFsModel() override;
 
     void setRootPath(const QString &path);
@@ -73,7 +73,7 @@ private:
     void  applySortToNode(Node *node);
     Node *nodeForIndex(const QModelIndex &index) const;
 
-    core::sftp::SftpClient *m_sftp;
+    core::IRemoteFileSystem *m_fs;
     QString                 m_rootPath;
     bool                    m_showHidden = false;
     Column                  m_sortCol    = ColName;

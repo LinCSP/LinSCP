@@ -2,18 +2,18 @@
 #include "file_panel.h"
 #include <memory>
 
-namespace linscp::core::sftp     { class SftpClient;  }
-namespace linscp::core::transfer { class TransferQueue; }
-namespace linscp::core::ssh      { class SshSession; }
-namespace linscp::models         { class RemoteFsModel; }
+namespace linscp::core            { class IRemoteFileSystem; }
+namespace linscp::core::transfer  { class TransferQueue; }
+namespace linscp::core::ssh       { class SshSession; }
+namespace linscp::models          { class RemoteFsModel; }
 
 namespace linscp::ui::panels {
 
-/// Правая панель — удалённая SFTP файловая система
+/// Правая панель — удалённая файловая система (SFTP, WebDAV, …)
 class RemotePanel : public FilePanel {
     Q_OBJECT
 public:
-    explicit RemotePanel(core::sftp::SftpClient       *sftp,
+    explicit RemotePanel(core::IRemoteFileSystem      *fs,
                          core::transfer::TransferQueue *queue,
                          QWidget *parent = nullptr);
 
@@ -32,6 +32,8 @@ public:
 signals:
     /// Испускается при каждом изменении колонки или порядка сортировки
     void sortStateChanged(int column, int order);
+    /// Испускается когда первая загрузка директории завершилась (успех или ошибка)
+    void firstLoadDone();
 
 public:
     void actionCopy()   override;   ///< F5 → Download выбранных файлов
@@ -75,12 +77,13 @@ private:
     /// или пустую строку при ошибке. Блокирующий вызов — только из фонового потока.
     QString queryFreeSpace(const QString &path) const;
 
-    core::sftp::SftpClient        *m_sftp;
+    core::IRemoteFileSystem       *m_fs;
     core::transfer::TransferQueue *m_queue;
-    core::ssh::SshSession         *m_sshSession    = nullptr;
-    models::RemoteFsModel         *m_model         = nullptr;
-    bool                           m_showHidden    = false;
+    core::ssh::SshSession         *m_sshSession        = nullptr;
+    models::RemoteFsModel         *m_model             = nullptr;
+    bool                           m_showHidden        = false;
     QString                        m_localPanelPath;
+    bool                           m_firstLoadEmitted  = false;
 };
 
 } // namespace linscp::ui::panels

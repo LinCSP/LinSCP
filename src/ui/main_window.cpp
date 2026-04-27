@@ -644,11 +644,12 @@ void MainWindow::onPreferences()
 
 void MainWindow::onAbout()
 {
+    const QString version = QCoreApplication::applicationVersion();
     QMessageBox::about(this, tr("About LinSCP"),
-                        tr("<h2>LinSCP v0.1</h2>"
+                        tr("<h2>LinSCP v%1</h2>"
                            "<p>Cross-platform SFTP/SSH file manager.</p>"
                            "<p>Open source · GPL v2<br>"
-                           "<a href=\"https://github.com/\">GitHub</a></p>"));
+                           "<a href=\"https://github.com/LinCSP/LinSCP\">GitHub</a></p>").arg(version));
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)

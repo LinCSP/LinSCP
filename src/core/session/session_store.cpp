@@ -1,4 +1,5 @@
 #include "session_store.h"
+#include "core/webdav/webdav_client.h"
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -81,6 +82,12 @@ static QJsonObject profileToJson(const SessionProfile &p)
     ssh["connectTimeout"]    = p.ssh.connectTimeout;
     o["ssh"] = ssh;
 
+    // WebDAV
+    QJsonObject dav;
+    dav["encryption"] = static_cast<int>(p.webDavEncryption);
+    dav["path"]       = p.webDavPath;
+    o["webdav"] = dav;
+
     return o;
 }
 
@@ -142,6 +149,11 @@ static SessionProfile jsonToProfile(const QJsonObject &o)
     p.ssh.keepaliveInterval = ssh["keepaliveInterval"].toInt(0);
     p.ssh.tcpNoDelay        = ssh["tcpNoDelay"].toBool(true);
     p.ssh.connectTimeout    = ssh["connectTimeout"].toInt(15);
+
+    // WebDAV
+    const QJsonObject dav = o["webdav"].toObject();
+    p.webDavEncryption = static_cast<webdav::WebDavEncryption>(dav["encryption"].toInt(0));
+    p.webDavPath       = dav["path"].toString("/");
 
     return p;
 }

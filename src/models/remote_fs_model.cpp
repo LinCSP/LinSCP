@@ -1,4 +1,5 @@
 #include "remote_fs_model.h"
+#include "core/i_remote_file_system.h"
 #include "ui/utils/file_icon_provider.h"
 #include <QMimeType>
 #include <algorithm>
@@ -13,6 +14,7 @@ struct RemoteFsModel::Node {
     std::vector<std::unique_ptr<Node>>       children;
     bool                                     loaded    = false;
     bool                                     loading   = false;
+    bool                                     failed    = false;  ///< последняя загрузка завершилась ошибкой
     QDateTime                                loadedAt;  ///< время последней загрузки (TTL)
 
     int row() const {
@@ -31,8 +33,8 @@ struct RemoteFsModel::Node {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-RemoteFsModel::RemoteFsModel(core::sftp::SftpClient *sftp, QObject *parent)
-    : QAbstractItemModel(parent), m_sftp(sftp)
+RemoteFsModel::RemoteFsModel(core::IRemoteFileSystem *fs, QObject *parent)
+    : QAbstractItemModel(parent), m_fs(fs)
 {
     m_pool.setMaxThreadCount(1); // sftp_session не thread-safe — только 1 поток
     m_root = std::make_unique<Node>();
@@ -50,6 +52,7 @@ void RemoteFsModel::setRootPath(const QString &path)
     m_root->children.clear();
     m_root->loaded  = false;
     m_root->loading = false;
+    m_root->failed  = false;
     endResetModel();
 
     loadDirectory(m_root.get());
@@ -75,6 +78,7 @@ void RemoteFsModel::refresh(const QModelIndex &index)
     node->children.clear();
     node->loaded  = false;
     node->loading = false;
+    node->failed  = false;
     endResetModel();
 
     loadDirectory(node);
@@ -164,29 +168,27 @@ void RemoteFsModel::loadDirectory(Node *node)
 
     const int gen = m_generation;
     m_pool.start([this, node, path, gen]() {
-        auto dir = m_sftp->listDirectory(path);
+        QList<core::sftp::SftpFileInfo> entries = m_fs->list(path);
+        const QString fsError = entries.isEmpty() ? m_fs->lastError() : QString{};
 
-        QMetaObject::invokeMethod(this, [this, node, dir = std::move(dir), gen]() mutable {
+        QMetaObject::invokeMethod(this,
+            [this, node, entries = std::move(entries), fsError, path, gen]() mutable {
             if (gen != m_generation) return;
 
-            if (dir.hasError) {
+            if (!fsError.isEmpty()) {
                 // Листинг не удался (сессия оборвана, нет прав, …).
-                // Вызываем begin/endResetModel чтобы не оставить модель в незавершённом
-                // состоянии (beginResetModel уже вызван в refresh()), и сигналим ошибку.
                 node->loading = false;
-                // НЕ помечаем loaded=true — следующий вручную вызванный refresh()
-                // сделает ещё одну попытку загрузить директорию.
+                node->failed  = true;   // предотвратить бесконечный авто-ретрай
                 beginResetModel();
                 node->children.clear();
                 endResetModel();
-                emit errorOccurred(dir.errorMessage);
+                emit errorOccurred(fsError);
                 return;
             }
 
             beginResetModel();
 
             node->children.clear();
-            auto entries = dir.entries;
 
             // Фильтрация скрытых
             if (!m_showHidden)
@@ -223,7 +225,7 @@ void RemoteFsModel::loadDirectory(Node *node)
             node->loading  = false;
             node->loadedAt = QDateTime::currentDateTime();
             endResetModel();
-            emit loadingFinished(dir.path);
+            emit loadingFinished(path);
         }, Qt::QueuedConnection);
     });
 }
@@ -255,11 +257,13 @@ QModelIndex RemoteFsModel::parent(const QModelIndex &index) const
 int RemoteFsModel::rowCount(const QModelIndex &parent) const
 {
     Node *node = nodeForIndex(parent);
-    // Автозагрузка только для корня
-    if (node == m_root.get() && !node->loaded && !node->loading) {
+    // Автозагрузка только для корня с установленным путём; после ошибки — только по явному Refresh.
+    // Проверка !m_rootPath.isEmpty() предотвращает PROPFIND с пустым путём до вызова navigateTo.
+    if (node == m_root.get() && !m_rootPath.isEmpty()
+            && !node->loaded && !node->loading && !node->failed) {
         const_cast<RemoteFsModel *>(this)->loadDirectory(node);
-    } else if (node == m_root.get() && node->isCacheExpired(m_cacheTtlSecs)) {
-        // Кэш устарел — перезагрузить в фоне (без сброса текущих данных)
+    } else if (node == m_root.get() && !m_rootPath.isEmpty()
+               && !node->failed && node->isCacheExpired(m_cacheTtlSecs)) {
         const_cast<RemoteFsModel *>(this)->loadDirectory(node);
     }
     return static_cast<int>(node->children.size());

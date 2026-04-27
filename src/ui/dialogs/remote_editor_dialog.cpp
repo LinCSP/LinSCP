@@ -1,5 +1,5 @@
 #include "remote_editor_dialog.h"
-#include "core/sftp/sftp_client.h"
+#include "core/i_remote_file_system.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -22,11 +22,11 @@ namespace linscp::ui::dialogs {
 
 static constexpr qint64 kMaxFileSize = 4 * 1024 * 1024; // 4 MB
 
-RemoteEditorDialog::RemoteEditorDialog(core::sftp::SftpClient *sftp,
+RemoteEditorDialog::RemoteEditorDialog(core::IRemoteFileSystem *fs,
                                        const QString &remotePath,
                                        QWidget *parent)
     : QDialog(parent)
-    , m_sftp(sftp)
+    , m_fs(fs)
     , m_remotePath(remotePath)
 {
     setWindowTitle(tr("Edit: %1").arg(QFileInfo(remotePath).fileName()));
@@ -101,7 +101,7 @@ RemoteEditorDialog::RemoteEditorDialog(core::sftp::SftpClient *sftp,
 void RemoteEditorDialog::loadFile()
 {
     // Проверяем размер файла через stat
-    const auto info = m_sftp->stat(m_remotePath);
+    const auto info = m_fs->stat(m_remotePath);
     if (info.size > kMaxFileSize) {
         m_statusLabel->setText(
             tr("File too large (%1 MB) — max 4 MB")
@@ -124,8 +124,8 @@ void RemoteEditorDialog::loadFile()
     m_statusLabel->setText(tr("Downloading…"));
     qApp->processEvents();
 
-    if (!m_sftp->download(m_remotePath, tmpPath)) {
-        m_statusLabel->setText(tr("Download failed: %1").arg(m_sftp->lastError()));
+    if (!m_fs->download(m_remotePath, tmpPath)) {
+        m_statusLabel->setText(tr("Download failed: %1").arg(m_fs->lastError()));
         return;
     }
 
@@ -180,8 +180,8 @@ void RemoteEditorDialog::onSave()
     m_statusLabel->setText(tr("Uploading…"));
     qApp->processEvents();
 
-    if (!m_sftp->upload(tmpPath, m_remotePath)) {
-        m_statusLabel->setText(tr("Upload failed: %1").arg(m_sftp->lastError()));
+    if (!m_fs->upload(tmpPath, m_remotePath)) {
+        m_statusLabel->setText(tr("Upload failed: %1").arg(m_fs->lastError()));
         QFile::remove(tmpPath);
         return;
     }

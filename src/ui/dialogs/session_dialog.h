@@ -24,6 +24,8 @@ public:
 
 private slots:
     void onMoreClicked();
+    void onProtocolChanged(int index);
+    void onEncryptionChanged(int index);
     void onAuthMethodChanged(int index);
     void onBrowseKey();
     void onTestConnection();
@@ -31,13 +33,17 @@ private slots:
 private:
     void setupUi();
     void populate(const core::session::SessionProfile &profile);
+    bool isWebDav() const;
 
     // Connection
     QComboBox   *m_protocol;
+    QComboBox   *m_encryption;  ///< WebDAV: Без шифрования / TLS / Implicit TLS
+    QLabel      *m_encryptionLabel = nullptr;
     QLineEdit   *m_host;
     QSpinBox    *m_port;
     QLineEdit   *m_username;
     QComboBox   *m_authMethod;
+    QLabel      *m_authMethodLabel = nullptr;
     QLineEdit   *m_password;    ///< видим только при authMethod == Password
     QLineEdit   *m_keyPath;     ///< видим только при authMethod == PublicKey
     QPushButton *m_browseKey;

@@ -1,5 +1,5 @@
 #include "properties_dialog.h"
-#include "core/sftp/sftp_client.h"
+#include "core/i_remote_file_system.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -17,11 +17,11 @@
 namespace linscp::ui::dialogs {
 
 PropertiesDialog::PropertiesDialog(const core::sftp::SftpFileInfo &fileInfo,
-                                   core::sftp::SftpClient *sftp,
+                                   core::IRemoteFileSystem *fs,
                                    QWidget *parent)
     : QDialog(parent)
     , m_info(fileInfo)
-    , m_sftp(sftp)
+    , m_fs(fs)
 {
     setupUi();
     populateInfo();
@@ -175,9 +175,9 @@ void PropertiesDialog::onPermToggled()
 
 void PropertiesDialog::onApply()
 {
-    if (!m_sftp) return;
+    if (!m_fs) return;
     const uint newPerm = collectPermissions();
-    if (m_sftp->chmod(m_info.path, newPerm)) {
+    if (m_fs->chmod(m_info.path, newPerm)) {
         m_info.permissions = newPerm;
         m_applyBtn->setEnabled(false);
     }
