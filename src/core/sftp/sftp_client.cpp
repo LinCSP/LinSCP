@@ -143,16 +143,18 @@ bool SftpClient::downloadAsync(const QString &remotePath, const QString &localPa
 
     TransferProgress tp; tp.total = total;
 
+#if LIBSSH_VERSION_MAJOR > 0 || LIBSSH_VERSION_MINOR >= 10
     // Конвейер по образцу FileZilla: окно kMaxInFlight байт (4 MB),
     // размер чанка kChunkSize (32 KB). Для маленьких файлов выдаём ровно
     // столько запросов, сколько нужно — нет лишних EOF round-trip.
+    // sftp_aio API доступен начиная с libssh 0.10.
     struct Req { sftp_aio aio = nullptr; };
     QQueue<Req> pipeline;
     QByteArray  rxBuf(static_cast<int>(kChunkSize), Qt::Uninitialized);
 
     bool   eof      = false;
     bool   ok       = true;
-    qint64 inFlight = 0; // байт в конвейере
+    qint64 inFlight = 0;
 
     auto issueReads = [&]() {
         while (!eof && inFlight < kMaxInFlight) {
@@ -165,7 +167,7 @@ bool SftpClient::downloadAsync(const QString &remotePath, const QString &localPa
         }
     };
 
-    issueReads(); // первоначальное заполнение конвейера
+    issueReads();
 
     while (!pipeline.isEmpty()) {
         Req r = pipeline.dequeue();
@@ -176,12 +178,24 @@ bool SftpClient::downloadAsync(const QString &remotePath, const QString &localPa
             local.write(rxBuf.constData(), nread);
             tp.transferred += nread;
             if (progress && !progress(tp)) { ok = false; eof = true; break; }
-            issueReads(); // досылаем запросы, пока окно не заполнено
+            issueReads();
         }
     }
 
     sftp_close(remote);
     return ok;
+#else
+    // Fallback для libssh < 0.10: sftp_aio не доступен.
+    char buf[kChunkSize];
+    ssize_t nread;
+    while ((nread = sftp_read(remote, buf, sizeof(buf))) > 0) {
+        local.write(buf, nread);
+        tp.transferred += nread;
+        if (progress && !progress(tp)) { nread = -1; break; }
+    }
+    sftp_close(remote);
+    return nread == 0;
+#endif
 }
 
 bool SftpClient::download(const QString &remotePath, const QString &localPath,
