@@ -417,7 +417,12 @@ jobs:
             exit 1
           fi
           echo "Found: $APP"
-          $(brew --prefix qt)/bin/macdeployqt "$APP" -dmg
+          # macdeployqt needs help resolving Qt's transitive Homebrew deps
+          # (brotli, webp, sharpyuv) that live outside the Qt prefix.
+          BREW_LIB=$(brew --prefix)/lib
+          $(brew --prefix qt)/bin/macdeployqt "$APP" \
+            -libpath="$BREW_LIB" \
+            -dmg
           DMG=$(find build -name "*.dmg" | head -1)
           mv "$DMG" "LinSCP-${{ github.ref_name }}-macos-arm64.dmg"
 

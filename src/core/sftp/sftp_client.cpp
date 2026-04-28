@@ -143,11 +143,11 @@ bool SftpClient::downloadAsync(const QString &remotePath, const QString &localPa
 
     TransferProgress tp; tp.total = total;
 
-#if LIBSSH_VERSION_MAJOR > 0 || LIBSSH_VERSION_MINOR >= 10
+#ifdef LINSCP_HAVE_SFTP_AIO
     // Конвейер по образцу FileZilla: окно kMaxInFlight байт (4 MB),
     // размер чанка kChunkSize (32 KB). Для маленьких файлов выдаём ровно
     // столько запросов, сколько нужно — нет лишних EOF round-trip.
-    // sftp_aio API доступен начиная с libssh 0.10.
+    // sftp_aio API доступен начиная с libssh 0.11.
     struct Req { sftp_aio aio = nullptr; };
     QQueue<Req> pipeline;
     QByteArray  rxBuf(static_cast<int>(kChunkSize), Qt::Uninitialized);
@@ -185,7 +185,7 @@ bool SftpClient::downloadAsync(const QString &remotePath, const QString &localPa
     sftp_close(remote);
     return ok;
 #else
-    // Fallback для libssh < 0.10: sftp_aio не доступен.
+    // Fallback для libssh < 0.11: sftp_aio не доступен.
     char buf[kChunkSize];
     ssize_t nread;
     while ((nread = sftp_read(remote, buf, sizeof(buf))) > 0) {

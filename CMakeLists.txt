@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(LinSCP VERSION 0.2.0 LANGUAGES CXX)
+project(LinSCP VERSION 0.2.1 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -12,6 +12,20 @@ find_package(Qt6 QUIET OPTIONAL_COMPONENTS LinguistTools)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBSSH REQUIRED libssh>=0.10)
 pkg_check_modules(OPENSSL REQUIRED openssl>=3.0)
+
+# Detect sftp_aio pipelining API (requires libssh >= 0.11).
+# Use CMake feature detection instead of version-number guessing so
+# the result is always correct regardless of distro-package lag.
+include(CheckSymbolExists)
+set(_saved_INCLUDES "${CMAKE_REQUIRED_INCLUDES}")
+set(_saved_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES}")
+list(APPEND CMAKE_REQUIRED_INCLUDES ${LIBSSH_INCLUDE_DIRS})
+set(CMAKE_REQUIRED_LIBRARIES ${LIBSSH_LIBRARIES})
+check_symbol_exists(sftp_aio_begin_read "libssh/sftp.h" LINSCP_HAVE_SFTP_AIO)
+set(CMAKE_REQUIRED_INCLUDES "${_saved_INCLUDES}")
+set(CMAKE_REQUIRED_LIBRARIES "${_saved_LIBRARIES}")
+unset(_saved_INCLUDES)
+unset(_saved_LIBRARIES)
 
 option(WITH_WEBDAV   "Build with libneon WebDAV support" ON)
 option(WITH_KEYRING  "Build with libsecret/keyring integration" OFF)

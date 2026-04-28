@@ -171,6 +171,7 @@ target_compile_options(linscp PRIVATE
 
 target_compile_definitions(linscp PRIVATE
     LINSCP_VERSION="${PROJECT_VERSION}"
+    $<$<BOOL:${LINSCP_HAVE_SFTP_AIO}>:LINSCP_HAVE_SFTP_AIO>
 )
 
 # ── i18n / переводы ───────────────────────────────────────────────────────────
