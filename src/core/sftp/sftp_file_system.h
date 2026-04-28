@@ -26,7 +26,8 @@ public:
     bool uploadResume(const QString &localPath, const QString &remotePath,
                       qint64 offset, ProgressCallback progress = {}) override;
     bool uploadRecursive(const QString &localPath, const QString &remotePath,
-                         ProgressCallback progress = {}) override;
+                         ProgressCallback progress = {},
+                         SizeCallback onSizeDiscovered = {}) override;
     bool downloadRecursive(const QString &remotePath, const QString &localPath,
                            ProgressCallback progress = {},
                            SizeCallback onSizeDiscovered = {}) override;

@@ -26,9 +26,11 @@ public:
                         sftp::ProgressCallback progress = {}) = 0;
     virtual bool uploadResume(const QString &localPath, const QString &remotePath,
                               qint64 offset, sftp::ProgressCallback progress = {}) = 0;
-    virtual bool uploadRecursive(const QString &localPath, const QString &remotePath,
-                                 sftp::ProgressCallback progress = {}) = 0;
     using SizeCallback = std::function<void(qint64)>;
+
+    virtual bool uploadRecursive(const QString &localPath, const QString &remotePath,
+                                 sftp::ProgressCallback progress = {},
+                                 SizeCallback onSizeDiscovered = {}) = 0;
 
     virtual bool downloadRecursive(const QString &remotePath, const QString &localPath,
                                    sftp::ProgressCallback progress = {},

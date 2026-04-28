@@ -35,9 +35,10 @@ bool SftpFileSystem::uploadResume(const QString &localPath, const QString &remot
 }
 
 bool SftpFileSystem::uploadRecursive(const QString &localPath, const QString &remotePath,
-                                     ProgressCallback progress)
+                                     ProgressCallback progress, SizeCallback onSizeDiscovered)
 {
-    return m_sftp->uploadRecursive(localPath, remotePath, std::move(progress));
+    return m_sftp->uploadRecursive(localPath, remotePath,
+                                   std::move(progress), std::move(onSizeDiscovered));
 }
 
 bool SftpFileSystem::downloadRecursive(const QString &remotePath, const QString &localPath,

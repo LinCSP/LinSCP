@@ -49,14 +49,17 @@ public:
     bool uploadResume(const QString &localPath, const QString &remotePath,
                       qint64 offset, ProgressCallback progress = {});
 
-    /// Загрузить файл или директорию рекурсивно (local → remote)
+    using SizeCallback = std::function<void(qint64)>;
+
+    /// Загрузить файл или директорию рекурсивно (local → remote).
+    /// onSizeDiscovered(bytes) вызывается при обнаружении каждого файла (до его отправки).
     bool uploadRecursive(const QString &localPath, const QString &remotePath,
-                         ProgressCallback progress = {});
+                         ProgressCallback progress = {},
+                         SizeCallback onSizeDiscovered = {});
 
     /// Скачать файл или директорию рекурсивно (remote → local).
     /// onSizeDiscovered(bytes) вызывается при обнаружении каждого нового файла —
     /// позволяет обновлять totalBytes на лету (как FileZilla).
-    using SizeCallback = std::function<void(qint64)>;
     bool downloadRecursive(const QString &remotePath, const QString &localPath,
                            ProgressCallback progress = {},
                            SizeCallback onSizeDiscovered = {});

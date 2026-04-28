@@ -168,7 +168,7 @@ void RemotePanel::uploadFiles(const QStringList &localPaths, bool isMove)
         item.remotePath = singleFile
             ? destPath
             : utils::FileUtils::joinPath(destPath, fi.fileName());
-        item.totalBytes = fi.size();
+        item.totalBytes = fi.isDir() ? 0 : fi.size();
         m_queue->enqueue(item);
     }
     // isMove: локальные файлы удаляет вызывающий (LocalPanel::actionMove)

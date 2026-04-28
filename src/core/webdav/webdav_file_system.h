@@ -32,7 +32,8 @@ public:
     bool uploadResume(const QString &localPath, const QString &remotePath,
                       qint64 offset, sftp::ProgressCallback progress = {}) override;
     bool uploadRecursive(const QString &localPath, const QString &remotePath,
-                         sftp::ProgressCallback progress = {}) override;
+                         sftp::ProgressCallback progress = {},
+                         SizeCallback onSizeDiscovered = {}) override;
     bool downloadRecursive(const QString &remotePath, const QString &localPath,
                            sftp::ProgressCallback progress = {},
                            SizeCallback onSizeDiscovered = {}) override;

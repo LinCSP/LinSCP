@@ -83,11 +83,14 @@ bool WebDavFileSystem::uploadResume(const QString &localPath, const QString &rem
 }
 
 bool WebDavFileSystem::uploadRecursive(const QString &localPath, const QString &remotePath,
-                                       sftp::ProgressCallback progress)
+                                       sftp::ProgressCallback progress,
+                                       SizeCallback onSizeDiscovered)
 {
     const QFileInfo fi(localPath);
-    if (!fi.isDir())
+    if (!fi.isDir()) {
+        if (onSizeDiscovered) onSizeDiscovered(fi.size());
         return upload(localPath, remotePath, progress);
+    }
 
     // remotePath — полный путь назначения (как в SftpClient::uploadRecursive)
     if (!mkdir(remotePath)) {
@@ -101,9 +104,10 @@ bool WebDavFileSystem::uploadRecursive(const QString &localPath, const QString &
     for (const QFileInfo &entry : dir.entryInfoList(QDir::AllEntries | QDir::NoDotAndDotDot)) {
         const QString destPath = remotePath + '/' + entry.fileName();
         if (entry.isDir()) {
-            if (!uploadRecursive(entry.filePath(), destPath, progress))
+            if (!uploadRecursive(entry.filePath(), destPath, progress, onSizeDiscovered))
                 return false;
         } else {
+            if (onSizeDiscovered) onSizeDiscovered(entry.size());
             if (!upload(entry.filePath(), destPath, progress))
                 return false;
         }

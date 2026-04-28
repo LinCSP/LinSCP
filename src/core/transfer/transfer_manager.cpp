@@ -72,12 +72,14 @@ OverwritePolicy TransferManager::checkConflict(const TransferItem &item)
 
     if (!m_overwriteCb) return OverwritePolicy::Overwrite;
 
-    // Один воркер — нет параллельных операций ФС, stat безопасен из этого потока.
+    // Директории всегда сливаем (merge) — конфликт проверяем только для файлов.
     if (item.direction == TransferDirection::Upload) {
-        const sftp::SftpFileInfo remote = m_fs->stat(item.remotePath);
-        if (remote.path.isEmpty()) return OverwritePolicy::Overwrite;
-
         const QFileInfo localFi(item.localPath);
+        if (localFi.isDir()) return OverwritePolicy::Overwrite;
+
+        const sftp::SftpFileInfo remote = m_fs->stat(item.remotePath);
+        if (remote.path.isEmpty() || remote.isDir) return OverwritePolicy::Overwrite;
+
         ConflictInfo src{ item.localPath,  localFi.size(), localFi.lastModified() };
         ConflictInfo dst{ item.remotePath, remote.size,    remote.mtime           };
 
@@ -89,9 +91,11 @@ OverwritePolicy TransferManager::checkConflict(const TransferItem &item)
 
     } else {
         const QFileInfo localFi(item.localPath);
-        if (!localFi.exists()) return OverwritePolicy::Overwrite;
+        if (!localFi.exists() || localFi.isDir()) return OverwritePolicy::Overwrite;
 
         const sftp::SftpFileInfo remote = m_fs->stat(item.remotePath);
+        if (remote.isDir) return OverwritePolicy::Overwrite;
+
         ConflictInfo src{ item.remotePath, remote.size,    remote.mtime     };
         ConflictInfo dst{ item.localPath,  localFi.size(), localFi.lastModified() };
 
@@ -183,7 +187,7 @@ void TransferManager::runItem(const TransferItem &item)
         ok = m_fs->uploadResume(item.localPath, item.remotePath,
                                 item.resumeOffset, progress);
     } else {
-        ok = m_fs->uploadRecursive(item.localPath, item.remotePath, progress);
+        ok = m_fs->uploadRecursive(item.localPath, item.remotePath, progress, onSizeDiscovered);
     }
 
     const bool cancelled = (m_queue->item(item.id).status == TransferStatus::Cancelled);

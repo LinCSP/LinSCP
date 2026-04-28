@@ -302,17 +302,13 @@ bool SftpClient::rmdir(const QString &remotePath)
 }
 
 bool SftpClient::uploadRecursive(const QString &localPath, const QString &remotePath,
-                                  ProgressCallback progress)
+                                  ProgressCallback progress, SizeCallback onSizeDiscovered)
 {
     const QFileInfo fi(localPath);
     if (fi.isDir()) {
         if (!mkdir(remotePath)) {
-            // Ошибка mkdir допустима, если директория уже существует.
-            // Во всех других случаях (нет прав, нет родительского пути, …)
-            // дочерние sftp_open тоже упадут — лучше сразу вернуть ошибку.
             const SftpFileInfo existing = stat(remotePath);
             if (!existing.isDir) {
-                // Директория не существует И создать не удалось — настоящая ошибка.
                 if (m_lastError.isEmpty())
                     m_lastError = tr("Cannot create remote directory: %1").arg(remotePath);
                 emit errorOccurred(m_lastError);
@@ -323,11 +319,12 @@ bool SftpClient::uploadRecursive(const QString &localPath, const QString &remote
         for (const QString &child :
              QDir(localPath).entryList(QDir::AllEntries | QDir::NoDotAndDotDot)) {
             if (!uploadRecursive(localPath + '/' + child,
-                                 remotePath + '/' + child, progress))
+                                 remotePath + '/' + child, progress, onSizeDiscovered))
                 return false;
         }
         return true;
     }
+    if (onSizeDiscovered) onSizeDiscovered(fi.size());
     return upload(localPath, remotePath, progress);
 }
 
