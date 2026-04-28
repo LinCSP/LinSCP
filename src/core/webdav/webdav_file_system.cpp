@@ -89,20 +89,19 @@ bool WebDavFileSystem::uploadRecursive(const QString &localPath, const QString &
     if (!fi.isDir())
         return upload(localPath, remotePath, progress);
 
-    // Рекурсивный обход локального дерева
-    const QString destBase = remotePath + '/' + fi.fileName();
-    if (!mkdir(destBase)) {
+    // remotePath — полный путь назначения (как в SftpClient::uploadRecursive)
+    if (!mkdir(remotePath)) {
         // 405 — папка уже существует, это нормально; иная ошибка — прерываем
-        const sftp::SftpFileInfo check = stat(destBase);
+        const sftp::SftpFileInfo check = stat(remotePath);
         if (check.path.isEmpty() || !check.isDir)
             return false;
     }
 
     const QDir dir(localPath);
     for (const QFileInfo &entry : dir.entryInfoList(QDir::AllEntries | QDir::NoDotAndDotDot)) {
-        const QString destPath = destBase + '/' + entry.fileName();
+        const QString destPath = remotePath + '/' + entry.fileName();
         if (entry.isDir()) {
-            if (!uploadRecursive(entry.filePath(), destBase, progress))
+            if (!uploadRecursive(entry.filePath(), destPath, progress))
                 return false;
         } else {
             if (!upload(entry.filePath(), destPath, progress))
